@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backplan — work backwards from when you need to be there</title>
+  <meta name="description" content="A tiny backwards time planner. Enter a target time and a list of steps; see when to start." />
+  <meta name="theme-color" content="#FBFAFF" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --purple: #4A154B;
+      --purple-electric: #6D28D9;
+      --lime: #84CC16;
+      --lime-ink: #3f6212;
+      --coral: #FB5D3C;
+      --gold: #ECB22E;
+      --ink: #1d1c1d;
+      --paper: #FBFAFF;
+      --card: #ffffff;
+      --muted: #696969;
+      --border: #e6e6e6;
+      --lime-tint: #f1fae3;
+      --coral-tint: #fdece8;
+      --shadow: 4px 4px 0 var(--ink);
+      --shadow-lg: 6px 6px 0 var(--ink);
+      --shadow-sm: 2px 2px 0 var(--ink);
+      --radius: 14px;
+      --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(109,40,217,0.06), transparent 40%),
+        radial-gradient(circle at 88% 0%, rgba(251,93,60,0.06), transparent 38%),
+        var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .display { font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif; }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+    }
+
+    h1 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 44px;
+      font-weight: 700;
+      margin: 8px 0 8px;
+      color: var(--purple);
+      letter-spacing: -0.02em;
+      line-height: 1.02;
+    }
+    .thesis {
+      font-size: 19px;
+      color: var(--ink);
+      margin: 0 0 24px;
+    }
+    h2 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 32px 0 12px;
+      color: var(--purple);
+      letter-spacing: -0.01em;
+    }
+
+    /* ── Result strip ── */
+    .result {
+      background: var(--card);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .result .label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 4px;
+    }
+    .result .start-time {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 44px;
+      font-weight: 700;
+      color: var(--lime-ink);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin: 0;
+    }
+    .result .start-time.overflow { color: var(--coral); }
+    .result .meta {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .result .event-name {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--purple);
+      margin: 0 0 2px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result .event-name:empty { display: none; }
+    .result .prev-day {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      background: var(--coral-tint);
+      border: 2px solid var(--coral);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--coral);
+      vertical-align: middle;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    /* ── Target row ── */
+    .target-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .target-row .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    input[type="time"], input[type="number"], input[type="text"] {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 18px;
+      font-weight: 500;
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.12s var(--bounce), box-shadow 0.12s;
+    }
+    input[type="text"] { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    input:focus-visible {
+      outline: 3px solid var(--purple-electric);
+      outline-offset: 2px;
+    }
+
+    /* ── Day toggle ── */
+    .day-toggle {
+      display: inline-flex;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .day-toggle button {
+      appearance: none;
+      border: none;
+      background: #fff;
+      padding: 10px 14px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .day-toggle button + button { border-left: 2px solid var(--ink); }
+    .day-toggle button.active {
+      background: var(--purple-electric);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step {
+      display: grid;
+      grid-template-columns: 1fr auto auto 28px;
+      align-items: center;
+      gap: 12px;
+      background: var(--card);
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .step .duration-group {
+      display: inline-flex;
+      align-items: stretch;
+      border: 1.5px solid #d4d4d4;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .step .duration-group:focus-within {
+      border-color: var(--purple-electric);
+      box-shadow: 0 0 0 2px rgba(109,40,217,0.18);
+    }
+    .step input[type="text"] {
+      font-size: 15px;
+      padding: 8px 10px;
+      box-shadow: none;
+      border-width: 1.5px;
+      border-color: #d4d4d4;
+      border-radius: 8px;
+      width: 100%;
+    }
+    .step input[type="number"] {
+      font-size: 15px;
+      padding: 8px 8px;
+      box-shadow: none;
+      border: none;
+      border-radius: 0;
+      text-align: right;
+      -moz-appearance: textfield;
+      width: 56px;
+      background: transparent;
+    }
+    .step input[type="number"]:focus { outline: none; }
+    .step input[type="number"]::-webkit-outer-spin-button,
+    .step input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none; margin: 0;
+    }
+    .step select {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 7px 6px 7px 8px;
+      border: none;
+      border-left: 1.5px solid #d4d4d4;
+      border-radius: 0;
+      background: #fafafa;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .step select:focus { outline: none; }
+    .step .start {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--lime-ink);
+      background: var(--lime-tint);
+      border: 1.5px solid var(--lime);
+      border-radius: 999px;
+      padding: 5px 12px;
+      text-align: center;
+      white-space: nowrap;
+      min-width: 88px;
+      justify-self: end;
+    }
+    .step .start:empty {
+      background: transparent;
+      border-color: transparent;
+    }
+    .step .start.overflow {
+      color: #b91c1c;
+      background: var(--coral-tint);
+      border-color: var(--coral);
+    }
+    .step .remove {
+      appearance: none;
+      border: 1.5px solid #d4d4d4;
+      background: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .step .remove:hover { color: var(--coral); border-color: var(--coral); }
+
+    /* drag handle on left side */
+    .step .handle {
+      display: none;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      appearance: none;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 11px 18px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.12s var(--bounce), box-shadow 0.12s;
+    }
+    .btn:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--ink); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+    .btn:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: 2px; }
+    .btn.primary { background: var(--purple-electric); color: #fff; }
+    .btn.ghost { background: transparent; box-shadow: none; border-color: #c4c4c4; color: var(--muted); }
+    .btn.ghost:hover { box-shadow: none; transform: none; color: var(--ink); border-color: var(--ink); }
+
+    .add-row { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── Templates ── */
+    .templates-section { margin-top: 28px; }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f3eefc;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      padding: 6px 6px 6px 14px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.12s var(--bounce), box-shadow 0.12s;
+    }
+    .chip:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--ink); }
+    .chip .x {
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      border: none;
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .chip .x:hover { background: var(--coral); color: #fff; }
+    .chips-empty {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 52px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+    footer .fairpoint { margin-bottom: 6px; }
+    footer a {
+      color: var(--purple-electric);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ── */
+    @media (max-width: 540px) {
+      h1 { font-size: 34px; }
+      .result .start-time { font-size: 36px; }
+      .step {
+        grid-template-columns: 1fr auto 28px;
+        grid-template-areas:
+          "name   dur x"
+          "start  start start";
+        gap: 8px;
+      }
+      .step .name-cell { grid-area: name; }
+      .step .duration-group { grid-area: dur; }
+      .step .start { grid-area: start; justify-self: start; min-width: 0; }
+      .step .remove { grid-area: x; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Backplan</h1>
+    <p class="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
+
+    <section class="result" aria-live="polite">
+      <div>
+        <p class="label">Start at</p>
+        <p class="start-time" id="start-time">—</p>
+        <p class="meta" id="meta">Add steps below.</p>
+      </div>
+      <div style="text-align:right;">
+        <p class="label" id="target-label">Be ready by</p>
+        <p class="event-name" id="event-display"></p>
+        <p class="start-time" id="target-display" style="color:var(--purple); font-size:32px;">—</p>
+      </div>
+    </section>
+
+    <div class="card">
+      <div class="target-row">
+        <div class="field" style="flex:1 1 200px; min-width:0;">
+          <label for="event-name">What's it for? <span style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);">(optional)</span></label>
+          <input type="text" id="event-name" placeholder="Bike ride, daycare pickup…" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="target-time">Target time</label>
+          <input type="time" id="target-time" />
+        </div>
+        <div class="field">
+          <label>Day</label>
+          <div class="day-toggle" role="group" aria-label="Target day">
+            <button type="button" data-day="today" class="active">Today</button>
+            <button type="button" data-day="tomorrow">Tomorrow</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Steps</h2>
+    <div class="steps" id="steps"></div>
+    <div class="add-row">
+      <button class="btn primary" id="add-step" type="button">+ Add step</button>
+      <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
+    </div>
+
+    <section class="templates-section">
+      <h2>Templates</h2>
+      <div class="add-row" style="margin-top:0;">
+        <button class="btn" id="save-template" type="button">Save current as template…</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <p class="chips-empty" id="chips-empty">No saved templates yet. Save the current plan and it'll show up here.</p>
+    </section>
+
+    <footer>
+      <div class="fairpoint">More from <a href="https://fairpoint.website">Fairpoint →</a></div>
+      <div class="repo"><a href="https://github.com/Paulfrazier/backplan">source on GitHub</a></div>
+    </footer>
+  </div>
+
+  <script>
+    'use strict';
+
+    const KEY_LAST = 'backplan:last';
+    const KEY_TEMPLATES = 'backplan:templates';
+
+    const state = {
+      eventName: '',
+      target: '18:20',
+      day: 'today',
+      steps: [],
+    };
+
+    // ── DOM refs
+    const $stepsEl = document.getElementById('steps');
+    const $startTime = document.getElementById('start-time');
+    const $targetDisplay = document.getElementById('target-display');
+    const $eventDisplay = document.getElementById('event-display');
+    const $targetLabel = document.getElementById('target-label');
+    const $meta = document.getElementById('meta');
+    const $targetInput = document.getElementById('target-time');
+    const $eventInput = document.getElementById('event-name');
+    const $chips = document.getElementById('chips');
+    const $chipsEmpty = document.getElementById('chips-empty');
+    const $dayToggleButtons = document.querySelectorAll('.day-toggle button');
+
+    // ── Helpers
+    function nextRoundHalfHour() {
+      const d = new Date();
+      d.setSeconds(0, 0);
+      const mins = d.getMinutes();
+      const next = mins < 30 ? 30 : 60;
+      d.setMinutes(next === 60 ? 0 : 30);
+      if (next === 60) d.setHours(d.getHours() + 1);
+      return d;
+    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function toHHMM(d) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+    function fmtTime(d) {
+      let h = d.getHours();
+      const m = d.getMinutes();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if (h === 0) h = 12;
+      return h + ':' + pad2(m) + ' ' + ampm;
+    }
+    function fmtDuration(mins) {
+      if (mins < 60) return mins + ' min';
+      const h = Math.floor(mins / 60);
+      const m = mins - h * 60;
+      if (m === 0) return h + ' hr';
+      return h + ' hr ' + m + ' min';
+    }
+    function parseHHMM(s) {
+      const [h, m] = s.split(':').map(Number);
+      return { h, m };
+    }
+    function targetDate() {
+      const { h, m } = parseHHMM(state.target || '00:00');
+      const d = new Date();
+      d.setSeconds(0, 0);
+      if (state.day === 'tomorrow') d.setDate(d.getDate() + 1);
+      d.setHours(h, m, 0, 0);
+      return d;
+    }
+    function stepMinutes(step) {
+      const n = Number(step.duration);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return step.unit === 'hr' ? Math.round(n * 60) : Math.round(n);
+    }
+
+    // ── Render steps
+    function renderSteps() {
+      $stepsEl.innerHTML = '';
+      state.steps.forEach((step, i) => {
+        const row = document.createElement('div');
+        row.className = 'step';
+        row.dataset.idx = i;
+        row.innerHTML = `
+          <div class="name-cell"><input type="text" class="step-name" placeholder="What's this step?" value="${escapeAttr(step.name)}"/></div>
+          <div class="duration-group">
+            <input type="number" class="step-duration" min="0" step="1" inputmode="numeric" aria-label="duration" value="${escapeAttr(String(step.duration ?? ''))}"/>
+            <select class="step-unit" aria-label="duration unit">
+              <option value="min" ${step.unit !== 'hr' ? 'selected' : ''}>min</option>
+              <option value="hr" ${step.unit === 'hr' ? 'selected' : ''}>hr</option>
+            </select>
+          </div>
+          <div class="start" data-start></div>
+          <button class="remove" type="button" aria-label="remove step">×</button>
+        `;
+        $stepsEl.appendChild(row);
+      });
+      compute();
+    }
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    // ── Backwards math
+    function compute() {
+      const target = targetDate();
+      $targetDisplay.textContent = fmtTime(target);
+      const name = (state.eventName || '').trim();
+      $eventDisplay.textContent = name;
+      $targetLabel.textContent = name ? 'For' : 'Be ready by';
+      document.title = name ? `${name} — Backplan` : 'Backplan';
+
+      const rows = $stepsEl.querySelectorAll('.step');
+      let totalMin = 0;
+      const startTimes = new Array(state.steps.length);
+
+      // Walk last → first
+      let cursor = new Date(target);
+      for (let i = state.steps.length - 1; i >= 0; i--) {
+        const mins = stepMinutes(state.steps[i]);
+        const start = new Date(cursor.getTime() - mins * 60000);
+        startTimes[i] = start;
+        totalMin += mins;
+        cursor = start;
+      }
+
+      const overallStart = state.steps.length > 0 ? startTimes[0] : null;
+
+      // Detect previous-day overflow (overall start is before the start of the target's day)
+      const targetDayStart = new Date(target);
+      targetDayStart.setHours(0, 0, 0, 0);
+      const overflowsPrevDay = overallStart && overallStart < targetDayStart;
+
+      // Per-row update
+      rows.forEach((row, i) => {
+        const el = row.querySelector('[data-start]');
+        const t = startTimes[i];
+        if (!t || stepMinutes(state.steps[i]) === 0 && !state.steps[i].name) {
+          el.textContent = '';
+          return;
+        }
+        el.textContent = fmtTime(t);
+        const beforeDay = t < targetDayStart;
+        el.classList.toggle('overflow', !!beforeDay);
+      });
+
+      // Result strip
+      if (!overallStart) {
+        $startTime.textContent = '—';
+        $startTime.classList.remove('overflow');
+        $meta.textContent = 'Add steps below.';
+        document.querySelectorAll('.result .prev-day').forEach(n => n.remove());
+        return;
+      }
+
+      $startTime.textContent = fmtTime(overallStart);
+      $startTime.classList.toggle('overflow', !!overflowsPrevDay);
+
+      // Build meta line
+      const parts = [];
+      parts.push('Total ' + fmtDuration(totalMin));
+      parts.push(state.steps.length + ' ' + (state.steps.length === 1 ? 'step' : 'steps'));
+      $meta.innerHTML = '';
+      $meta.appendChild(document.createTextNode(parts.join(' · ')));
+      if (overflowsPrevDay) {
+        const tag = document.createElement('span');
+        tag.className = 'prev-day';
+        tag.textContent = '← previous day';
+        $meta.appendChild(tag);
+      }
+    }
+
+    // ── Event delegation on step list
+    $stepsEl.addEventListener('input', (e) => {
+      const row = e.target.closest('.step');
+      if (!row) return;
+      const i = Number(row.dataset.idx);
+      if (e.target.classList.contains('step-name')) state.steps[i].name = e.target.value;
+      if (e.target.classList.contains('step-duration')) state.steps[i].duration = e.target.value === '' ? '' : Number(e.target.value);
+      if (e.target.classList.contains('step-unit')) state.steps[i].unit = e.target.value;
+      persistLast();
+      compute();
+    });
+    $stepsEl.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('remove')) return;
+      const row = e.target.closest('.step');
+      const i = Number(row.dataset.idx);
+      state.steps.splice(i, 1);
+      persistLast();
+      renderSteps();
+    });
+
+    document.getElementById('add-step').addEventListener('click', () => {
+      state.steps.push({ name: '', duration: 5, unit: 'min' });
+      persistLast();
+      renderSteps();
+      // focus the new name input
+      const rows = $stepsEl.querySelectorAll('.step');
+      const last = rows[rows.length - 1];
+      if (last) last.querySelector('.step-name').focus();
+    });
+
+    document.getElementById('clear-steps').addEventListener('click', () => {
+      if (state.steps.length === 0) return;
+      if (!confirm('Clear all steps?')) return;
+      state.steps = [];
+      persistLast();
+      renderSteps();
+    });
+
+    $targetInput.addEventListener('input', () => {
+      state.target = $targetInput.value || '00:00';
+      persistLast();
+      compute();
+    });
+
+    $eventInput.addEventListener('input', () => {
+      state.eventName = $eventInput.value;
+      persistLast();
+      compute();
+    });
+
+    $dayToggleButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.day = btn.dataset.day;
+        $dayToggleButtons.forEach(b => b.classList.toggle('active', b === btn));
+        persistLast();
+        compute();
+      });
+    });
+
+    // ── Templates
+    function loadTemplates() {
+      try { return JSON.parse(localStorage.getItem(KEY_TEMPLATES) || '[]'); }
+      catch { return []; }
+    }
+    function saveTemplates(arr) {
+      localStorage.setItem(KEY_TEMPLATES, JSON.stringify(arr));
+    }
+    function renderChips() {
+      const templates = loadTemplates();
+      $chips.innerHTML = '';
+      if (templates.length === 0) {
+        $chipsEmpty.style.display = 'block';
+        return;
+      }
+      $chipsEmpty.style.display = 'none';
+      templates.forEach((t, i) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.type = 'button';
+        chip.innerHTML = `<span>${escapeAttr(t.name)}</span><span class="x" aria-label="delete template">×</span>`;
+        chip.addEventListener('click', (e) => {
+          if (e.target.classList.contains('x')) {
+            if (!confirm('Delete template "' + t.name + '"?')) return;
+            const arr = loadTemplates();
+            arr.splice(i, 1);
+            saveTemplates(arr);
+            renderChips();
+            return;
+          }
+          // load template
+          state.eventName = t.eventName || '';
+          state.target = t.target || '18:00';
+          state.day = t.day || 'today';
+          state.steps = (t.steps || []).map(s => ({
+            name: s.name || '',
+            duration: s.duration ?? s.duration_min ?? 0,
+            unit: s.unit || 'min',
+          }));
+          $eventInput.value = state.eventName;
+          $targetInput.value = state.target;
+          $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+          persistLast();
+          renderSteps();
+        });
+        $chips.appendChild(chip);
+      });
+    }
+    document.getElementById('save-template').addEventListener('click', () => {
+      const suggested = (state.eventName || '').trim();
+      const name = (prompt('Name this template:', suggested) || '').trim();
+      if (!name) return;
+      const arr = loadTemplates();
+      const snapshot = {
+        name,
+        eventName: state.eventName,
+        target: state.target,
+        day: state.day,
+        steps: state.steps.map(s => ({
+          name: s.name,
+          duration: typeof s.duration === 'number' ? s.duration : Number(s.duration) || 0,
+          unit: s.unit || 'min',
+        })),
+      };
+      // replace if a template with that name already exists
+      const existingIdx = arr.findIndex(t => t.name === name);
+      if (existingIdx >= 0) arr[existingIdx] = snapshot;
+      else arr.push(snapshot);
+      saveTemplates(arr);
+      renderChips();
+    });
+
+    // ── Persist last
+    function persistLast() {
+      const snap = {
+        eventName: state.eventName,
+        target: state.target,
+        day: state.day,
+        steps: state.steps,
+      };
+      localStorage.setItem(KEY_LAST, JSON.stringify(snap));
+    }
+    function loadLast() {
+      try {
+        const raw = localStorage.getItem(KEY_LAST);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+
+    // ── Init
+    function init() {
+      const saved = loadLast();
+      if (saved && Array.isArray(saved.steps)) {
+        state.eventName = saved.eventName || '';
+        state.target = saved.target || toHHMM(nextRoundHalfHour());
+        state.day = saved.day || 'today';
+        state.steps = saved.steps;
+      } else {
+        state.eventName = '';
+        state.target = toHHMM(nextRoundHalfHour());
+        state.day = 'today';
+        // Sensible default to demonstrate the tool
+        state.steps = [
+          { name: 'Get ready', duration: 10, unit: 'min' },
+          { name: 'Drive there', duration: 15, unit: 'min' },
+          { name: 'Buffer', duration: 5, unit: 'min' },
+        ];
+      }
+      $eventInput.value = state.eventName;
+      $targetInput.value = state.target;
+      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      renderSteps();
+      renderChips();
+    }
+    init();
+  </script>
+</body>
+</html>
