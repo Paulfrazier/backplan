@@ -145,6 +145,127 @@
       vertical-align: middle;
     }
 
+    /* ── Timeline ── */
+    .timeline-section {
+      margin-bottom: 20px;
+    }
+    .timeline-section[hidden] { display: none; }
+    .timeline-axis {
+      display: flex;
+      justify-content: space-between;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 6px;
+      padding: 0 2px;
+    }
+    .timeline-track {
+      position: relative;
+      display: flex;
+      width: 100%;
+      height: 44px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      background: var(--card);
+    }
+    .timeline-segment {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 0;
+      min-width: 0;
+      padding: 0 6px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.005em;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border-right: 1.5px solid var(--ink);
+    }
+    .timeline-segment:last-child { border-right: none; }
+    .timeline-segment .seg-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .timeline-segment .seg-dur {
+      font-weight: 500;
+      opacity: 0.78;
+      margin-left: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+    .timeline-segment.color-0 { background: #ede4ff; }
+    .timeline-segment.color-1 { background: #e6f4d0; }
+    .timeline-segment.color-2 { background: #ffefc4; }
+    .timeline-segment.color-3 { background: #ffd8cf; }
+    .timeline-segment.narrow .seg-name { display: none; }
+    .timeline-segment.narrow .seg-dur { margin-left: 0; }
+    .timeline-segment.tiny .seg-dur { display: none; }
+
+    .timeline-now {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      width: 2px;
+      background: var(--ink);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .timeline-now::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: -6px;
+      width: 12px;
+      height: 12px;
+      background: var(--coral);
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      box-sizing: border-box;
+    }
+    .timeline-now.before { left: 0; }
+    .timeline-now.before::before { left: -6px; }
+    .timeline-now.after { left: 100%; }
+    .timeline-now.after::before { left: -6px; }
+
+    .timeline-countdown {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 10px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-sm);
+    }
+    .timeline-countdown .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--coral);
+      flex: 0 0 9px;
+    }
+    .timeline-countdown.future { background: #f3eefc; color: var(--purple); }
+    .timeline-countdown.active { background: var(--lime-tint); color: var(--lime-ink); }
+    .timeline-countdown.active .dot { background: var(--lime); animation: pulse 1.4s ease-in-out infinite; }
+    .timeline-countdown.past { background: var(--coral-tint); color: #9a2a16; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
     /* ── Cards ── */
     .card {
       background: var(--card);
@@ -452,6 +573,15 @@
       </div>
     </section>
 
+    <section class="timeline-section" id="timeline-section" hidden aria-label="Timeline">
+      <div class="timeline-axis">
+        <span id="timeline-start-label">—</span>
+        <span id="timeline-end-label">—</span>
+      </div>
+      <div class="timeline-track" id="timeline-track"></div>
+      <div id="timeline-countdown-wrap"></div>
+    </section>
+
     <div class="card">
       <div class="target-row">
         <div class="field" style="flex:1 1 200px; min-width:0;">
@@ -519,6 +649,11 @@
     const $chips = document.getElementById('chips');
     const $chipsEmpty = document.getElementById('chips-empty');
     const $dayToggleButtons = document.querySelectorAll('.day-toggle button');
+    const $timelineSection = document.getElementById('timeline-section');
+    const $timelineStartLabel = document.getElementById('timeline-start-label');
+    const $timelineEndLabel = document.getElementById('timeline-end-label');
+    const $timelineTrack = document.getElementById('timeline-track');
+    const $timelineCountdownWrap = document.getElementById('timeline-countdown-wrap');
 
     // ── Helpers
     function nextRoundHalfHour() {
@@ -591,6 +726,83 @@
       return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
+    // ── Timeline
+    function renderTimeline(target, segments) {
+      if (!segments || segments.length === 0) {
+        $timelineSection.hidden = true;
+        return;
+      }
+      $timelineSection.hidden = false;
+
+      const chainStart = segments[0].start;
+      const chainEnd = target;
+      const totalMs = chainEnd - chainStart;
+
+      $timelineStartLabel.textContent = fmtTime(chainStart);
+      $timelineEndLabel.textContent = fmtTime(chainEnd);
+
+      // Segments
+      $timelineTrack.innerHTML = '';
+      const totalMins = segments.reduce((s, x) => s + x.mins, 0);
+      segments.forEach((seg, i) => {
+        const div = document.createElement('div');
+        div.className = 'timeline-segment color-' + (i % 4);
+        div.style.flex = seg.mins + ' 0 0';
+        const pct = seg.mins / totalMins;
+        if (pct < 0.18) div.classList.add('narrow');
+        if (pct < 0.08) div.classList.add('tiny');
+        div.title = `${seg.name} · ${fmtDuration(seg.mins)} · ${fmtTime(seg.start)} → ${fmtTime(seg.end)}`;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'seg-name';
+        nameSpan.textContent = seg.name;
+        const durSpan = document.createElement('span');
+        durSpan.className = 'seg-dur';
+        durSpan.textContent = seg.mins + 'm';
+        div.appendChild(nameSpan);
+        div.appendChild(durSpan);
+        $timelineTrack.appendChild(div);
+      });
+
+      // Now marker
+      const now = new Date();
+      const nowEl = document.createElement('div');
+      nowEl.className = 'timeline-now';
+
+      $timelineCountdownWrap.innerHTML = '';
+      const countdown = document.createElement('div');
+      countdown.className = 'timeline-countdown';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      const label = document.createElement('span');
+      countdown.appendChild(dot);
+      countdown.appendChild(label);
+
+      if (now < chainStart) {
+        nowEl.classList.add('before');
+        const minsUntil = Math.max(1, Math.round((chainStart - now) / 60000));
+        countdown.classList.add('future');
+        label.textContent = `Start in ${fmtDuration(minsUntil)} · ${fmtTime(chainStart)}`;
+      } else if (now > chainEnd) {
+        nowEl.classList.add('after');
+        const minsOver = Math.round((now - chainEnd) / 60000);
+        countdown.classList.add('past');
+        label.textContent = `Target was ${fmtDuration(Math.max(1, minsOver))} ago`;
+      } else {
+        const pct = Math.max(0, Math.min(1, (now - chainStart) / totalMs));
+        nowEl.style.left = (pct * 100) + '%';
+        const current = segments.find(s => now >= s.start && now < s.end);
+        countdown.classList.add('active');
+        if (current) {
+          const minsLeft = Math.max(1, Math.round((current.end - now) / 60000));
+          label.textContent = `Now: ${current.name} · ${fmtDuration(minsLeft)} left`;
+        } else {
+          label.textContent = `In progress · target ${fmtTime(chainEnd)}`;
+        }
+      }
+      $timelineTrack.appendChild(nowEl);
+      $timelineCountdownWrap.appendChild(countdown);
+    }
+
     // ── Backwards math
     function compute() {
       const target = targetDate();
@@ -640,11 +852,26 @@
         $startTime.classList.remove('overflow');
         $meta.textContent = 'Add steps below.';
         document.querySelectorAll('.result .prev-day').forEach(n => n.remove());
+        renderTimeline(target, []);
         return;
       }
 
       $startTime.textContent = fmtTime(overallStart);
       $startTime.classList.toggle('overflow', !!overflowsPrevDay);
+
+      // Build timeline segment data (drop zero-duration steps)
+      const segments = [];
+      for (let i = 0; i < state.steps.length; i++) {
+        const mins = stepMinutes(state.steps[i]);
+        if (mins <= 0) continue;
+        segments.push({
+          name: (state.steps[i].name || '').trim() || `Step ${i+1}`,
+          mins,
+          start: startTimes[i],
+          end: new Date(startTimes[i].getTime() + mins * 60000),
+        });
+      }
+      renderTimeline(target, segments);
 
       // Build meta line
       const parts = [];
@@ -833,6 +1060,8 @@
       $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
       renderSteps();
       renderChips();
+      // keep the "now" marker fresh
+      setInterval(compute, 30000);
     }
     init();
   </script>
