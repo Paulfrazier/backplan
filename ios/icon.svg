@@ -1,0 +1,17 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#4A154B"/>
+  <!-- timeline segments (backwards) -->
+  <g>
+    <rect x="180" y="664" width="180" height="96" rx="20" fill="#FB5D3C"/>
+    <rect x="384" y="664" width="150" height="96" rx="20" fill="#ECB22E"/>
+    <rect x="558" y="664" width="120" height="96" rx="20" fill="#84CC16"/>
+    <rect x="702" y="664" width="142" height="96" rx="20" fill="#FBFAFF"/>
+  </g>
+  <!-- counterclockwise rewind arrow -->
+  <g fill="none" stroke="#84CC16" stroke-width="58" stroke-linecap="round">
+    <path d="M 720 360 A 200 200 0 1 0 760 470"/>
+  </g>
+  <polygon points="690,300 760,300 690,380" fill="#84CC16"/>
+  <!-- now dot -->
+  <circle cx="512" cy="400" r="46" fill="#FB5D3C" stroke="#FBFAFF" stroke-width="16"/>
+</svg>
