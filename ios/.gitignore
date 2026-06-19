@@ -3,7 +3,7 @@
 
 # Build output
 build/
-build-sim/
+build-*/
 DerivedData/
 
 # macOS

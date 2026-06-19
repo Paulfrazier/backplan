@@ -34,6 +34,10 @@ targets:
         CFBundleName: Backplan
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # App makes no network calls and uses no custom cryptography, so it is
+        # exempt from export-compliance documentation. Declaring this here clears
+        # the "Missing Compliance" status automatically on every TestFlight upload.
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
           UIColorName: "LaunchBrand"
           UIImageName: ""
