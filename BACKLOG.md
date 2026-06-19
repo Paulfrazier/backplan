@@ -11,6 +11,12 @@ no-backend / client-only solutions where possible.
 - [x] Previous-day overflow detection
 - [x] **Reorder steps** — drag handle (Pointer Events, mouse + touch) and keyboard
   (focus handle, ↑/↓). Smooth make-space animation; commits to `state.steps` on drop.
+- [x] **Quick Add tasks** — one-tap chips that append a fully-formed step (name +
+  duration, no typing). Web + iOS. Inspired by ReadyBy; our differentiator is free +
+  frictionless. Presets live in a shared list (`QUICK_ADDS` / `Starters.quickAdds`).
+- [x] **Starter plans (prebuilt templates)** — one-tap full routines (School
+  drop-off, Out the door, Catch a flight, Dinner reservation, Bedtime). Replace the
+  current step list; keep target/event. Shown above saved templates. Web + iOS.
 
 ## Backlog
 

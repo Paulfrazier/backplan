@@ -33,6 +33,21 @@ final class PlanStore {
         plan.steps.append(Step(name: "", duration: 5, unit: .min))
     }
 
+    /// Append a fully-formed preset step (Quick Add) — no typing required.
+    func addQuickStep(_ quick: Starters.QuickAdd) {
+        plan.steps.append(quick.step)
+    }
+
+    /// Load a prebuilt routine, replacing the current steps. Keeps target/event.
+    func loadStarter(_ starter: Starters.Starter) {
+        plan.steps = starter.steps
+    }
+
+    /// True if there's anything worth warning about before a starter replaces it.
+    var hasMeaningfulSteps: Bool {
+        plan.steps.contains { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty || $0.minutes > 0 }
+    }
+
     func removeStep(at offsets: IndexSet) {
         plan.steps.remove(atOffsets: offsets)
     }

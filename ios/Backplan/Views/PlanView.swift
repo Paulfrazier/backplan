@@ -163,6 +163,11 @@ struct PlanView: View {
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+
+            QuickAddBar()
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 12))
         } header: {
             HStack {
                 Text("Steps")

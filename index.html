@@ -544,6 +544,61 @@
       margin-top: 10px;
     }
 
+    /* ── Quick add + Starters ── */
+    .sub-label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      margin: 16px 0 8px;
+    }
+    .quick-add { margin-top: 16px; }
+    .qa-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--lime-tint);
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 600;
+      font-size: 13.5px;
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.12s var(--bounce), box-shadow 0.12s;
+    }
+    .qa-chip:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--ink); }
+    .qa-chip:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+    .qa-chip:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: 2px; }
+    .qa-chip .plus {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      color: var(--lime-ink);
+      font-size: 15px;
+      line-height: 1;
+    }
+    .qa-chip .dur {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 500;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .starter-chip {
+      background: #fff6e0;
+      border-color: var(--ink);
+    }
+    .starter-chip .glyph { font-size: 15px; line-height: 1; }
+    .starter-chip .count {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 500;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     /* ── Footer ── */
     footer {
       margin-top: 52px;
@@ -639,8 +694,18 @@
       <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
     </div>
 
+    <div class="quick-add">
+      <p class="sub-label">Quick add — tap to drop a common step in</p>
+      <div class="chips" id="quick-add-chips"></div>
+    </div>
+
     <section class="templates-section">
       <h2>Templates</h2>
+
+      <p class="sub-label" style="margin-top:0;">Starters — tap to load a ready-made routine</p>
+      <div class="chips" id="starter-chips"></div>
+
+      <p class="sub-label">Your templates</p>
       <div class="add-row" style="margin-top:0;">
         <button class="btn" id="save-template" type="button">Save current as template…</button>
       </div>
@@ -660,6 +725,59 @@
     const KEY_LAST = 'backplan:last';
     const KEY_TEMPLATES = 'backplan:templates';
 
+    // One-tap steps — append a fully-formed step, no typing required.
+    const QUICK_ADDS = [
+      { name: 'Shower', duration: 15, unit: 'min' },
+      { name: 'Get dressed', duration: 10, unit: 'min' },
+      { name: 'Breakfast', duration: 15, unit: 'min' },
+      { name: 'Brush teeth', duration: 5, unit: 'min' },
+      { name: 'Make coffee', duration: 5, unit: 'min' },
+      { name: 'Pack bag', duration: 5, unit: 'min' },
+      { name: 'Walk dog', duration: 15, unit: 'min' },
+      { name: 'Drive there', duration: 20, unit: 'min' },
+      { name: 'Find parking', duration: 10, unit: 'min' },
+      { name: 'Buffer', duration: 10, unit: 'min' },
+    ];
+
+    // Prebuilt routines — tap to load a whole step list at once.
+    const STARTERS = [
+      { name: 'School drop-off', glyph: '🎒', steps: [
+        { name: 'Wake & get dressed', duration: 15, unit: 'min' },
+        { name: 'Breakfast', duration: 15, unit: 'min' },
+        { name: 'Pack bag', duration: 5, unit: 'min' },
+        { name: 'Drive there', duration: 15, unit: 'min' },
+        { name: 'Buffer', duration: 5, unit: 'min' },
+      ]},
+      { name: 'Out the door', glyph: '☀️', steps: [
+        { name: 'Shower', duration: 15, unit: 'min' },
+        { name: 'Get dressed', duration: 10, unit: 'min' },
+        { name: 'Breakfast', duration: 15, unit: 'min' },
+        { name: 'Make coffee', duration: 5, unit: 'min' },
+        { name: 'Pack bag', duration: 5, unit: 'min' },
+      ]},
+      { name: 'Catch a flight', glyph: '✈️', steps: [
+        { name: 'Finish packing', duration: 15, unit: 'min' },
+        { name: 'Drive to airport', duration: 40, unit: 'min' },
+        { name: 'Park & shuttle', duration: 20, unit: 'min' },
+        { name: 'Check bag', duration: 15, unit: 'min' },
+        { name: 'Security', duration: 30, unit: 'min' },
+        { name: 'Walk to gate', duration: 15, unit: 'min' },
+        { name: 'Buffer', duration: 20, unit: 'min' },
+      ]},
+      { name: 'Dinner reservation', glyph: '🍽️', steps: [
+        { name: 'Get ready', duration: 25, unit: 'min' },
+        { name: 'Drive there', duration: 20, unit: 'min' },
+        { name: 'Find parking', duration: 10, unit: 'min' },
+        { name: 'Buffer', duration: 5, unit: 'min' },
+      ]},
+      { name: "Kids' bedtime", glyph: '🌙', steps: [
+        { name: 'Bath', duration: 15, unit: 'min' },
+        { name: 'PJs & teeth', duration: 10, unit: 'min' },
+        { name: 'Story', duration: 15, unit: 'min' },
+        { name: 'Lights out', duration: 5, unit: 'min' },
+      ]},
+    ];
+
     const state = {
       eventName: '',
       target: '18:20',
@@ -678,6 +796,8 @@
     const $eventInput = document.getElementById('event-name');
     const $chips = document.getElementById('chips');
     const $chipsEmpty = document.getElementById('chips-empty');
+    const $quickAddChips = document.getElementById('quick-add-chips');
+    const $starterChips = document.getElementById('starter-chips');
     const $dayToggleButtons = document.querySelectorAll('.day-toggle button');
     const $timelineSection = document.getElementById('timeline-section');
     const $timelineStartLabel = document.getElementById('timeline-start-label');
@@ -1134,6 +1254,50 @@
       renderChips();
     });
 
+    // ── Quick add
+    function durLabel(item) {
+      return item.duration + (item.unit === 'hr' ? 'h' : 'm');
+    }
+    function renderQuickAdds() {
+      $quickAddChips.innerHTML = '';
+      QUICK_ADDS.forEach(item => {
+        const chip = document.createElement('button');
+        chip.className = 'qa-chip';
+        chip.type = 'button';
+        chip.innerHTML =
+          `<span class="plus">+</span><span>${escapeAttr(item.name)}</span>` +
+          `<span class="dur">${durLabel(item)}</span>`;
+        chip.addEventListener('click', () => {
+          state.steps.push({ name: item.name, duration: item.duration, unit: item.unit });
+          persistLast();
+          renderSteps();
+        });
+        $quickAddChips.appendChild(chip);
+      });
+    }
+
+    // ── Starters (prebuilt routines)
+    function renderStarters() {
+      $starterChips.innerHTML = '';
+      STARTERS.forEach(st => {
+        const chip = document.createElement('button');
+        chip.className = 'qa-chip starter-chip';
+        chip.type = 'button';
+        chip.innerHTML =
+          `<span class="glyph">${st.glyph}</span><span>${escapeAttr(st.name)}</span>` +
+          `<span class="count">${st.steps.length} steps</span>`;
+        chip.addEventListener('click', () => loadStarter(st));
+        $starterChips.appendChild(chip);
+      });
+    }
+    function loadStarter(st) {
+      const hasContent = state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
+      if (hasContent && !confirm(`Replace your current steps with the "${st.name}" starter?`)) return;
+      state.steps = st.steps.map(s => ({ name: s.name, duration: s.duration, unit: s.unit }));
+      persistLast();
+      renderSteps();
+    }
+
     // ── Persist last
     function persistLast() {
       const snap = {
@@ -1176,6 +1340,8 @@
       $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
       renderSteps();
       renderChips();
+      renderQuickAdds();
+      renderStarters();
       // keep the "now" marker fresh
       setInterval(compute, 30000);
     }
