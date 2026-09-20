@@ -194,6 +194,166 @@
       vertical-align: middle;
     }
 
+    /* ── Plan tabs ──
+       Present only when the night pair is on. A lone plan keeps the app exactly
+       as it was — no tabs, no bridge, nothing extra to read past. */
+    .plan-tabs {
+      display: flex;
+      background: var(--card);
+      border: var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      margin-bottom: var(--s3);
+    }
+    .plan-tabs[hidden] { display: none; }
+    .plan-tabs button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: var(--s2) var(--s3);
+      background: var(--card);
+      border: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .plan-tabs button + button { border-left: 2px solid var(--ink); }
+    .plan-tabs button.active { background: var(--purple); color: #fff; }
+    .plan-tabs .tab-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      opacity: 0.72;
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Night bridge ──
+       The pair's whole point. Tonight's lights-out and tomorrow's wake are one
+       chain with sleep as the elastic middle, and this is the only surface that
+       says what the evening costs the morning — which planning backwards from a
+       single target hides by construction, because the target is the end of the
+       story. Colour follows the verdict, not the section. */
+    .bridge {
+      background: var(--card);
+      border: var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--s3) 20px;
+      margin-bottom: var(--s4);
+    }
+    .bridge[hidden] { display: none; }
+    .bridge-chain {
+      display: flex;
+      align-items: stretch;
+      flex-wrap: wrap;
+      gap: var(--s2) 0;
+    }
+    .bridge-node { flex: 1 1 96px; min-width: 0; padding: 0 var(--s3); }
+    .bridge-node:first-child { padding-left: 0; }
+    .bridge-node:last-child { padding-right: 0; }
+    .bridge-node + .bridge-node { border-left: var(--line-hair); }
+    .bridge-node .label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bridge-time {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .bridge-node.sleep .bridge-time { color: var(--purple); }
+    .bridge-node.deadline .bridge-time { color: var(--lime-ink); }
+    .bridge.late .bridge-node.deadline .bridge-time { color: var(--coral); }
+    .bridge.tight .bridge-node.deadline .bridge-time { color: #8a6100; }
+    .bridge-verdict {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s2);
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: var(--line-hair);
+    }
+    .bridge-pill {
+      flex: 0 0 auto;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 2px solid var(--lime);
+      background: var(--lime-tint);
+      color: var(--lime-ink);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .bridge.late .bridge-pill { border-color: var(--coral); background: var(--coral-tint); color: var(--coral); }
+    .bridge.tight .bridge-pill { border-color: var(--gold); background: #fdf5e2; color: #8a6100; }
+    .bridge-verdict-body { min-width: 0; }
+    .bridge-verdict-text { margin: 0; font-size: 15px; line-height: 1.45; }
+    .bridge-live {
+      margin: var(--s1) 0 0;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+    .bridge-live[hidden] { display: none; }
+
+    /* ── Night pair controls (inside the target card) ── */
+    .card > .panel-divider { margin-left: -20px; margin-right: -20px; }
+    .night-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s2);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+    .night-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--purple);
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .night-field[hidden] { display: none; }
+    .sleep-input { display: flex; align-items: center; gap: var(--s1); }
+    .sleep-input input { width: 5.5em; }
+    .sleep-input span { font-size: 13px; color: var(--muted); }
+    /* When linked, the morning plan's day is derived (always the day after the
+       evening's), so the toggle stops being a choice. */
+    .day-toggle.derived { opacity: 0.5; }
+    .day-toggle.derived button { cursor: default; }
+
+    @media (max-width: 520px) {
+      .bridge-node { flex: 1 1 45%; padding: 0 var(--s2) 0 0; }
+      .bridge-node + .bridge-node { border-left: 0; }
+      .bridge-time { font-size: 19px; }
+    }
+
     /* ── Timeline (lives inside .hero) ──
        A progress bar, not a chart. Colour encodes elapsed / current / upcoming
        instead of cycling four decorative pastels, and the segments are now only
@@ -1210,6 +1370,16 @@
     <h1>Backplan</h1>
     <p class="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
 
+    <!-- Only rendered when the night pair is on; a single plan is untouched. -->
+    <div class="plan-tabs" id="plan-tabs" role="tablist" aria-label="Which plan you are editing" hidden>
+      <button type="button" role="tab" data-plan="evening" class="active" aria-selected="true">
+        Tonight<span class="tab-sub" id="tab-sub-evening">—</span>
+      </button>
+      <button type="button" role="tab" data-plan="morning" aria-selected="false">
+        Tomorrow AM<span class="tab-sub" id="tab-sub-morning">—</span>
+      </button>
+    </div>
+
     <section class="hero" aria-live="polite">
       <!-- The event name owns a full-width line. Sharing the right column with
            the target time knocked that time off the start time's baseline. -->
@@ -1256,6 +1426,34 @@
       </div>
     </section>
 
+    <section class="bridge" id="bridge" aria-live="polite" hidden>
+      <div class="bridge-chain">
+        <div class="bridge-node deadline">
+          <p class="label">Lights out by</p>
+          <p class="bridge-time" id="bridge-deadline">—</p>
+        </div>
+        <div class="bridge-node sleep">
+          <p class="label">Sleep</p>
+          <p class="bridge-time" id="bridge-sleep">—</p>
+        </div>
+        <div class="bridge-node">
+          <p class="label">Wake</p>
+          <p class="bridge-time" id="bridge-wake">—</p>
+        </div>
+        <div class="bridge-node">
+          <p class="label" id="bridge-morning-label">Out the door</p>
+          <p class="bridge-time" id="bridge-morning">—</p>
+        </div>
+      </div>
+      <div class="bridge-verdict">
+        <span class="bridge-pill" id="bridge-pill">On track</span>
+        <div class="bridge-verdict-body">
+          <p class="bridge-verdict-text" id="bridge-verdict-text"></p>
+          <p class="bridge-live" id="bridge-live" hidden></p>
+        </div>
+      </div>
+    </section>
+
     <div class="card">
       <div class="target-row">
         <div class="field" style="flex:1 1 200px; min-width:0;">
@@ -1263,15 +1461,33 @@
           <input type="text" id="event-name" placeholder="Bike ride, daycare pickup…" autocomplete="off" />
         </div>
         <div class="field">
-          <label for="target-time">Target time</label>
+          <label for="target-time" id="target-field-label">Target time</label>
           <input type="time" id="target-time" />
         </div>
         <div class="field">
-          <label>Day</label>
-          <div class="day-toggle" role="group" aria-label="Target day">
+          <label id="day-label">Day</label>
+          <div class="day-toggle" id="day-toggle" role="group" aria-label="Target day">
             <button type="button" data-day="today" class="active">Today</button>
             <button type="button" data-day="tomorrow">Tomorrow</button>
           </div>
+        </div>
+      </div>
+      <hr class="panel-divider" />
+      <div class="target-row">
+        <label class="night-toggle" for="link-enabled">
+          <input type="checkbox" id="link-enabled" />
+          <span>Chain tomorrow morning</span>
+        </label>
+        <div class="field night-field" id="sleep-field" hidden>
+          <label for="sleep-need">Sleep needed</label>
+          <div class="sleep-input">
+            <input type="number" id="sleep-need" min="0" max="16" step="0.25" inputmode="decimal" />
+            <span>hours</span>
+          </div>
+        </div>
+        <div class="field night-field" id="sleeper-field" hidden>
+          <label for="sleeper-name">Who's sleeping <span style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);">(optional)</span></label>
+          <input type="text" id="sleeper-name" placeholder="Ezra" autocomplete="off" />
         </div>
       </div>
     </div>
@@ -1407,11 +1623,37 @@
       ]},
     ];
 
-    const state = {
-      eventName: '',
-      target: '18:20',
-      day: 'today',
-      steps: [],
+    // ── Plans.
+    //   Backplan is one plan by default. Turning on the night pair adds a second
+    //   and an edge between them: tomorrow's target is fixed (a school bell does
+    //   not move), so it propagates backwards through the night into tonight's
+    //   real bedtime deadline — which is routinely earlier than the one you set.
+    //
+    //   `state` stays a live *reference* to whichever plan is being edited, so
+    //   every existing `state.steps` / `state.target` read keeps working and
+    //   switching tabs is a pointer swap plus a re-render. It is `let`, not
+    //   `const`, for exactly that reason.
+    const plans = {
+      evening: { eventName: '', target: '20:20', day: 'today', steps: [] },
+      morning: { eventName: '', target: '08:15', day: 'tomorrow', steps: [] },
+    };
+    let activePlanKey = 'evening';
+    let state = plans.evening;
+
+    // The edge. `sleepNeed` is a *minimum*, not a duration — the plan is wrong
+    // when sleep falls under it, not when it merely differs from it.
+    const link = { enabled: false, sleepNeed: 660, sleeper: '' };
+
+    // What the morning plan gets seeded with the first time the pair is turned
+    // on. An empty morning would make wake === target, which is technically a
+    // valid chain and tells the user nothing.
+    const MORNING_SEED = {
+      eventName: 'Out the door',
+      steps: [
+        { name: 'Wake & dressed', duration: 15, unit: 'min' },
+        { name: 'Breakfast', duration: 20, unit: 'min' },
+        { name: 'Shoes, bag, out', duration: 10, unit: 'min' },
+      ],
     };
 
     // ── DOM refs
@@ -1430,6 +1672,28 @@
     const $quickAddChips = document.getElementById('quick-add-chips');
     const $starterChips = document.getElementById('starter-chips');
     const $dayToggleButtons = document.querySelectorAll('.day-toggle button');
+    const $dayToggle = document.getElementById('day-toggle');
+    const $dayLabel = document.getElementById('day-label');
+    const $planTabs = document.getElementById('plan-tabs');
+    const $planTabButtons = $planTabs.querySelectorAll('button');
+    const $tabSubEvening = document.getElementById('tab-sub-evening');
+    const $tabSubMorning = document.getElementById('tab-sub-morning');
+    const $bridge = document.getElementById('bridge');
+    const $bridgeDeadline = document.getElementById('bridge-deadline');
+    const $bridgeSleep = document.getElementById('bridge-sleep');
+    const $bridgeWake = document.getElementById('bridge-wake');
+    const $bridgeMorning = document.getElementById('bridge-morning');
+    const $bridgeMorningLabel = document.getElementById('bridge-morning-label');
+    const $bridgePill = document.getElementById('bridge-pill');
+    const $bridgeVerdictText = document.getElementById('bridge-verdict-text');
+    const $bridgeLive = document.getElementById('bridge-live');
+    const $linkEnabled = document.getElementById('link-enabled');
+    const $sleepField = document.getElementById('sleep-field');
+    const $sleeperField = document.getElementById('sleeper-field');
+    const $sleepNeed = document.getElementById('sleep-need');
+    const $sleeperName = document.getElementById('sleeper-name');
+    const $targetLabel = document.getElementById('target-label');
+    const $targetFieldLabel = document.getElementById('target-field-label');
     const $timelineSection = document.getElementById('timeline-section');
     const $timelineStartLabel = document.getElementById('timeline-start-label');
     const $timelineEndLabel = document.getElementById('timeline-end-label');
@@ -1481,13 +1745,26 @@
       const [h, m] = s.split(':').map(Number);
       return { h, m };
     }
-    function targetDate() {
-      const { h, m } = parseHHMM(state.target || '00:00');
+    // The pair spans midnight, which the two-value day toggle cannot express on
+    // its own: when linked, morning is always the day *after* the evening plan,
+    // so its offset is derived rather than chosen.
+    function dayOffsetFor(plan) {
+      if (link.enabled && plan === plans.morning) {
+        return (plans.evening.day === 'tomorrow' ? 1 : 0) + 1;
+      }
+      return plan.day === 'tomorrow' ? 1 : 0;
+    }
+    function targetDateFor(plan) {
+      const { h, m } = parseHHMM(plan.target || '00:00');
       const d = new Date();
       d.setSeconds(0, 0);
-      if (state.day === 'tomorrow') d.setDate(d.getDate() + 1);
+      d.setDate(d.getDate() + dayOffsetFor(plan));
       d.setHours(h, m, 0, 0);
       return d;
+    }
+    function targetDate() { return targetDateFor(state); }
+    function planMinutes(plan) {
+      return plan.steps.reduce((sum, st) => sum + stepMinutes(st), 0);
     }
     function stepMinutes(step) {
       const n = Number(step.duration);
@@ -2393,6 +2670,165 @@
       $overview.appendChild(targetRow);
     }
 
+    // ── The night edge
+    //   Solvable in one direction only, which is what makes it useful: the
+    //   morning target is fixed, so wake = morning target − morning steps, and
+    //   the real bedtime deadline = wake − sleep need. Everything else is a
+    //   comparison against that deadline.
+    function computeLink() {
+      if (!link.enabled) return null;
+      const morningTarget = targetDateFor(plans.morning);
+      const morningMin = planMinutes(plans.morning);
+      const wake = new Date(morningTarget.getTime() - morningMin * 60000);
+      const deadline = new Date(wake.getTime() - link.sleepNeed * 60000);
+      const lightsOut = targetDateFor(plans.evening);
+      const eveningMin = planMinutes(plans.evening);
+
+      // Positive slack = room to spare before the deadline.
+      const slackMin = Math.round((deadline - lightsOut) / 60000);
+      const actualSleepMin = Math.round((wake - lightsOut) / 60000);
+
+      // "If the whole evening started right now" — a projection that needs no
+      // progress tracking, which is the timer item's job, not this one's.
+      const startNowLightsOut = new Date(Date.now() + eveningMin * 60000);
+      const startNowSlackMin = Math.round((deadline - startNowLightsOut) / 60000);
+      const latestStart = new Date(deadline.getTime() - eveningMin * 60000);
+
+      return {
+        morningTarget, morningMin, wake, deadline, lightsOut, eveningMin,
+        slackMin, actualSleepMin, startNowLightsOut, startNowSlackMin, latestStart,
+      };
+    }
+
+    // The bridge sits in an aria-live region, so every write is change-guarded.
+    function setText(el, txt) {
+      if (el && el.textContent !== txt) el.textContent = txt;
+    }
+
+    function renderLink() {
+      const L = computeLink();
+      $planTabs.hidden = !link.enabled;
+      $bridge.hidden = !L;
+      if (!L) return;
+
+      setText($bridgeDeadline, fmtTime(L.deadline));
+      setText($bridgeSleep, fmtDuration(link.sleepNeed));
+      setText($bridgeWake, fmtTime(L.wake));
+      setText($bridgeMorning, fmtTime(L.morningTarget));
+      const morningName = (plans.morning.eventName || '').trim();
+      setText($bridgeMorningLabel, morningName || 'Out the door');
+
+      const who = (link.sleeper || '').trim();
+      const need = fmtDuration(link.sleepNeed);
+      const sleepPhrase = who ? `${who} needs ${need}` : `${need} needed`;
+      const slept = fmtDuration(Math.max(0, L.actualSleepMin));
+
+      let cls, pill, text;
+      if (L.slackMin < 0) {
+        cls = 'late';
+        pill = 'Too late';
+        text = `Lights out at ${fmtTime(L.lightsOut)} is ${fmtDuration(-L.slackMin)} past the deadline. ` +
+               `Wake at ${fmtTime(L.wake)} gives ${slept} — ${sleepPhrase}.`;
+      } else if (L.slackMin < 15) {
+        cls = 'tight';
+        pill = 'Tight';
+        // fmtDuration(0) is "0 min", which reads as a rounding artefact rather
+        // than the exact landing it actually is.
+        const lands = L.slackMin === 0
+          ? `Lights out at ${fmtTime(L.lightsOut)} lands exactly on the deadline.`
+          : `Lights out at ${fmtTime(L.lightsOut)} clears the deadline by ${fmtDuration(L.slackMin)}.`;
+        text = `${lands} Any slip tonight comes out of tomorrow — ${sleepPhrase}.`;
+      } else {
+        cls = 'ok';
+        pill = 'On track';
+        text = `Lights out at ${fmtTime(L.lightsOut)} leaves ${fmtDuration(L.slackMin)} of room — ` +
+               `${slept} of sleep, ${sleepPhrase}.`;
+      }
+      $bridge.classList.remove('ok', 'tight', 'late');
+      $bridge.classList.add(cls);
+      setText($bridgePill, pill);
+      setText($bridgeVerdictText, text);
+      renderBridgeLive(L);
+
+      // Each tab carries its own headline time, so switching is never blind.
+      setText($tabSubEvening, plans.evening.steps.length
+        ? `start ${fmtTime(new Date(L.lightsOut.getTime() - L.eveningMin * 60000))}`
+        : 'no steps yet');
+      setText($tabSubMorning, plans.morning.steps.length
+        ? `wake ${fmtTime(L.wake)}`
+        : 'no steps yet');
+    }
+
+    // Split from renderLink so the 1s tick can move it without rebuilding the
+    // rest of the bridge, the same way tickTimeline works.
+    function renderBridgeLive(pre) {
+      const L = pre || computeLink();
+      if (!L || L.eveningMin <= 0) {
+        if ($bridgeLive) $bridgeLive.hidden = true;
+        return;
+      }
+      const now = Date.now();
+      const toLatest = Math.round((L.latestStart - now) / 60000);
+      let msg;
+      if (now >= L.deadline.getTime()) {
+        msg = 'Tonight\u2019s deadline has already passed.';
+      } else if (L.startNowSlackMin < 0) {
+        msg = `Starting the evening now puts lights out at ${fmtTime(L.startNowLightsOut)} — ` +
+              `${fmtDuration(-L.startNowSlackMin)} short. Trim a step, or take the loss.`;
+      } else if (toLatest <= 0) {
+        msg = 'Start now — there is no slack left in tonight.';
+      } else {
+        msg = `Start the evening by ${fmtTime(L.latestStart)} — ${fmtDuration(toLatest)} from now.`;
+      }
+      setText($bridgeLive, msg);
+      $bridgeLive.hidden = false;
+    }
+
+    // ── Switching which plan the editor points at
+    function switchPlan(key) {
+      if (!plans[key] || key === activePlanKey) return;
+      activePlanKey = key;
+      state = plans[key];
+      travelOpen.clear();
+      syncPlanInputs();
+      persistLast();
+      renderSteps();
+      state.steps.forEach(st => {
+        if (st.travel && st.travel.to && !st.travel.result) refreshTravel(st.id, false);
+      });
+    }
+    function syncPlanInputs() {
+      $planTabButtons.forEach(b => {
+        const on = b.dataset.plan === activePlanKey;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      $eventInput.value = state.eventName;
+      $targetInput.value = state.target;
+      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      // Linked, the morning plan's day follows the evening's; it stops being a
+      // choice, so the control says so rather than lying about being editable.
+      const derived = link.enabled && activePlanKey === 'morning';
+      $dayToggle.classList.toggle('derived', derived);
+      $dayToggle.setAttribute('aria-disabled', derived ? 'true' : 'false');
+      $dayToggleButtons.forEach(b => { b.disabled = derived; });
+      setText($dayLabel, derived ? 'Day — follows tonight' : 'Day');
+
+      // Chained, these times stop being generic targets: the evening plan ends
+      // at lights-out and the morning plan ends at the fixed obligation. Say so,
+      // rather than making the user infer the model from the bridge.
+      if (!link.enabled) {
+        setText($targetFieldLabel, 'Target time');
+        setText($targetLabel, 'Be ready by');
+      } else if (activePlanKey === 'evening') {
+        setText($targetFieldLabel, 'Lights out at');
+        setText($targetLabel, 'Lights out');
+      } else {
+        setText($targetFieldLabel, 'Be there by');
+        setText($targetLabel, 'Be there by');
+      }
+    }
+
     // ── Backwards math
     function compute() {
       const target = targetDate();
@@ -2425,6 +2861,7 @@
       const overflowsPrevDay = overallStart && overallStart < targetDayStart;
 
       renderOverview(target, startTimes, targetDayStart);
+      renderLink();
 
       // Per-row update
       rows.forEach((row, i) => {
@@ -2864,6 +3301,56 @@
       });
     });
 
+    // ── Night pair controls
+    $planTabButtons.forEach(btn => {
+      btn.addEventListener('click', () => switchPlan(btn.dataset.plan));
+    });
+
+    $linkEnabled.addEventListener('change', () => {
+      link.enabled = $linkEnabled.checked;
+      if (link.enabled && plans.morning.steps.length === 0) {
+        plans.morning.eventName = MORNING_SEED.eventName;
+        plans.morning.steps = MORNING_SEED.steps.map(normalizeStep);
+      }
+      // Turning the pair off while editing the morning plan would leave the
+      // editor pointed at a plan with no visible tab.
+      if (!link.enabled && activePlanKey === 'morning') {
+        activePlanKey = 'evening';
+        state = plans.evening;
+        travelOpen.clear();
+        syncPlanInputs();
+        persistLast();
+        renderSteps();
+      } else {
+        syncPlanInputs();
+        persistLast();
+        compute();
+      }
+      applyNightFields();
+    });
+
+    $sleepNeed.addEventListener('input', () => {
+      const hours = Number($sleepNeed.value);
+      if (!Number.isFinite(hours) || hours < 0) return;
+      link.sleepNeed = Math.round(hours * 60);
+      persistLast();
+      compute();
+    });
+
+    $sleeperName.addEventListener('input', () => {
+      link.sleeper = $sleeperName.value;
+      persistLast();
+      compute();
+    });
+
+    function applyNightFields() {
+      $linkEnabled.checked = link.enabled;
+      $sleepField.hidden = !link.enabled;
+      $sleeperField.hidden = !link.enabled;
+      $sleepNeed.value = String(link.sleepNeed / 60);
+      $sleeperName.value = link.sleeper || '';
+    }
+
     // ── Templates
     function loadTemplates() {
       try { return JSON.parse(localStorage.getItem(KEY_TEMPLATES) || '[]'); }
@@ -3068,12 +3555,23 @@
     }
 
     // ── Persist last
+    function planSnap(plan) {
+      return {
+        eventName: plan.eventName,
+        target: plan.target,
+        day: plan.day,
+        steps: plan.steps,
+      };
+    }
     function persistLast() {
+      // v2 holds the pair. v1 (a bare plan at the top level) still loads — see
+      // init. KEY_VIEW stays out of this deliberately: it is view state, not
+      // plan state.
       const snap = {
-        eventName: state.eventName,
-        target: state.target,
-        day: state.day,
-        steps: state.steps,
+        v: 2,
+        active: activePlanKey,
+        link: { enabled: link.enabled, sleepNeed: link.sleepNeed, sleeper: link.sleeper },
+        plans: { evening: planSnap(plans.evening), morning: planSnap(plans.morning) },
       };
       localStorage.setItem(KEY_LAST, JSON.stringify(snap));
     }
@@ -3088,25 +3586,43 @@
     // ── Init
     function init() {
       const saved = loadLast();
-      if (saved && Array.isArray(saved.steps)) {
-        state.eventName = saved.eventName || '';
-        state.target = saved.target || toHHMM(nextRoundHalfHour());
-        state.day = saved.day || 'today';
-        state.steps = saved.steps.map(normalizeStep);
+      function hydrate(plan, src, fallbackTarget) {
+        plan.eventName = (src && src.eventName) || '';
+        plan.target = (src && src.target) || fallbackTarget;
+        plan.day = (src && src.day) || plan.day;
+        plan.steps = (src && Array.isArray(src.steps) ? src.steps : []).map(normalizeStep);
+      }
+
+      if (saved && saved.plans) {
+        // v2 — the pair.
+        hydrate(plans.evening, saved.plans.evening, toHHMM(nextRoundHalfHour()));
+        hydrate(plans.morning, saved.plans.morning, '08:15');
+        if (saved.link) {
+          link.enabled = !!saved.link.enabled;
+          if (Number.isFinite(saved.link.sleepNeed) && saved.link.sleepNeed >= 0) {
+            link.sleepNeed = saved.link.sleepNeed;
+          }
+          link.sleeper = saved.link.sleeper || '';
+        }
+        if (saved.active === 'morning' && link.enabled) activePlanKey = 'morning';
+      } else if (saved && Array.isArray(saved.steps)) {
+        // v1 — a single plan, which becomes the evening one. The pair stays off,
+        // so an upgrading user sees exactly what they left behind.
+        hydrate(plans.evening, saved, toHHMM(nextRoundHalfHour()));
       } else {
-        state.eventName = '';
-        state.target = toHHMM(nextRoundHalfHour());
-        state.day = 'today';
+        plans.evening.eventName = '';
+        plans.evening.target = toHHMM(nextRoundHalfHour());
+        plans.evening.day = 'today';
         // Sensible default to demonstrate the tool
-        state.steps = [
+        plans.evening.steps = [
           { name: 'Get ready', duration: 10, unit: 'min' },
           { name: 'Drive there', duration: 15, unit: 'min' },
           { name: 'Buffer', duration: 5, unit: 'min' },
         ].map(normalizeStep);
       }
-      $eventInput.value = state.eventName;
-      $targetInput.value = state.target;
-      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      state = plans[activePlanKey];
+      applyNightFields();
+      syncPlanInputs();
       renderSteps();
       renderChips();
       renderPlaceChips();
@@ -3129,7 +3645,7 @@
       // keep the "now" marker fresh
       setInterval(compute, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
-      setInterval(tickTimeline, 1000);
+      setInterval(() => { tickTimeline(); renderBridgeLive(); }, 1000);
     }
     init();
   </script>

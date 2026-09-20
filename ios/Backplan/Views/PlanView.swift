@@ -16,7 +16,9 @@ struct PlanView: View {
         NavigationStack {
             List {
                 header
+                planTabsSection
                 resultSection(result)
+                bridgeSection
                 targetSection(store: $store)
                 stepsSection(store: $store, result: result)
                 placesSection
@@ -58,10 +60,68 @@ struct PlanView: View {
         }
     }
 
+    /// Only present when the pair is on. A lone plan keeps the app exactly as it
+    /// was — no tabs, no bridge, nothing extra to read past. Sits above the
+    /// result card rather than in the Steps header, which the Edit/Overview
+    /// toggle already occupies.
+    @ViewBuilder
+    private var planTabsSection: some View {
+        if store.link.enabled {
+            Section {
+                PlanTabsView(
+                    activeKey: store.activeKey,
+                    subtitle: tabSubtitle,
+                    onSelect: { store.switchTo($0) }
+                )
+                .plainRow()
+            }
+        }
+    }
+
+    /// Each tab carries its own headline time, so switching is never blind.
+    private func tabSubtitle(_ key: PlanKey) -> String {
+        let plan = store.pair[key]
+        guard !plan.steps.isEmpty else { return "no steps yet" }
+        let result = store.result(for: key)
+        switch key {
+        case .evening:
+            return result.overallStart.map { "start \(Fmt.time($0))" } ?? "no steps yet"
+        case .morning:
+            return result.overallStart.map { "wake \(Fmt.time($0))" } ?? "no steps yet"
+        }
+    }
+
+    /// The bridge counts down, so it gets its own second-ticking context rather
+    /// than forcing the whole List to rebuild each second.
+    @ViewBuilder
+    private var bridgeSection: some View {
+        if store.link.enabled {
+            Section {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if let bridge = store.bridge(now: context.date) {
+                        NightBridgeView(
+                            bridge: bridge,
+                            sleepNeed: store.link.sleepNeed,
+                            sleeper: store.link.sleeper,
+                            morningEventName: store.pair.morning.eventName,
+                            now: context.date
+                        )
+                    }
+                }
+                .neoCard()
+                .plainRow()
+            }
+        }
+    }
+
     private func resultSection(_ result: PlanResult) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 16) {
-                ResultHeaderView(result: result, eventName: store.plan.eventName)
+                ResultHeaderView(
+                    result: result,
+                    eventName: store.plan.eventName,
+                    targetLabel: heroTargetLabel
+                )
                 if result.isPast {
                     pastTargetNotice
                 } else if result.hasSteps {
@@ -112,24 +172,98 @@ struct PlanView: View {
                 }
                 HStack(alignment: .bottom, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
-                        fieldLabel("Target time")
+                        fieldLabel(targetFieldLabel)
                         DatePicker("", selection: targetBinding(store), displayedComponents: .hourAndMinute)
                             .labelsHidden()
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        fieldLabel("Day")
+                        fieldLabel(dayIsDerived ? "Day — follows tonight" : "Day")
                         Picker("Day", selection: store.plan.day) {
                             ForEach(TargetDay.allCases) { d in
                                 Text(d.label).tag(d)
                             }
                         }
                         .pickerStyle(.segmented)
+                        // Chained, the morning plan is always the day after the
+                        // evening one, so this stops being a choice.
+                        .disabled(dayIsDerived)
+                        .opacity(dayIsDerived ? 0.5 : 1)
                     }
                 }
+                Rectangle()
+                    .fill(.bpRule)
+                    .frame(height: 1.5)
+                nightControls(store: store)
             }
             .neoCard()
             .plainRow()
         }
+    }
+
+    /// The pair is opt-in, and everything it adds appears only once it is on.
+    @ViewBuilder
+    private func nightControls(store: Bindable<PlanStore>) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Toggle(isOn: Binding(
+                get: { store.wrappedValue.link.enabled },
+                set: { store.wrappedValue.setLinkEnabled($0) }
+            )) {
+                Text("Chain tomorrow morning")
+                    .font(.display(15))
+                    .foregroundStyle(.bpInk)
+            }
+            .tint(.bpPurple)
+
+            if store.wrappedValue.link.enabled {
+                HStack(alignment: .bottom, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        fieldLabel("Sleep needed")
+                        HStack(spacing: 6) {
+                            TextField("11", value: sleepHoursBinding(store), format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 72)
+                            Text("hours")
+                                .font(.footnote)
+                                .foregroundStyle(.bpMuted)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        fieldLabel("Who's sleeping")
+                        TextField("Optional", text: Binding(
+                            get: { store.wrappedValue.link.sleeper },
+                            set: { store.wrappedValue.link.sleeper = $0 }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sleep need is stored in minutes and edited in hours, matching the web.
+    private func sleepHoursBinding(_ store: Bindable<PlanStore>) -> Binding<Double> {
+        Binding(
+            get: { Double(store.wrappedValue.link.sleepNeed) / 60 },
+            set: { hours in
+                guard hours.isFinite, hours >= 0 else { return }
+                store.wrappedValue.link.sleepNeed = Int((hours * 60).rounded())
+            }
+        )
+    }
+
+    private var dayIsDerived: Bool {
+        store.link.enabled && store.activeKey == .morning
+    }
+
+    private var targetFieldLabel: String {
+        guard store.link.enabled else { return "Target time" }
+        return store.activeKey == .evening ? "Lights out at" : "Be there by"
+    }
+
+    private var heroTargetLabel: String {
+        guard store.link.enabled else { return "Be ready by" }
+        return store.activeKey == .evening ? "Lights out" : "Be there by"
     }
 
     private func stepsSection(store: Bindable<PlanStore>, result: PlanResult) -> some View {
@@ -240,8 +374,9 @@ struct PlanView: View {
             // Iterate the *binding* so each row holds an identity-resolved
             // binding. `store.plan.steps[idx]` looked equivalent but captured a
             // fixed index: a row that outlived its element by even one frame —
-            // a swipe-delete, Clear all, a starter swapping the list — read
-            // past the end and trapped with "Index out of range". The position
+            // a swipe-delete, Clear all, a starter swapping the list, a tab
+            // switch to a shorter plan — read past the end and trapped with
+            // "Index out of range". The position
             // still comes from the array, but only to look up a start time,
             // and only when it's in range.
             ForEach(store.plan.steps) { $step in

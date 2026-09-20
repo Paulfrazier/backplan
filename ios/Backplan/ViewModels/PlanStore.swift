@@ -4,8 +4,27 @@ import Observation
 @MainActor
 @Observable
 final class PlanStore {
-    var plan: Plan {
+    /// Both halves of the night pair. This is the storage; `plan` below is a
+    /// read/write pointer into it, which is what keeps every existing
+    /// `store.plan.steps` call site working unchanged.
+    var pair: PlanPair {
         didSet { persistLast() }
+    }
+    /// Which half the editor is pointed at.
+    var activeKey: PlanKey {
+        didSet { persistLast() }
+    }
+    /// The edge between them. Off by default — a lone plan behaves exactly as
+    /// it did before the pair existed.
+    var link: NightLink {
+        didSet { persistLast() }
+    }
+
+    /// The plan currently being edited. Computed, so it cannot carry `didSet`;
+    /// writes land in `pair`, whose `didSet` does the persisting.
+    var plan: Plan {
+        get { pair[activeKey] }
+        set { pair[activeKey] = newValue }
     }
     var templates: [Template] {
         didSet { persistTemplates() }
@@ -21,7 +40,10 @@ final class PlanStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.plan = PlanStore.load(Plan.self, key: "backplan.last", from: defaults) ?? PlanStore.seed()
+        let restored = PlanStore.restore(from: defaults)
+        self.pair = restored.pair
+        self.activeKey = restored.activeKey
+        self.link = restored.link
         self.templates = PlanStore.load([Template].self, key: "backplan.templates", from: defaults) ?? []
         self.places = PlanStore.load([SavedPlace].self, key: "backplan.places", from: defaults) ?? []
     }
@@ -30,6 +52,51 @@ final class PlanStore {
     /// recomputation on a ticking clock without mutating the model.
     func result(now: Date = Date()) -> PlanResult {
         BackwardsPlanner.compute(plan, now: now)
+    }
+
+    // MARK: - The night pair
+
+    /// Chained, the morning plan is always the day *after* the evening one — an
+    /// offset two-valued `TargetDay` cannot express, so it is derived here.
+    /// Mirrors the web `dayOffsetFor(plan)`.
+    func dayOffset(for key: PlanKey) -> Int {
+        if link.enabled && key == .morning {
+            return (pair.evening.day == .tomorrow ? 1 : 0) + 1
+        }
+        return pair[key].day == .tomorrow ? 1 : 0
+    }
+
+    /// `nil` when the pair is off, which is also what hides the bridge.
+    func bridge(now: Date = Date()) -> NightBridge? {
+        guard link.enabled else { return nil }
+        return NightBridge.make(
+            evening: pair.evening, eveningOffset: dayOffset(for: .evening),
+            morning: pair.morning, morningOffset: dayOffset(for: .morning),
+            sleepNeed: link.sleepNeed, now: now
+        )
+    }
+
+    /// Result for either half, for the tab subtitles.
+    func result(for key: PlanKey, now: Date = Date()) -> PlanResult {
+        BackwardsPlanner.compute(pair[key], now: now)
+    }
+
+    func switchTo(_ key: PlanKey) {
+        guard key != activeKey else { return }
+        activeKey = key
+    }
+
+    /// Turning the pair on seeds an empty morning; turning it off falls back to
+    /// the evening plan, since the morning tab is about to disappear.
+    func setLinkEnabled(_ on: Bool) {
+        link.enabled = on
+        if on, pair.morning.steps.isEmpty {
+            pair.morning.eventName = MorningSeed.eventName
+            pair.morning.steps = MorningSeed.steps
+        }
+        if !on, activeKey == .morning {
+            activeKey = .evening
+        }
     }
 
     // MARK: - Step mutations
@@ -208,10 +275,43 @@ final class PlanStore {
 
     // MARK: - Persistence
 
+    /// v2 holds the pair; v1 was a bare `Plan` at the top level and still loads
+    /// (see `restore`). The Edit/Overview flag lives in `@AppStorage` and stays
+    /// out of this deliberately — it is view state, not plan state.
+    private struct PairSnapshot: Codable {
+        var v: Int = 2
+        var active: PlanKey = .evening
+        var link: NightLink = NightLink()
+        var plans: PlanPair
+    }
+
     private func persistLast() {
-        if let data = try? JSONEncoder().encode(plan) {
+        let snap = PairSnapshot(v: 2, active: activeKey, link: link, plans: pair)
+        if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: lastKey)
         }
+    }
+
+    private static func restore(
+        from defaults: UserDefaults
+    ) -> (pair: PlanPair, activeKey: PlanKey, link: NightLink) {
+        if let snap = load(PairSnapshot.self, key: "backplan.last", from: defaults) {
+            // A morning tab that is no longer reachable would strand the editor.
+            let key = (snap.active == .morning && !snap.link.enabled) ? .evening : snap.active
+            return (snap.plans, key, snap.link)
+        }
+        // v1 — a single plan, which becomes the evening one. The pair stays off,
+        // so an upgrading user sees exactly what they left behind.
+        if let old = load(Plan.self, key: "backplan.last", from: defaults) {
+            return (PlanPair(evening: old, morning: seedMorning()), .evening, NightLink())
+        }
+        return (PlanPair(evening: seed(), morning: seedMorning()), .evening, NightLink())
+    }
+
+    /// The morning half before the user has ever switched the pair on. Empty by
+    /// design — `setLinkEnabled` seeds it at the moment it first becomes visible.
+    private static func seedMorning() -> Plan {
+        Plan(eventName: "", target: "08:15", day: .tomorrow, steps: [])
     }
 
     private func persistTemplates() {

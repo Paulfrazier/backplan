@@ -140,12 +140,20 @@ extension Plan {
     /// Resolve the target "HH:mm" + day into an absolute Date relative to `now`,
     /// matching the web `targetDate()` (seconds/millis zeroed).
     func targetDate(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        targetDate(now: now, calendar: calendar, dayOffset: day == .tomorrow ? 1 : 0)
+    }
+
+    /// Explicit-offset form, matching the web `targetDateFor(plan)`. The night
+    /// pair spans midnight, which two-valued `TargetDay` cannot express on its
+    /// own: chained, the morning plan is always the day *after* the evening one,
+    /// so its offset is derived rather than chosen.
+    func targetDate(now: Date = Date(), calendar: Calendar = .current, dayOffset: Int) -> Date {
         let parts = target.split(separator: ":")
         let h = parts.count > 0 ? Int(parts[0]) ?? 0 : 0
         let m = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
         var base = now
-        if day == .tomorrow {
-            base = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        if dayOffset != 0 {
+            base = calendar.date(byAdding: .day, value: dayOffset, to: now) ?? now
         }
         return calendar.date(
             bySettingHour: min(max(h, 0), 23),
@@ -154,4 +162,51 @@ extension Plan {
             of: base
         ) ?? base
     }
+
+    /// Total scheduled minutes, matching the web `planMinutes(plan)`.
+    var totalMinutes: Int { steps.reduce(0) { $0 + $1.minutes } }
+}
+
+// MARK: - The night pair
+
+/// Which half of the pair a plan is. Mirrors the web `plans` object's keys.
+enum PlanKey: String, Codable, CaseIterable, Identifiable, Sendable {
+    case evening, morning
+    var id: String { rawValue }
+    /// Tab copy. "Tonight" rather than "Evening" because the pair is always
+    /// tonight-into-tomorrow, never an arbitrary pair of days.
+    var label: String { self == .evening ? "Tonight" : "Tomorrow AM" }
+}
+
+/// Both halves. `subscript` is what lets `PlanStore.plan` stay a plain
+/// read/write pointer, so every existing `store.plan.steps` call site keeps
+/// working unchanged — the same trick the web port uses with `let state`.
+struct PlanPair: Codable, Equatable {
+    var evening: Plan
+    var morning: Plan
+
+    subscript(key: PlanKey) -> Plan {
+        get { key == .evening ? evening : morning }
+        set { if key == .evening { evening = newValue } else { morning = newValue } }
+    }
+}
+
+/// The edge between the two plans. `sleepNeed` is a *minimum* in minutes, not a
+/// duration — the plan is wrong when sleep falls under it, not when it differs.
+struct NightLink: Codable, Equatable, Sendable {
+    var enabled: Bool = false
+    var sleepNeed: Int = 660
+    var sleeper: String = ""
+}
+
+/// What the morning plan is seeded with the first time the pair is switched on.
+/// An empty morning would make wake == target, a technically valid chain that
+/// tells the user nothing.
+enum MorningSeed {
+    static let eventName = "Out the door"
+    static let steps: [Step] = [
+        Step(name: "Wake & dressed", duration: 15, unit: .min),
+        Step(name: "Breakfast", duration: 20, unit: .min),
+        Step(name: "Shoes, bag, out", duration: 10, unit: .min),
+    ]
 }

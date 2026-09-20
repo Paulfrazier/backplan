@@ -3,6 +3,10 @@ import SwiftUI
 struct ResultHeaderView: View {
     let result: PlanResult
     let eventName: String
+    /// Chained, the evening plan's target *is* lights-out and the morning's is
+    /// the fixed obligation, so the generic wording stops being true. Defaulted
+    /// so the unchained app is untouched.
+    var targetLabel: String = "Be ready by"
 
     private var trimmedName: String {
         eventName.trimmingCharacters(in: .whitespaces)
@@ -49,7 +53,7 @@ struct ResultHeaderView: View {
                 Spacer(minLength: 8)
 
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text("Be ready by")
+                    Text(targetLabel)
                         .font(.caption.weight(.semibold))
                         .tracking(0.6)
                         .foregroundStyle(.bpMuted)

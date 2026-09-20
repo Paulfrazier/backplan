@@ -190,3 +190,121 @@ struct PlanStatus {
         return String(format: "%d:%02d", m, sec)
     }
 }
+
+// MARK: - The night edge
+
+/// Tonight's lights-out and tomorrow's wake as one chain, with sleep as the
+/// elastic middle. Solvable in one direction only, which is what makes it
+/// useful: the morning target is fixed (a school bell does not move), so
+/// `wake = morning target − morning steps` and `deadline = wake − sleep need`.
+/// Everything else is a comparison against that deadline.
+///
+/// Direct port of the web `computeLink()` — keep the two in sync.
+struct NightBridge {
+    enum Verdict { case onTrack, tight, late }
+
+    let morningTarget: Date
+    let wake: Date
+    /// The real bedtime deadline — routinely earlier than the one the user set.
+    let deadline: Date
+    /// The evening plan's target, which under this model *is* lights-out.
+    let lightsOut: Date
+    let eveningMinutes: Int
+    /// Positive = room to spare before the deadline.
+    let slackMinutes: Int
+    let actualSleepMinutes: Int
+    let startNowLightsOut: Date
+    let startNowSlackMinutes: Int
+    let latestStart: Date
+
+    var verdict: Verdict {
+        if slackMinutes < 0 { return .late }
+        if slackMinutes < 15 { return .tight }
+        return .onTrack
+    }
+
+    var pillText: String {
+        switch verdict {
+        case .onTrack: return "On track"
+        case .tight: return "Tight"
+        case .late: return "Too late"
+        }
+    }
+
+    static func make(
+        evening: Plan, eveningOffset: Int,
+        morning: Plan, morningOffset: Int,
+        sleepNeed: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> NightBridge {
+        let morningTarget = morning.targetDate(now: now, calendar: calendar, dayOffset: morningOffset)
+        let wake = morningTarget.addingTimeInterval(TimeInterval(-morning.totalMinutes * 60))
+        let deadline = wake.addingTimeInterval(TimeInterval(-sleepNeed * 60))
+        let lightsOut = evening.targetDate(now: now, calendar: calendar, dayOffset: eveningOffset)
+        let eveningMinutes = evening.totalMinutes
+
+        // "If the whole evening started right now" — a projection that needs no
+        // progress tracking, which is the timer feature's job, not this one's.
+        let startNowLightsOut = now.addingTimeInterval(TimeInterval(eveningMinutes * 60))
+        let latestStart = deadline.addingTimeInterval(TimeInterval(-eveningMinutes * 60))
+
+        func mins(_ interval: TimeInterval) -> Int { Int((interval / 60).rounded()) }
+
+        return NightBridge(
+            morningTarget: morningTarget,
+            wake: wake,
+            deadline: deadline,
+            lightsOut: lightsOut,
+            eveningMinutes: eveningMinutes,
+            slackMinutes: mins(deadline.timeIntervalSince(lightsOut)),
+            actualSleepMinutes: mins(wake.timeIntervalSince(lightsOut)),
+            startNowLightsOut: startNowLightsOut,
+            startNowSlackMinutes: mins(deadline.timeIntervalSince(startNowLightsOut)),
+            latestStart: latestStart
+        )
+    }
+
+    /// Wording mirrors the web `renderLink()` verbatim so the two platforms say
+    /// the same thing about the same plan.
+    func verdictText(sleeper: String, sleepNeed: Int) -> String {
+        let who = sleeper.trimmingCharacters(in: .whitespaces)
+        let need = Fmt.duration(sleepNeed)
+        let sleepPhrase = who.isEmpty ? "\(need) needed" : "\(who) needs \(need)"
+        let slept = Fmt.duration(max(0, actualSleepMinutes))
+
+        switch verdict {
+        case .late:
+            return "Lights out at \(Fmt.time(lightsOut)) is \(Fmt.duration(-slackMinutes)) past the deadline. "
+                 + "Wake at \(Fmt.time(wake)) gives \(slept) — \(sleepPhrase)."
+        case .tight:
+            // Fmt.duration(0) is "0 min", which reads as a rounding artefact
+            // rather than the exact landing it actually is.
+            let lands = slackMinutes == 0
+                ? "Lights out at \(Fmt.time(lightsOut)) lands exactly on the deadline."
+                : "Lights out at \(Fmt.time(lightsOut)) clears the deadline by \(Fmt.duration(slackMinutes))."
+            return "\(lands) Any slip tonight comes out of tomorrow — \(sleepPhrase)."
+        case .onTrack:
+            return "Lights out at \(Fmt.time(lightsOut)) leaves \(Fmt.duration(slackMinutes)) of room — "
+                 + "\(slept) of sleep, \(sleepPhrase)."
+        }
+    }
+
+    /// The line that moves on the clock. `nil` when the evening plan has no
+    /// steps, since there is then no start time to advise.
+    func liveText(now: Date = Date()) -> String? {
+        guard eveningMinutes > 0 else { return nil }
+        let toLatest = Int((latestStart.timeIntervalSince(now) / 60).rounded())
+        if now >= deadline {
+            return "Tonight\u{2019}s deadline has already passed."
+        }
+        if startNowSlackMinutes < 0 {
+            return "Starting the evening now puts lights out at \(Fmt.time(startNowLightsOut)) — "
+                 + "\(Fmt.duration(-startNowSlackMinutes)) short. Trim a step, or take the loss."
+        }
+        if toLatest <= 0 {
+            return "Start now — there is no slack left in tonight."
+        }
+        return "Start the evening by \(Fmt.time(latestStart)) — \(Fmt.duration(toLatest)) from now."
+    }
+}

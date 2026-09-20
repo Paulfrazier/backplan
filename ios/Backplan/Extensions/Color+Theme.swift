@@ -27,6 +27,10 @@ extension Color {
     static let bpRule = Color(hex: 0xCFCCD6)
     static let bpLimeTint = Color(hex: 0xF1FAE3)
     static let bpCoralTint = Color(hex: 0xFDECE8)
+    /// The night bridge's "tight" verdict — a third state between lime and
+    /// coral, matching the web `.bridge.tight` pill.
+    static let bpGoldTint = Color(hex: 0xFDF5E2)
+    static let bpGoldInk = Color(hex: 0x8A6100)
 }
 
 extension ShapeStyle where Self == Color {
@@ -44,6 +48,8 @@ extension ShapeStyle where Self == Color {
     static var bpRule: Color { .bpRule }
     static var bpLimeTint: Color { .bpLimeTint }
     static var bpCoralTint: Color { .bpCoralTint }
+    static var bpGoldTint: Color { .bpGoldTint }
+    static var bpGoldInk: Color { .bpGoldInk }
 }
 
 extension Font {
