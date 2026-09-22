@@ -100,6 +100,94 @@ no-backend / client-only solutions where possible.
     result + "now" into words; `ArmBar` and `PlanTimeline` were computing near-identical
     strings separately.
 
+- [x] **Timer integration — live tracking** (was Backlog #1) — a plan can now be
+  armed against the real clock: a countdown to the moment you have to start, a
+  phase, browser/local notifications at every step, and an iOS Live Activity on
+  the Lock Screen and Dynamic Island. Web + iOS.
+  - **"Start countdown", not "Arm".** The internal vocabulary stays *armed*
+    (`TimerController`, `KEY_ARMED`), but the button says what it does. iOS's
+    old "Arm plan" / "Disarm" moved to match the web rather than the reverse —
+    "arm" is a word this app's users never say out loud.
+  - **The snapshot is the feature.** Arming freezes the resolved chain
+    (segments, absolute start/end times, the target) to `backplan:armed` /
+    `backplan.armed`. Re-deriving it on every tick was the obvious alternative
+    and it is wrong: an edit — or a midnight rollover — would silently slide the
+    countdown under someone who is currently *relying* on it. Frozen, any
+    divergence gets **reported** instead. The stale banner ("Plan changed since
+    you started the countdown" + Re-arm) is that report, and it is compared
+    against the armed *half* of the night pair, not the half being edited —
+    switching tabs is not a change to the armed plan.
+  - **Two clocks, deliberately.** `PlanStatus` says what is *happening*
+    ("Get dressed · 4 min left"). The new `PlanCountdown` / `tickArm()` says what
+    to *count to*: the chain start before the plan begins, the end of the running
+    step while it does, the target once the last step is running. A clock aimed
+    at anything else runs past zero and stops meaning anything. Phase words are
+    Not started / Start now / Step N of M / Running over — "Start now" is the
+    last minute before the chain start, because at T-30s "not started" is the
+    wrong thing to tell someone.
+  - **Web got the `PlanStatus` consolidation too.** iOS already had one place
+    that turns a result + "now" into words; web had that logic inlined in
+    `tickTimeline`. It is now `planStatus(segments, chainEnd, now, precise)`,
+    shared by the timeline strip and the arm strip, with `precise` swapping
+    minutes for an H:MM:SS clock. `compute()` also lost its copy of the backwards
+    walk to `planSegments(plan)` — arming and the stale check need that walk for
+    a plan that isn't the one on screen.
+  - **The arm strip lives outside `.hero` on purpose.** The hero is an
+    `aria-live` region; a clock that reprints every second inside one never stops
+    announcing itself. Only the phase word is live, and it changes at boundaries.
+    Same reason the clock uses `font-variant-numeric: tabular-nums` /
+    `.monospacedDigit()` — proportional figures make it jitter sideways once a
+    second, and it is the only thing on the page repainting that fast.
+  - **Guards, both platforms:** never arm a target that has already passed, never
+    arm a plan with no *timed* steps. A plan of zero-duration steps produces no
+    segments and would arm a countdown with nothing in it. The button disables
+    itself and says which one it is.
+  - **Notifications degrade rather than block.** Permission is requested on the
+    click that arms (browsers drop a request with no gesture behind it), and the
+    note under the button states the outcome — granted / blocked / unsupported —
+    with the countdown running either way. Boundaries already in the past are
+    marked fired *silently* on arm and on restore: reopening the tab after lunch
+    should not dump six alerts about steps that finished an hour ago.
+  - **Live Activity (iOS).** New `BackplanWidgets` app-extension target; the
+    `ActivityAttributes` lives in `ios/Shared` and compiles into both processes so
+    the payload's shape can't drift. Lock Screen card + Dynamic Island compact /
+    minimal / expanded.
+    - Every countdown is `Text(timerInterval:)`, never a formatted string. **The
+      system owns the seconds**, so the app pushes a new state only when the
+      *words* change — at a step boundary. A one-second push loop would be
+      rate-limited into uselessness; a seven-step plan needs eight updates, and
+      `TimerController` gets them by sleeping until the next boundary rather than
+      polling.
+    - **`Activity` is not `Sendable`.** Holding one in a `@MainActor` property and
+      then `await`ing a method on it is a hard Swift 6 error ("sending 'activity'
+      risks causing data races"). `LiveActivityService` is therefore a stateless
+      enum that looks the live activity up from `Activity.activities` inside each
+      call — which also means it survives a relaunch, where a stored handle would
+      have been lost while the card kept running.
+    - **The Dynamic Island's ground is black and cannot be tinted**, unlike the
+      Lock Screen card (`activityBackgroundTint(.bpPaper)` keeps that one on
+      paper). The first build used the paper palette's inks there — `bpPurple`
+      #4A154B, `bpLimeInk` #3F6212 — and the island opened to its wider Live
+      Activity shape with nothing legible inside it. `islandAccent` is the same
+      three hues lifted for a dark ground; the Lock Screen keeps `accent`.
+    - `NSSupportsLiveActivities: true` is required in the *app's* Info.plist.
+      Without it `Activity.request` throws and nothing appears — no error in the
+      UI, no card, no log worth reading.
+    - Once the target is behind us there is nothing left to say, so the card is
+      ended with `.after(target + 1h)` rather than left open: an overrun nobody
+      disarms would otherwise sit on the Lock Screen until the system's own
+      8-hour cap. Disarm still ends it `.immediate` — a disarm that leaves the
+      card up reads as the button not having worked.
+    - **Known limit:** local `Activity.update` only lands while the app is alive.
+      A suspended app cannot advance the step name, so every state carries a
+      `staleDate` set to the next boundary and the system dims the card rather
+      than showing a confidently wrong step. Foregrounding re-syncs
+      (`scenePhase`). Doing better needs push tokens and a server.
+  - **iOS armed state now persists** (`backplan.armed`, `PlanResult` became
+    `Codable`) to match the web's reload behaviour. Both sides discard a snapshot
+    whose target is more than 6 hours behind — otherwise the app reopens onto a
+    dead countdown insisting you are nine hours late for yesterday.
+
 - [x] **Collapsible travel legs** — once both endpoints resolve, a leg folds to a
   one-line summary (`🚗 from → to · 0.9 mi · 4 min`) with a chevron to reopen. An
   error or a missing endpoint always renders expanded, since the fields are what
@@ -108,15 +196,25 @@ no-backend / client-only solutions where possible.
 
 ## Backlog
 
-### 1. Timer integration
-Turn the passive countdown into active alerts.
-- "Start" button that arms the plan against the real clock.
-- Per-step browser notifications ("Time to: Drive there") via the Notifications API.
-- Live ticking countdown to the next step boundary, not just a 30s refresh.
-- Optional sound/vibration on step transitions.
-- Consider: does this need to survive a closed tab? If so, Service Worker +
-  `showTrigger` / scheduled notifications (limited browser support) — or keep it
-  tab-open only for v1.
+### 1. Timer integration — what's still missing
+The core shipped (see Done). Still open:
+- **Surviving a closed tab (web).** v1 is explicitly tab-open-only: the countdown
+  and its alerts run on the page's own 1s interval, so closing the tab stops
+  both. Fixing it means a Service Worker plus scheduled notifications
+  (`showTrigger`), which only Chromium ships — Safari and Firefox have neither,
+  and Safari is where a phone-shaped user actually is. A Service Worker that only
+  helps one browser is worth doing once there is a second reason to add one.
+- **Pushing the Live Activity from outside the app (iOS).** Same shape of
+  problem: local updates only land while the app is running, so a card the user
+  never opens the app for goes stale at the first boundary. Real fix is
+  ActivityKit push tokens and a server to send them, which Backplan does not have
+  and which would break the no-backend constraint.
+- **Sound / vibration on step transitions.** Notifications carry the default
+  sound today. A distinct per-step tone, or a haptic on iOS, is unclaimed.
+- **Snooze / "I'm running late".** The countdown reports overrun but offers
+  nothing to do about it. Shifting the whole remaining chain by N minutes is the
+  obvious move and it interacts with the night bridge (#5), which already knows
+  what a slip costs tomorrow.
 
 ### 2. Travel steps — what's still missing
 The core is shipped (see Done). Still open:

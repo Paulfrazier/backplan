@@ -20,6 +20,12 @@ targets:
       - path: Backplan
         excludes:
           - "**/.DS_Store"
+      # ActivityAttributes has to compile into both processes, so the payload's
+      # shape can never drift between the app and the widget.
+      - path: Shared
+    dependencies:
+      - target: BackplanWidgets
+        embed: true
     settings:
       base:
         INFOPLIST_FILE: Backplan/Info.plist
@@ -40,6 +46,9 @@ targets:
         # automatically on every TestFlight upload. No ATS exception is needed
         # either, since both hosts are HTTPS.
         ITSAppUsesNonExemptEncryption: false
+        # Without this the Live Activity request fails silently — no error, no
+        # card, just `Activity.request` throwing `unsupportedTarget`.
+        NSSupportsLiveActivities: true
         UILaunchScreen:
           UIColorName: "LaunchBrand"
           UIImageName: ""
@@ -55,3 +64,33 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
           UISceneConfigurations: {}
+
+  # Exists only to host the Live Activity: a Live Activity's views have to run
+  # in a widget extension, even when the app ships no Home Screen widgets.
+  BackplanWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BackplanWidgets
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+      # Just the palette — the widget draws in Backplan's colours, and pulling
+      # the whole app in would drag PlanStore and the network services with it.
+      - path: Backplan/Extensions/Color+Theme.swift
+    settings:
+      base:
+        INFOPLIST_FILE: BackplanWidgets/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: website.fairpoint.backplan.widgets
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: DFG7YZ82LP
+        SKIP_INSTALL: YES
+    info:
+      path: BackplanWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Backplan
+        CFBundleName: Backplan
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
