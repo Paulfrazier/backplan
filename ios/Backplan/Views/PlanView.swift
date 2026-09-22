@@ -237,11 +237,20 @@ struct PlanView: View {
 
     @ViewBuilder
     private func editorRows(store: Bindable<PlanStore>, result: PlanResult) -> some View {
-            ForEach(Array(store.wrappedValue.plan.steps.enumerated()), id: \.element.id) { idx, _ in
+            // Iterate the *binding* so each row holds an identity-resolved
+            // binding. `store.plan.steps[idx]` looked equivalent but captured a
+            // fixed index: a row that outlived its element by even one frame —
+            // a swipe-delete, Clear all, a starter swapping the list — read
+            // past the end and trapped with "Index out of range". The position
+            // still comes from the array, but only to look up a start time,
+            // and only when it's in range.
+            ForEach(store.plan.steps) { $step in
+                let idx = store.wrappedValue.plan.steps.firstIndex { $0.id == step.id }
+                let start: Date? = idx.flatMap { $0 < result.startTimes.count ? result.startTimes[$0] : nil }
                 StepRowView(
-                    step: store.plan.steps[idx],
-                    startTime: idx < result.startTimes.count && store.wrappedValue.plan.steps[idx].minutes > 0 ? result.startTimes[idx] : nil,
-                    overflow: idx < result.startTimes.count && result.startTimes[idx] < Calendar.current.startOfDay(for: result.target)
+                    step: $step,
+                    startTime: step.minutes > 0 ? start : nil,
+                    overflow: (start.map { $0 < Calendar.current.startOfDay(for: result.target) }) ?? false
                 )
                 // A bordered card per row, inset to the same gutter as the cards
                 // above. Edge-to-edge white slabs on paper read as floating.
