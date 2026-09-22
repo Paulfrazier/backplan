@@ -6,6 +6,8 @@ struct PlanView: View {
     /// Edit vs. Overview for the Steps section. Persisted because checking the
     /// schedule is what most sessions open the app for.
     @AppStorage("backplan.view") private var overviewMode = false
+    /// Drives the List's edit mode from `reorderButton`.
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         @Bindable var store = store
@@ -22,6 +24,7 @@ struct PlanView: View {
             }
             .listStyle(.plain)
             .listSectionSpacing(16)
+            .environment(\.editMode, $editMode)
             .scrollContentBackground(.hidden)
             .background(.bpPaper)
             .scrollDismissesKeyboard(.interactively)
@@ -142,10 +145,11 @@ struct PlanView: View {
                 Spacer()
                 viewToggle
                 if !overviewMode && store.wrappedValue.plan.steps.count > 1 {
-                    EditButton()
-                        .font(.subheadline.weight(.semibold))
-                        .textCase(nil)
-                        .tint(.bpPurpleElectric)
+                    // Not EditButton(): it labels itself "Edit", which collides with
+                    // the toggle's own EDIT half right beside it — two controls
+                    // reading the same and doing different things. This one is about
+                    // reordering and deleting rows, so it says so.
+                    reorderButton
                 }
             }
         }
@@ -153,6 +157,19 @@ struct PlanView: View {
             Button("Clear all", role: .destructive) { store.wrappedValue.clearSteps() }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    /// Enters the List's own edit mode for drag-reorder and swipe-delete.
+    private var reorderButton: some View {
+        Button {
+            withAnimation { editMode = editMode == .active ? .inactive : .active }
+        } label: {
+            Text(editMode == .active ? "Done" : "Reorder")
+                .font(.subheadline.weight(.semibold))
+                .textCase(nil)
+                .foregroundStyle(.bpPurpleElectric)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Segmented Edit / Overview control, matching the web `.view-toggle`.
