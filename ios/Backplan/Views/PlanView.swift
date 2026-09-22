@@ -16,10 +16,20 @@ struct PlanView: View {
         NavigationStack {
             List {
                 header
-                planTabsSection
-                resultSection(result)
-                bridgeSection
-                targetSection(store: $store)
+                // Track mode is a different question asked of the same record,
+                // so the surfaces that answer the *other* one step back: the
+                // result card and the bridge both read out from a bedtime you
+                // typed, and in this mode you didn't type one. The Steps section
+                // stays — it *is* the wind-down, and trimming it is the one
+                // lever the sleep figure answers to.
+                if store.track.on {
+                    trackSection
+                } else {
+                    planTabsSection
+                    resultSection(result)
+                    bridgeSection
+                    targetSection(store: $store)
+                }
                 stepsSection(store: $store, result: result)
                 placesSection
                 templatesSection
@@ -30,7 +40,12 @@ struct PlanView: View {
             .scrollContentBackground(.hidden)
             .background(.bpPaper)
             .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom) { ArmBar() }
+            // The arm bar arms the evening plan against its own target time,
+            // which track mode doesn't use — "Arm plan" beside a card that
+            // derives lights-out from now would be arming a different question.
+            .safeAreaInset(edge: .bottom) {
+                if !store.track.on { ArmBar() }
+            }
             // A List is lazy, so a travel row below the fold never gets to fetch
             // its own leg — which would leave the plan's start time wrong until
             // the user happened to scroll to it. Resolve every leg up front.
@@ -111,6 +126,16 @@ struct PlanView: View {
                 .neoCard()
                 .plainRow()
             }
+        }
+    }
+
+    /// The tracker card stands in for the result card, the tabs and the bridge
+    /// all at once — it is the same chain read the other way round.
+    private var trackSection: some View {
+        Section {
+            SleepTrackerView()
+                .neoCard()
+                .plainRow()
         }
     }
 
@@ -214,6 +239,20 @@ struct PlanView: View {
             }
             .tint(.bpPurple)
 
+            // The way in. Sits beside the chain toggle because it is the same
+            // edge asked the other way round, not a separate feature.
+            Button {
+                store.wrappedValue.setTrackMode(true)
+            } label: {
+                Label("Track to sleep", systemImage: "moon.zzz.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.bpInk)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .neoPill(fill: .bpCard)
+            }
+            .buttonStyle(.plain)
+
             if store.wrappedValue.link.enabled {
                 HStack(alignment: .bottom, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -275,7 +314,9 @@ struct PlanView: View {
             }
         } header: {
             HStack {
-                sectionTitle("Steps")
+                // In track mode this list is the wind-down between the front
+                // door and lights out, so it says so.
+                sectionTitle(store.wrappedValue.track.on ? "Wind-down" : "Steps")
                 Spacer()
                 viewToggle
                 if !overviewMode && store.wrappedValue.plan.steps.count > 1 {
@@ -355,8 +396,10 @@ struct PlanView: View {
                 )
                 .plainRow()
             }
+            // In track mode the list closes on being asleep, not on being ready.
             OverviewTargetRow(target: result.target,
-                              eventName: store.wrappedValue.plan.eventName)
+                              eventName: store.wrappedValue.track.on
+                                ? "Asleep" : store.wrappedValue.plan.eventName)
                 .plainRow()
         }
     }

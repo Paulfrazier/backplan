@@ -294,7 +294,9 @@
       padding-top: var(--s3);
       border-top: var(--line-hair);
     }
-    .bridge-pill {
+    /* One status pill, two surfaces — the bridge's verdict and the tracker's
+       are the same three states about the same chain, so they share a shape. */
+    .bridge-pill, .track-pill {
       flex: 0 0 auto;
       padding: 3px 9px;
       border-radius: 999px;
@@ -308,8 +310,10 @@
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .bridge.late .bridge-pill { border-color: var(--coral); background: var(--coral-tint); color: var(--coral); }
-    .bridge.tight .bridge-pill { border-color: var(--gold); background: #fdf5e2; color: #8a6100; }
+    .bridge.late .bridge-pill,
+    .track.short .track-pill { border-color: var(--coral); background: var(--coral-tint); color: var(--coral); }
+    .bridge.tight .bridge-pill,
+    .track.tight .track-pill { border-color: var(--gold); background: #fdf5e2; color: #8a6100; }
     .bridge-verdict-body { min-width: 0; }
     .bridge-verdict-text { margin: 0; font-size: 15px; line-height: 1.45; }
     .bridge-live {
@@ -352,6 +356,136 @@
       .bridge-node { flex: 1 1 45%; padding: 0 var(--s2) 0 0; }
       .bridge-node + .bridge-node { border-left: 0; }
       .bridge-time { font-size: 19px; }
+    }
+
+    /* ── Track to sleep ──
+       A third lens on the same night edge, not a second model of it. The pair
+       pins both ends — a lights-out you chose and a morning you can't move —
+       and measures the gap. The tracker pins only the far end and lets the near
+       one ride the wall clock, because the question at 10pm in someone else's
+       living room isn't "when should bedtime start", it's "if I stand up right
+       now, what do I get?". Same wake, same sleep need, same deadline; read
+       forwards from now instead of backwards from bedtime.
+
+       It replaces the hero rather than stacking under it: in this mode the
+       evening plan's target time is not an input at all, so showing a card
+       built around it would be showing an answer to a question nobody asked. */
+    .track {
+      background: var(--card);
+      border: var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding: var(--s4) 20px;
+      margin-bottom: var(--s4);
+    }
+    .track[hidden] { display: none; }
+    .track-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s2);
+    }
+    .track-eyebrow {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--purple);
+      margin: 0;
+    }
+    .track-exit { padding: 6px 12px; font-size: 12px; }
+    .track-figure { margin-top: var(--s3); }
+    .track-figure .label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 4px;
+    }
+    /* The number that moves. Tabular figures so a digit rolling over doesn't
+       shove the "of sleep" suffix sideways once a minute. */
+    .track-sleep {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 56px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--lime-ink);
+      font-variant-numeric: tabular-nums;
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: var(--s2);
+      flex-wrap: wrap;
+    }
+    .track.tight .track-sleep { color: #8a6100; }
+    .track.short .track-sleep { color: var(--coral); }
+    .track-sleep .suffix {
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .track-chain {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+      margin: var(--s2) 0 0;
+    }
+    .track-verdict {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s2);
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: var(--line-hair);
+    }
+    .track-verdict-text { margin: 0; font-size: 15px; line-height: 1.45; min-width: 0; }
+    .track-rule {
+      border: 0;
+      border-top: var(--line-hair);
+      margin: var(--s3) -20px;
+    }
+    .track-ride { display: flex; flex-direction: column; gap: var(--s2); }
+    /* The destination is the mode's premise, not a field — "back-plan to home"
+       is what makes this a sleep tracker and not a second trip planner. */
+    .track-home {
+      font-size: 15px;
+      padding: 9px 11px;
+      border: 2px solid var(--lime);
+      border-radius: 10px;
+      background: var(--lime-tint);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .track-home.unset { border-color: var(--rule); background: var(--card); color: var(--muted); }
+    .track-caveat {
+      font-size: 12.5px;
+      line-height: 1.4;
+      color: var(--muted);
+      margin: 0;
+    }
+    .track-tail {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--s3);
+      flex-wrap: wrap;
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: var(--line-hair);
+    }
+    /* `.field` only stacks its label inside `.target-row`; this row is the
+       other place it is used, so it has to say so itself. */
+    .track-tail .field { display: flex; flex-direction: column; gap: 6px; }
+    .track-note { flex: 1 1 220px; font-size: 12.5px; line-height: 1.4; color: var(--muted); margin: 0 0 4px; }
+    .track-wake-field input:disabled { background: var(--paper); color: var(--muted); box-shadow: none; }
+
+    @media (max-width: 520px) {
+      .track-sleep { font-size: 44px; }
     }
 
     /* ── Timeline (lives inside .hero) ──
@@ -1490,7 +1624,7 @@
       </button>
     </div>
 
-    <section class="hero" aria-live="polite">
+    <section class="hero" id="hero" aria-live="polite">
       <!-- The event name owns a full-width line. Sharing the right column with
            the target time knocked that time off the start time's baseline. -->
       <div class="hero-head" id="hero-head" hidden>
@@ -1594,7 +1728,67 @@
       </div>
     </section>
 
-    <div class="card">
+    <!-- Track to sleep. Same chain as the bridge above, read forwards from now:
+         leave now → home → the wind-down → asleep → the wake you can't move. -->
+    <section class="track" id="track" aria-live="polite" hidden>
+      <div class="track-head">
+        <p class="track-eyebrow">Track to sleep</p>
+        <button class="btn ghost track-exit" id="track-exit" type="button">Exit</button>
+      </div>
+
+      <div class="track-figure">
+        <p class="label">If you leave now</p>
+        <p class="track-sleep"><span id="track-sleep">—</span><span class="suffix">of sleep</span></p>
+        <p class="track-chain" id="track-chain">—</p>
+      </div>
+
+      <div class="track-verdict">
+        <span class="track-pill" id="track-pill">On track</span>
+        <p class="track-verdict-text" id="track-verdict-text"></p>
+      </div>
+
+      <hr class="track-rule" />
+
+      <div class="track-ride">
+        <div class="travel-modes" role="group" aria-label="How you're getting home" id="track-modes"></div>
+        <div class="travel-places">
+          <div class="place-field" id="track-from-field">
+            <label for="track-from">Leaving from</label>
+            <input type="text" id="track-from" class="place-input" data-field="track-from"
+                   placeholder="Where you are right now" autocomplete="off" spellcheck="false"
+                   role="combobox" aria-expanded="false" aria-autocomplete="list" />
+            <div class="place-menu" hidden role="listbox"></div>
+          </div>
+          <div class="place-field">
+            <label id="track-home-label">Heading</label>
+            <div class="track-home" id="track-home">—</div>
+          </div>
+        </div>
+        <div class="travel-result" id="track-ride-result"></div>
+        <p class="track-caveat">Free-flow times, no traffic model — treat the trip home as a floor, not a promise.</p>
+      </div>
+
+      <!-- Wake and sleep need are the two ends of the figure above, and the
+           card that normally carries them is hidden in this mode — so they come
+           along. They are the same `link.sleepNeed` / morning target the bridge
+           reads, not a private copy. -->
+      <div class="track-tail">
+        <div class="field track-wake-field">
+          <label for="track-wake">Wake at</label>
+          <input type="time" id="track-wake" />
+        </div>
+        <div class="field">
+          <label for="track-sleep-need">Sleep needed</label>
+          <div class="sleep-input">
+            <input type="number" id="track-sleep-need" min="0" max="16" step="0.25" inputmode="decimal" />
+            <span>hours</span>
+          </div>
+        </div>
+        <p class="track-note" id="track-wake-note"></p>
+      </div>
+    </section>
+
+    <div class="card" id="target-card">
       <div class="target-row">
         <div class="field" style="flex:1 1 200px; min-width:0;">
           <label for="event-name">What's it for? <span style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);">(optional)</span></label>
@@ -1629,10 +1823,13 @@
           <label for="sleeper-name">Who's sleeping <span style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);">(optional)</span></label>
           <input type="text" id="sleeper-name" placeholder="Ezra" autocomplete="off" />
         </div>
+        <!-- The way in. Sits beside the chain checkbox because it is the same
+             edge asked the other way round, not a separate feature. -->
+        <button class="btn" id="track-enter" type="button" style="margin-left:auto;">🌙 Track to sleep</button>
       </div>
     </div>
 
-    <h2>Steps<span class="view-toggle" role="group" aria-label="Steps view">
+    <h2><span id="steps-title">Steps</span><span class="view-toggle" role="group" aria-label="Steps view">
         <button type="button" id="view-edit" aria-pressed="true">Edit</button>
         <button type="button" id="view-overview" aria-pressed="false">Overview</button>
       </span></h2>
@@ -1784,6 +1981,22 @@
     // when sleep falls under it, not when it merely differs from it.
     const link = { enabled: false, sleepNeed: 660, sleeper: '' };
 
+    // ── Track to sleep.
+    //   The third lens on that same edge, and deliberately NOT a second model of
+    //   it: wake, sleep need and the lights-out deadline all still come from
+    //   `link` + `plans.morning`. What the tracker adds is one leg the pair has
+    //   no room for — the ride home — and a different anchor. The pair asks
+    //   "given the bedtime I set, does tomorrow survive?"; the tracker asks "if
+    //   I stand up right now, what do I get?", so its near end is the wall clock
+    //   and moves on its own.
+    //
+    //   `ride.to` is written from the home place at refresh time rather than
+    //   being picked: "back-plan to home" is the mode's premise. Only the origin
+    //   is the user's to choose, because that is the thing that changes between
+    //   one evening out and the next.
+    // (`makeTravel` is a hoisted function declaration, so it is callable here.)
+    const track = { on: false, ride: makeTravel('drive') };
+
     // What the morning plan gets seeded with the first time the pair is turned
     // on. An empty morning would make wake === target, which is technically a
     // valid chain and tells the user nothing.
@@ -1867,6 +2080,24 @@
     const $armRearm = document.getElementById('arm-rearm');
     const $armToggle = document.getElementById('arm-toggle');
     const $armNote = document.getElementById('arm-note');
+    const $hero = document.getElementById('hero');
+    const $targetCard = document.getElementById('target-card');
+    const $stepsTitle = document.getElementById('steps-title');
+    const $track = document.getElementById('track');
+    const $trackEnter = document.getElementById('track-enter');
+    const $trackExit = document.getElementById('track-exit');
+    const $trackSleep = document.getElementById('track-sleep');
+    const $trackChain = document.getElementById('track-chain');
+    const $trackPill = document.getElementById('track-pill');
+    const $trackVerdictText = document.getElementById('track-verdict-text');
+    const $trackModes = document.getElementById('track-modes');
+    const $trackFrom = document.getElementById('track-from');
+    const $trackFromField = document.getElementById('track-from-field');
+    const $trackHome = document.getElementById('track-home');
+    const $trackRideResult = document.getElementById('track-ride-result');
+    const $trackWake = document.getElementById('track-wake');
+    const $trackWakeNote = document.getElementById('track-wake-note');
+    const $trackSleepNeed = document.getElementById('track-sleep-need');
 
     // ── Helpers
     function nextRoundHalfHour() {
@@ -1894,8 +2125,14 @@
       if (m === 0) return h + ' hr';
       return h + ' hr ' + m + ' min';
     }
-    // H:MM:SS (or M:SS under an hour). Only the live countdown wants this —
-    // everywhere else a minute is the smallest unit anyone acts on.
+    // Compact form for the one number big enough that "7 hr 12 min" would wrap.
+    function fmtSleep(mins) {
+      const m = Math.max(0, mins);
+      return Math.floor(m / 60) + 'h ' + pad2(m % 60) + 'm';
+    }
+    // H:MM:SS (or M:SS under an hour). The live countdown and the tracker's
+    // departure deadline are the two things genuinely running out, so they get a
+    // seconds hand; everywhere else a minute is the smallest unit anyone acts on.
     function fmtClock(ms) {
       const s = Math.max(0, Math.round(ms / 1000));
       const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -1914,13 +2151,17 @@
       }
       return plan.day === 'tomorrow' ? 1 : 0;
     }
-    function targetDateFor(plan) {
-      const { h, m } = parseHHMM(plan.target || '00:00');
+    // "HH:MM, N days from today" as an absolute Date.
+    function dateAt(hhmm, dayOffset) {
+      const { h, m } = parseHHMM(hhmm || '00:00');
       const d = new Date();
       d.setSeconds(0, 0);
-      d.setDate(d.getDate() + dayOffsetFor(plan));
+      d.setDate(d.getDate() + dayOffset);
       d.setHours(h, m, 0, 0);
       return d;
+    }
+    function targetDateFor(plan) {
+      return dateAt(plan.target, dayOffsetFor(plan));
     }
     function targetDate() { return targetDateFor(state); }
     function planMinutes(plan) {
@@ -2267,6 +2508,12 @@
     function homePlace() {
       return loadPlaces().find(p => p.isHome) || null;
     }
+    // Home as a travel endpoint. A saved place is known by its nickname —
+    // "Home" reads better than the street address it expands to.
+    function homeRef() {
+      const home = homePlace();
+      return home ? { label: home.name, sub: home.label, lat: home.lat, lng: home.lng } : null;
+    }
     // Bias place search around home when it's set — a Portland default is only
     // right until someone else uses this.
     function searchAnchor() {
@@ -2322,10 +2569,8 @@
         const prev = state.steps[j];
         if (prev.travel && prev.travel.to) return { place: prev.travel.to, chained: true };
       }
-      const home = homePlace();
-      // A saved place is known by its nickname — "Home" reads better than the
-      // street address it expands to.
-      if (home) return { place: { label: home.name, sub: home.label, lat: home.lat, lng: home.lng }, chained: true };
+      const home = homeRef();
+      if (home) return { place: home, chained: true };
       return null;
     }
 
@@ -2847,7 +3092,8 @@
         $overview.appendChild(row);
       });
 
-      // Close the list on the thing the whole plan is aimed at.
+      // Close the list on the thing the whole plan is aimed at — which in track
+      // mode is being asleep, not being ready.
       const targetRow = document.createElement('div');
       targetRow.className = 'ov-row target';
       const tTime = document.createElement('span');
@@ -2857,7 +3103,9 @@
       tBody.className = 'ov-body';
       const tName = document.createElement('div');
       tName.className = 'ov-name';
-      tName.textContent = (state.eventName || '').trim() || 'Be ready';
+      tName.textContent = track.on
+        ? 'Asleep'
+        : ((state.eventName || '').trim() || 'Be ready');
       tBody.appendChild(tName);
       targetRow.append(tTime, tBody, document.createElement('span'));
       $overview.appendChild(targetRow);
@@ -2868,12 +3116,22 @@
     //   morning target is fixed, so wake = morning target − morning steps, and
     //   the real bedtime deadline = wake − sleep need. Everything else is a
     //   comparison against that deadline.
-    function computeLink() {
-      if (!link.enabled) return null;
-      const morningTarget = targetDateFor(plans.morning);
+    //
+    //   The solve itself lives in `solveNight` because two lenses now read it —
+    //   the pair and the tracker — and they must never drift into two different
+    //   answers for "when is lights out really". They differ in exactly one
+    //   input: which day the morning obligation lands on.
+    function solveNight(morningOffset) {
+      const morningTarget = dateAt(plans.morning.target, morningOffset);
       const morningMin = planMinutes(plans.morning);
       const wake = new Date(morningTarget.getTime() - morningMin * 60000);
       const deadline = new Date(wake.getTime() - link.sleepNeed * 60000);
+      return { morningTarget, morningMin, wake, deadline };
+    }
+
+    function computeLink() {
+      if (!link.enabled) return null;
+      const { morningTarget, morningMin, wake, deadline } = solveNight(dayOffsetFor(plans.morning));
       const lightsOut = targetDateFor(plans.evening);
       const eveningMin = planMinutes(plans.evening);
 
@@ -2900,8 +3158,10 @@
 
     function renderLink() {
       const L = computeLink();
-      $planTabs.hidden = !link.enabled;
-      $bridge.hidden = !L;
+      // Track mode is the same chain read the other way round, so its own card
+      // stands in for both of these rather than sitting under them.
+      $planTabs.hidden = !link.enabled || track.on;
+      $bridge.hidden = !L || track.on;
       if (!L) return;
 
       setText($bridgeDeadline, fmtTime(L.deadline));
@@ -3253,6 +3513,262 @@
     // Re-arms the half that was armed, not the one being edited — the banner is
     // about that plan having moved underneath its own countdown.
     $armRearm.addEventListener('click', () => { if (armed) armPlan(armed.key); });
+    // Track to sleep — the same night edge, anchored at now.
+    //   The pair pins both ends (a lights-out you chose, a morning you can't
+    //   move) and measures the gap. The tracker pins only the far end and lets
+    //   the near one ride the wall clock. Everything downstream of wake is
+    //   shared: same `solveNight`, same sleep need, same deadline. What the
+    //   tracker adds is the one leg the pair has nowhere to put — the ride home.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Track mode has no day toggle, so the morning obligation is simply the next
+    // one that hasn't happened yet. That is not a restatement of the pair's
+    // rule: the pair derives the morning from the *evening plan's* Today /
+    // Tomorrow choice, which cannot express "it is 12:40am and I want the 6am
+    // that's five hours away, not the one 29 hours out" — the exact case a mode
+    // for people still out at night has to get right.
+    function trackMorningOffset() {
+      return solveNight(0).wake > new Date() ? 0 : 1;
+    }
+
+    // An unresolved ride contributes nothing rather than a guess: a made-up
+    // number would be indistinguishable from a routed one in the headline.
+    function trackRideMinutes() {
+      return track.ride && track.ride.result ? track.ride.result.minutes : 0;
+    }
+
+    function computeTrack() {
+      if (!track.on || !link.enabled) return null;
+      const N = solveNight(trackMorningOffset());
+      const rideMin = trackRideMinutes();
+      // The evening plan *is* the wind-down — the steps between walking in the
+      // door and lights out. Track mode does not own a second step list.
+      const windDownMin = planMinutes(plans.evening);
+      const chainMin = rideMin + windDownMin;
+
+      const now = Date.now();
+      const asleepAt = new Date(now + chainMin * 60000);
+      // Floor, not round. Claiming a minute of sleep you don't have is the one
+      // error this number is not allowed to make.
+      const sleepMin = Math.floor((N.wake - asleepAt) / 60000);
+      const deficitMin = link.sleepNeed - sleepMin;
+      // The inverse question, off the same deadline the bridge uses: walk the
+      // chain back from it instead of comparing a chosen bedtime against it.
+      const leaveBy = new Date(N.deadline.getTime() - chainMin * 60000);
+
+      return {
+        ...N, rideMin, windDownMin, chainMin, asleepAt, sleepMin, deficitMin,
+        leaveBy, toLeaveMs: leaveBy - now,
+      };
+    }
+
+    // The same three states and the same 15-minute band as the bridge, so one
+    // night can't read "tight" in one lens and "fine" in the other.
+    function trackVerdict(T) {
+      if (T.deficitMin <= 0) return { cls: 'ok', pill: 'On track' };
+      if (T.deficitMin <= 15) return { cls: 'tight', pill: 'Tight' };
+      return { cls: 'short', pill: 'Short' };
+    }
+
+    function morningLabel() {
+      return (plans.morning.eventName || '').trim() || 'Out the door';
+    }
+
+    // Render-once half: the ride controls and the wake field. None of it is
+    // rebuilt via innerHTML — the origin is a live text input the user may be
+    // mid-search in, and the whole section is an aria-live region.
+    function renderTrack() {
+      const T = computeTrack();
+      $track.hidden = !T;
+      if (!T) return;
+
+      $trackModes.querySelectorAll('.mode-btn').forEach(b => {
+        const on = b.dataset.mode === track.ride.mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      if (document.activeElement !== $trackFrom) {
+        $trackFrom.value = track.ride.from ? track.ride.from.label : '';
+      }
+
+      const home = homeRef();
+      setText($trackHome, home ? home.label : 'No home place set');
+      $trackHome.classList.toggle('unset', !home);
+      renderRideResult(home);
+
+      // Wake is editable only where it is genuinely a free variable. With a
+      // morning routine in place it is derived — the obligation minus the
+      // routine — and a field that silently moved the school bell would lie.
+      const derived = plans.morning.steps.length > 0;
+      $trackWake.disabled = derived;
+      if (document.activeElement !== $trackWake) {
+        $trackWake.value = derived ? toHHMM(T.wake) : plans.morning.target;
+      }
+      if (document.activeElement !== $trackSleepNeed) {
+        $trackSleepNeed.value = String(link.sleepNeed / 60);
+      }
+      setText($trackWakeNote, derived
+        ? `Derived — ${fmtDuration(T.morningMin)} of tomorrow morning before ${morningLabel()} at ${fmtTime(T.morningTarget)}. Exit to change it.`
+        : 'Tomorrow morning is empty, so waking is the whole of it. Exit and open the Tomorrow AM tab to back this up from a fixed obligation.');
+
+      renderTrackLive(T);
+    }
+
+    // The ride's status line wears a travel step's words, because it is running
+    // the identical machinery — same routeLeg, same cache, same free-flow caveat.
+    // Decided as a (text, needs-retry) pair and rebuilt only when that pair
+    // changes: this sits in an aria-live region, and renderTrack() runs on every
+    // keystroke, so an unconditional rewrite would re-announce the same
+    // sentence over and over.
+    function renderRideResult(home) {
+      const t = track.ride;
+      let text, retry = false;
+      if (!home) {
+        text = 'Mark one of your saved places as home — that is what this mode plans to.';
+      } else if (t.status === 'loading') {
+        text = 'Looking up route…';
+      } else if (t.status === 'error') {
+        text = t.error === 'no_route'
+          ? 'No route found between those two points.'
+          : "Couldn't reach the routing service.";
+        retry = true;
+      } else if (t.status === 'ok' && t.result) {
+        text = `${fmtDistance(t.result.distanceM)} · ${fmtDuration(t.result.minutes)} free-flow ${travelMode(t.mode).label.toLowerCase()}`;
+        retry = true;
+      } else {
+        text = 'Say where you are and the trip home gets counted.';
+      }
+      const cls = 'travel-result' + (t.status === 'error' && home ? ' error' : '');
+      if ($trackRideResult.dataset.line === text && $trackRideResult.className === cls) return;
+      $trackRideResult.dataset.line = text;
+      $trackRideResult.className = cls;
+      $trackRideResult.textContent = text;
+      if (retry) $trackRideResult.appendChild(rideRefreshButton());
+    }
+    // Its own button rather than `refreshButton(id)`: that one carries a step id
+    // for the step list's delegated click handler, and the ride has no step.
+    function rideRefreshButton() {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'travel-refresh';
+      btn.title = 'Re-fetch travel time';
+      btn.setAttribute('aria-label', 'Re-fetch travel time');
+      btn.textContent = '↻';
+      btn.addEventListener('click', () => refreshRide(true));
+      return btn;
+    }
+
+    // Tick half, on the 1s interval — the same split renderBridgeLive uses.
+    // Everything here moves on its own: with wake fixed and the chain fixed, a
+    // minute spent deciding is a minute of sleep, so the figure, the verdict and
+    // the card's colour all slide without anybody touching an input.
+    function renderTrackLive(pre) {
+      const T = pre || computeTrack();
+      if (!T) return;
+      const v = trackVerdict(T);
+
+      setText($trackSleep, fmtSleep(T.sleepMin));
+      if (!$track.classList.contains(v.cls)) {
+        $track.classList.remove('ok', 'tight', 'short');
+        $track.classList.add(v.cls);
+      }
+      setText($trackPill, v.pill);
+      setText($trackChain, [
+        `asleep by ${fmtTime(T.asleepAt)}`,
+        `wake ${fmtTime(T.wake)}`,
+        `need ${fmtDuration(link.sleepNeed)}`,
+      ].join(' · '));
+
+      const need = fmtDuration(link.sleepNeed);
+      let msg;
+      if (T.chainMin <= 0) {
+        // Nothing between standing up and being asleep: the figure is still
+        // true, but it isn't a plan and shouldn't be dressed as one.
+        msg = 'Nothing counted between here and asleep yet — add the trip home above, or a wind-down below.';
+      } else if (T.toLeaveMs > 0) {
+        msg = `Leave by ${fmtTime(T.leaveBy)} and the full ${need} still fits — ${fmtClock(T.toLeaveMs)} from now.`;
+      } else {
+        msg = `The full ${need} needed leaving by ${fmtTime(T.leaveBy)} — ${fmtClock(-T.toLeaveMs)} ago. ` +
+              `Every minute here is a minute of sleep: trim the wind-down below, or take the loss.`;
+      }
+      setText($trackVerdictText, msg);
+    }
+
+    // What the mode swaps out. The hero and the bridge both read out from a
+    // bedtime you typed, and in this mode you didn't type one — leaving them up
+    // would be answering a question nobody asked. The Steps list stays, because
+    // it *is* the wind-down and trimming it is the one lever the number answers
+    // to; it only changes its name.
+    function applyTrackMode() {
+      $track.hidden = !track.on;
+      $hero.hidden = track.on;
+      $targetCard.hidden = track.on;
+      setText($stepsTitle, track.on ? 'Wind-down' : 'Steps');
+    }
+
+    function setTrackMode(on) {
+      track.on = !!on;
+      if (track.on) {
+        // The tracker is a lens on the night edge, so it turns that edge on. It
+        // deliberately does NOT seed a morning routine the way the Chain
+        // checkbox does: the question here is how much sleep, and an empty
+        // morning is exactly what makes the wake time itself directly settable.
+        if (!link.enabled) { link.enabled = true; applyNightFields(); }
+        // Editing the morning from inside this mode isn't offered, so don't
+        // leave the editor pointed at a plan whose tab is about to vanish.
+        if (activePlanKey === 'morning') switchPlan('evening');
+        refreshRide(false);
+      }
+      applyTrackMode();
+      persistLast();
+      compute();
+    }
+
+    // One in-flight request, aborted on replacement — the same discipline
+    // refreshTravel keeps, minus the resolve-by-id, since there is only one ride.
+    let rideRequest = null;
+    async function refreshRide(force) {
+      const t = track.ride;
+      const home = homeRef();
+      t.to = home;
+      if (!t.from || !home) {
+        t.status = 'idle';
+        t.error = null;
+        t.result = null;
+        renderTrack();
+        return;
+      }
+      const cached = routeCache.get(routeCacheKey(t.mode, t.from, home));
+      if (cached && !force) {
+        t.result = cached;
+        t.status = 'ok';
+        t.error = null;
+        renderTrack();
+        persistLast();
+        return;
+      }
+
+      if (rideRequest) rideRequest.abort();
+      const ctrl = new AbortController();
+      rideRequest = ctrl;
+      t.status = 'loading';
+      t.error = null;
+      renderTrack();
+      try {
+        const result = await routeLeg(t.mode, t.from, home, ctrl.signal, force);
+        t.result = result;
+        t.status = 'ok';
+        t.error = null;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        t.status = 'error';
+        t.error = (err && err.code) || 'network';
+      } finally {
+        if (rideRequest === ctrl) rideRequest = null;
+      }
+      renderTrack();
+      persistLast();
+    }
 
     // ── Switching which plan the editor points at
     function switchPlan(key) {
@@ -3303,8 +3819,10 @@
     // The walk itself, for *any* plan rather than only the one being edited:
     // arming and the stale check need it for the armed half while the editor
     // points at the other one. compute() below is the same math plus the DOM.
-    function planSegments(plan) {
-      const target = targetDateFor(plan);
+    // `targetOverride` is how track mode ends the chain at a computed
+    // asleep-by rather than a typed target; every other caller passes nothing.
+    function planSegments(plan, targetOverride) {
+      const target = targetOverride || targetDateFor(plan);
       const startTimes = new Array(plan.steps.length);
       let totalMin = 0;
 
@@ -3339,7 +3857,15 @@
     }
 
     function compute() {
-      const { target, startTimes, segments, totalMin, overallStart } = planSegments(state);
+      // In track mode the plan does not end at a bedtime you typed — it ends
+      // wherever "leave now" lands you. Feeding that back in as the target is
+      // what keeps the step rows and the overview telling the same story as the
+      // figure on the card. It also places them correctly: walking the wind-down
+      // backwards from asleep-by puts its first step exactly at now + the ride,
+      // which is when you actually walk in the door.
+      const T = track.on ? computeTrack() : null;
+      const { target, startTimes, segments, totalMin, overallStart } =
+        planSegments(state, T ? T.asleepAt : null);
       $targetDisplay.textContent = fmtTime(target);
       const name = (state.eventName || '').trim();
       $eventDisplay.textContent = name;
@@ -3356,6 +3882,7 @@
 
       renderOverview(target, startTimes, targetDayStart);
       renderLink();
+      renderTrack();
 
       // Per-row update
       rows.forEach((row, i) => {
@@ -3791,6 +4318,11 @@
 
     $linkEnabled.addEventListener('change', () => {
       link.enabled = $linkEnabled.checked;
+      // The tracker is a lens on this edge, so the edge going away has to take
+      // the lens with it or the app strands itself on a card computing null.
+      // Unreachable while track mode hides the card this checkbox lives in —
+      // it is the invariant written down, so re-showing that card can't break it.
+      if (!link.enabled && track.on) { track.on = false; applyTrackMode(); }
       if (link.enabled && plans.morning.steps.length === 0) {
         plans.morning.eventName = MORNING_SEED.eventName;
         plans.morning.steps = MORNING_SEED.steps.map(normalizeStep);
@@ -3833,6 +4365,100 @@
       $sleepNeed.value = String(link.sleepNeed / 60);
       $sleeperName.value = link.sleeper || '';
     }
+
+    // ── Track to sleep controls
+    $trackEnter.addEventListener('click', () => setTrackMode(true));
+    $trackExit.addEventListener('click', () => setTrackMode(false));
+
+    TRAVEL_MODES.forEach(m => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mode-btn';
+      btn.dataset.mode = m.id;
+      btn.innerHTML = `<span aria-hidden="true">${m.glyph}</span> ${m.label}`;
+      btn.addEventListener('click', () => {
+        track.ride.mode = m.id;
+        persistLast();
+        renderTrack();
+        refreshRide(false);
+      });
+      $trackModes.appendChild(btn);
+    });
+
+    $trackWake.addEventListener('input', () => {
+      // Only reachable with an empty morning plan, where wake *is* the morning
+      // target — so this writes straight through to the one model instead of
+      // keeping a second wake time of its own.
+      plans.morning.target = $trackWake.value || '07:00';
+      persistLast();
+      compute();
+    });
+
+    // The same `link.sleepNeed` the bridge reads — a second control on it, not
+    // a second copy of it. The card that normally holds this one is hidden here.
+    $trackSleepNeed.addEventListener('input', () => {
+      const hours = Number($trackSleepNeed.value);
+      if (!Number.isFinite(hours) || hours < 0) return;
+      link.sleepNeed = Math.round(hours * 60);
+      applyNightFields();
+      persistLast();
+      compute();
+    });
+
+    // Origin autocomplete. Its own handler pair rather than the step list's
+    // delegation — the same shape the Places section's add-field already has —
+    // but reusing the shared menu rendering so the three can't drift apart.
+    $trackFrom.addEventListener('input', () => {
+      const query = $trackFrom.value;
+      clearTimeout(searchTimers.get($trackFrom));
+      const pending = searchAborts.get($trackFrom);
+      if (pending) pending.abort();
+
+      // Emptying the field drops the origin: a stale coordinate would keep
+      // routing from a bar you already walked out of.
+      if (query.trim() === '' && track.ride.from) {
+        track.ride.from = null;
+        track.ride.result = null;
+        track.ride.status = 'idle';
+        persistLast();
+        renderTrack();
+      }
+      if (query.trim().length < SEARCH_MIN_CHARS) {
+        renderPlaceMenu($trackFrom, savedPlaceMatches(query), query);
+        return;
+      }
+      searchTimers.set($trackFrom, setTimeout(async () => {
+        const ctrl = new AbortController();
+        searchAborts.set($trackFrom, ctrl);
+        try {
+          const results = await searchPlaces(query, ctrl.signal);
+          renderPlaceMenu($trackFrom, savedPlaceMatches(query).concat(results), query);
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          renderPlaceMenu($trackFrom, [], query, "Couldn't reach the place search.");
+        } finally {
+          if (searchAborts.get($trackFrom) === ctrl) searchAborts.delete($trackFrom);
+        }
+      }, SEARCH_DEBOUNCE_MS));
+    });
+    // Saved places first, unprompted: "where you are now" is often one of them.
+    $trackFrom.addEventListener('focus', () => {
+      if ($trackFrom.value.trim()) return;
+      const saved = savedPlaceMatches('');
+      if (saved.length) renderPlaceMenu($trackFrom, saved, '');
+    });
+    $trackFromField.addEventListener('click', (e) => {
+      const option = e.target.closest('.place-option');
+      if (!option) return;
+      const chosen = (menuResults.get(option.parentElement) || [])[Number(option.dataset.idx)];
+      if (!chosen) return;
+      track.ride.from = placeRef(chosen);
+      $trackFrom.value = chosen.label;
+      closePlaceMenu($trackFrom);
+      persistLast();
+      renderTrack();
+      refreshRide(false);
+    });
 
     // ── Templates
     function loadTemplates() {
@@ -3931,10 +4557,11 @@
           arr.forEach((q, j) => { q.isHome = makeHome && j === i; });
           savePlaces(arr);
           renderPlaceChips();
-          // Home is both the search bias and the default first origin, so every
-          // unresolved leg can change meaning here.
+          // Home is the search bias, the default first origin, and the place the
+          // tracker plans *to*, so every unresolved leg can change meaning here.
           renderSteps();
           state.steps.forEach(s => { if (s.travel) refreshTravel(s.id, false); });
+          refreshRide(false);
         });
         chip.querySelector('.x').addEventListener('click', () => {
           if (!confirm('Delete place "' + p.name + '"?')) return;
@@ -3943,6 +4570,7 @@
           savePlaces(arr);
           renderPlaceChips();
           renderSteps();
+          refreshRide(false);
         });
         $placeChips.appendChild(chip);
       });
@@ -3991,6 +4619,7 @@
       renderPlaceChips();
       renderSteps();
       state.steps.forEach(s => { if (s.travel) refreshTravel(s.id, false); });
+      refreshRide(false);
     });
 
     // ── Quick add
@@ -4055,6 +4684,17 @@
         active: activePlanKey,
         link: { enabled: link.enabled, sleepNeed: link.sleepNeed, sleeper: link.sleeper },
         plans: { evening: planSnap(plans.evening), morning: planSnap(plans.morning) },
+        // Additive, so a v2 record written by an older build still loads and a
+        // record written here still loads there. The mode itself is persisted:
+        // losing it on a refresh mid-evening is worse than opening in it once,
+        // and Exit is one tap. `to` is deliberately not stored — home is looked
+        // up fresh every refresh, so moving house doesn't strand the ride.
+        track: {
+          on: track.on,
+          mode: track.ride.mode,
+          from: track.ride.from,
+          result: track.ride.result,
+        },
       };
       localStorage.setItem(KEY_LAST, JSON.stringify(snap));
     }
@@ -4088,6 +4728,15 @@
           link.sleeper = saved.link.sleeper || '';
         }
         if (saved.active === 'morning' && link.enabled) activePlanKey = 'morning';
+        if (saved.track) {
+          // The tracker cannot exist without the edge it is a lens on; a record
+          // claiming otherwise would hide the hero and show nothing in its place.
+          track.on = !!saved.track.on && link.enabled;
+          track.ride = makeTravel(saved.track.mode);
+          track.ride.from = validPlace(saved.track.from);
+          track.ride.result = saved.track.result || null;
+          track.ride.status = track.ride.result ? 'ok' : 'idle';
+        }
       } else if (saved && Array.isArray(saved.steps)) {
         // v1 — a single plan, which becomes the evening one. The pair stays off,
         // so an upgrading user sees exactly what they left behind.
@@ -4123,6 +4772,11 @@
       try { viewMode = localStorage.getItem(KEY_VIEW) === 'overview' ? 'overview' : 'edit'; }
       catch (e) { viewMode = 'edit'; }
       applyViewMode();
+      applyTrackMode();
+      // The ride's stored minutes can be stale (the cache expires at a week),
+      // and re-routing is cheap and cached — do it rather than opening on a
+      // number nobody can date.
+      if (track.on) refreshRide(false);
       // renderOverview bails when the mode isn't active, and the first compute()
       // ran before the mode was restored — so re-run it now.
       compute();
@@ -4132,7 +4786,7 @@
       // keep the "now" marker fresh
       setInterval(compute, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
-      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); }, 1000);
+      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); }, 1000);
     }
     init();
   </script>

@@ -19,6 +19,11 @@ final class PlanStore {
     var link: NightLink {
         didSet { persistLast() }
     }
+    /// Track-to-sleep: a lens on that same edge, plus the one leg the pair has
+    /// nowhere to put (the ride home).
+    var track: TrackState {
+        didSet { persistLast() }
+    }
 
     /// The plan currently being edited. Computed, so it cannot carry `didSet`;
     /// writes land in `pair`, whose `didSet` does the persisting.
@@ -44,6 +49,7 @@ final class PlanStore {
         self.pair = restored.pair
         self.activeKey = restored.activeKey
         self.link = restored.link
+        self.track = restored.track
         self.templates = PlanStore.load([Template].self, key: "backplan.templates", from: defaults) ?? []
         self.places = PlanStore.load([SavedPlace].self, key: "backplan.places", from: defaults) ?? []
     }
@@ -51,7 +57,13 @@ final class PlanStore {
     /// Live computed result for the current plan. Pass `now` so views can drive
     /// recomputation on a ticking clock without mutating the model.
     func result(now: Date = Date()) -> PlanResult {
-        BackwardsPlanner.compute(plan, now: now)
+        // In track mode the plan ends at "asleep by", not at a bedtime anyone
+        // typed — so the step rows and the overview tell the same story as the
+        // figure on the tracker card rather than a parallel one.
+        if let track = sleepTrack(now: now) {
+            return BackwardsPlanner.compute(plan, endingAt: track.asleepAt, now: now)
+        }
+        return BackwardsPlanner.compute(plan, now: now)
     }
 
     // MARK: - The night pair
@@ -96,6 +108,65 @@ final class PlanStore {
         }
         if !on, activeKey == .morning {
             activeKey = .evening
+        }
+        // The tracker is a lens on this edge, so the edge going away has to take
+        // the lens with it or the app strands itself on a card computing nil.
+        if !on { track.on = false }
+    }
+
+    // MARK: - Track to sleep
+
+    func setTrackMode(_ on: Bool) {
+        track.on = on
+        guard on else { return }
+        // The tracker is a lens on the night edge, so it turns that edge on. It
+        // deliberately does NOT seed a morning routine the way `setLinkEnabled`
+        // does: the question here is how much sleep, and an empty morning is
+        // exactly what makes the wake time itself directly settable.
+        link.enabled = true
+        // Editing the morning from inside this mode isn't offered, so don't
+        // leave the editor pointed at a plan whose tab is about to vanish.
+        if activeKey == .morning { activeKey = .evening }
+    }
+
+    /// `nil` when the mode is off, which is also what hides the card.
+    func sleepTrack(now: Date = Date()) -> SleepTrack? {
+        guard track.on, link.enabled else { return nil }
+        return SleepTrack.make(
+            evening: pair.evening, morning: pair.morning,
+            sleepNeed: link.sleepNeed,
+            rideMinutes: track.ride.result?.minutes ?? 0,
+            now: now
+        )
+    }
+
+    /// Home as a travel endpoint — the place the tracker plans *to*, and the
+    /// default origin of the first leg in any plan.
+    var homeRef: PlaceRef? { places.first(where: { $0.isHome })?.ref }
+
+    /// Route the ride home. The destination is looked up fresh every time rather
+    /// than stored, so moving house doesn't strand the leg on an old address.
+    @discardableResult
+    func refreshRide(force: Bool = false) async -> TravelError? {
+        guard let home = homeRef else {
+            track.ride.to = nil
+            track.ride.result = nil
+            return nil
+        }
+        track.ride.to = home
+        guard let from = track.ride.from else {
+            track.ride.result = nil
+            return nil
+        }
+        do {
+            track.ride.result = try await RouteService.shared.route(
+                mode: track.ride.mode, from: from, to: home, force: force
+            )
+            return nil
+        } catch let error as TravelError {
+            return error
+        } catch {
+            return .network
         }
     }
 
@@ -172,7 +243,7 @@ final class PlanStore {
         for j in stride(from: idx - 1, through: 0, by: -1) {
             if let to = plan.steps[j].travel?.to { return (to, true) }
         }
-        if let home = places.first(where: { $0.isHome }) { return (home.ref, true) }
+        if let home = homeRef { return (home, true) }
         return nil
     }
 
@@ -283,10 +354,15 @@ final class PlanStore {
         var active: PlanKey = .evening
         var link: NightLink = NightLink()
         var plans: PlanPair
+        /// Optional, not defaulted: a default value does NOT make a key optional
+        /// to the synthesized decoder, and records written before track mode
+        /// existed have to keep loading. Additive, so it also stays readable by
+        /// a build that predates it.
+        var track: TrackState?
     }
 
     private func persistLast() {
-        let snap = PairSnapshot(v: 2, active: activeKey, link: link, plans: pair)
+        let snap = PairSnapshot(v: 2, active: activeKey, link: link, plans: pair, track: track)
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: lastKey)
         }
@@ -294,18 +370,22 @@ final class PlanStore {
 
     private static func restore(
         from defaults: UserDefaults
-    ) -> (pair: PlanPair, activeKey: PlanKey, link: NightLink) {
+    ) -> (pair: PlanPair, activeKey: PlanKey, link: NightLink, track: TrackState) {
         if let snap = load(PairSnapshot.self, key: "backplan.last", from: defaults) {
             // A morning tab that is no longer reachable would strand the editor.
             let key = (snap.active == .morning && !snap.link.enabled) ? .evening : snap.active
-            return (snap.plans, key, snap.link)
+            var track = snap.track ?? TrackState()
+            // The tracker cannot exist without the edge it is a lens on; a record
+            // claiming otherwise would hide the hero and show nothing in its place.
+            if !snap.link.enabled { track.on = false }
+            return (snap.plans, key, snap.link, track)
         }
         // v1 — a single plan, which becomes the evening one. The pair stays off,
         // so an upgrading user sees exactly what they left behind.
         if let old = load(Plan.self, key: "backplan.last", from: defaults) {
-            return (PlanPair(evening: old, morning: seedMorning()), .evening, NightLink())
+            return (PlanPair(evening: old, morning: seedMorning()), .evening, NightLink(), TrackState())
         }
-        return (PlanPair(evening: seed(), morning: seedMorning()), .evening, NightLink())
+        return (PlanPair(evening: seed(), morning: seedMorning()), .evening, NightLink(), TrackState())
     }
 
     /// The morning half before the user has ever switched the pair on. Empty by
