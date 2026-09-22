@@ -199,6 +199,39 @@ struct NightLink: Codable, Equatable, Sendable {
     var sleeper: String = ""
 }
 
+// MARK: - Track to sleep
+
+/// The third lens on that same edge, and deliberately NOT a second model of it:
+/// wake, sleep need and the lights-out deadline all still come from `NightLink`
+/// + the morning plan. What the tracker adds is one leg the pair has nowhere to
+/// put — the ride home — and a different anchor. The pair asks "given the
+/// bedtime I set, does tomorrow survive?"; the tracker asks "if I stand up right
+/// now, what do I get?", so its near end is the wall clock and moves on its own.
+///
+/// `ride` reuses `Travel` wholesale: same routing, same cache, same free-flow
+/// caveat. Its `to` is written from the home place at refresh time rather than
+/// picked — "back-plan to home" is the mode's premise, and only the origin is
+/// the user's to choose, because that is what changes from one evening out to
+/// the next. KEEP IN SYNC with the web `track` object in index.html.
+struct TrackState: Codable, Equatable {
+    var on: Bool = false
+    var ride: Travel = Travel()
+
+    init(on: Bool = false, ride: Travel = Travel()) {
+        self.on = on
+        self.ride = ride
+    }
+
+    // Lenient by design, and doubly so here: a default value does NOT make a key
+    // optional to the synthesized decoder (see `PlaceRef`), and this whole block
+    // postdates the records already in the field.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        on = try c.decodeIfPresent(Bool.self, forKey: .on) ?? false
+        ride = try c.decodeIfPresent(Travel.self, forKey: .ride) ?? Travel()
+    }
+}
+
 /// What the morning plan is seeded with the first time the pair is switched on.
 /// An empty morning would make wake == target, a technically valid chain that
 /// tells the user nothing.

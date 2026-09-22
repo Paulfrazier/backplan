@@ -100,6 +100,97 @@ no-backend / client-only solutions where possible.
     result + "now" into words; `ArmBar` and `PlanTimeline` were computing near-identical
     strings separately.
 
+- [x] **Track to sleep** — the night edge (#5) read forwards from *now*. Web + iOS.
+  - **The question.** You're out somewhere at 10pm. The pair answers "given the
+    bedtime I set, does tomorrow survive?" — but standing in someone else's
+    kitchen you never set a bedtime, and the thing you actually want is *"if I
+    walk out the door right now, how much sleep do I get?"*, ticking down while
+    you decide. Chain: **leave now → travel home → the wind-down → asleep →
+    wake**. Output is a live sleep figure plus its inverse, the latest departure
+    that still buys the full need.
+  - **One model, three lenses — not two sleep models.** This is the decision that
+    mattered. Wake, sleep need and the real lights-out deadline all still come
+    from the pair's record; the shared arithmetic was extracted into
+    `solveNight()` / `NightSolve.solve` so the bridge and the tracker can never
+    drift into two answers for "when is lights out really". The tracker adds
+    exactly two things the pair has nowhere to put: **the ride home**, and a near
+    end anchored to the wall clock instead of to a typed target. Turning the mode
+    on turns the pair's edge on, and turning that edge off takes the mode with
+    it. Rejected: a standalone `trackSleepNeed` / `trackWake`, which would have
+    been quicker and would have left two half-overlapping sleep models in a
+    3,700-line file.
+  - **Same edge, opposite anchor.** The pair pins *both* ends (a lights-out you
+    chose, a morning you can't move) and measures the gap. The tracker pins only
+    the far end and lets the near one ride the clock — one minute of sleep lost
+    per minute spent deciding. That is the whole difference, and it is why this
+    does **not** violate #5's guard: it is a third framing of the *same single
+    edge*, not a second edge, not a chain of days.
+  - **This subsumes #5's live line as the headline.** The pair already computed
+    `startNowLightsOut` / `latestStart` and printed them as a grey footnote
+    ("Start the evening by 10:04 — 22 min from now"). That footnote *was* this
+    feature in miniature; track mode promotes it to 56px and adds the leg it was
+    missing. The bridge keeps the footnote for the at-home case, where there is
+    no trip to count.
+  - **The ride home reuses the travel machinery wholesale** — same `routeLeg` /
+    `RouteService`, same cache, same "free-flow" wording, same place search. But
+    it is **not** a step in the evening plan: the wind-down routine is the same
+    every night and the ride home is tonight-only, so parking it in the step list
+    would leave a phantom "Drive home" in the bedtime plan forever and would
+    double-count against the pair's own `latestStart`. It lives on the track
+    record as a plain `Travel`.
+  - **Destination is home, and only the origin is a field.** "Back-plan to home"
+    is the premise; making the destination editable turns this back into a trip
+    planner. `to` is resolved from the home place at refresh time rather than
+    stored, so moving house doesn't strand the leg. No home place → the ride
+    contributes **zero minutes** and says so. An unrouted leg contributing a
+    guess would be indistinguishable from a routed one in the headline figure.
+  - **Wake is editable only where it is genuinely free.** With an empty morning
+    plan, wake *is* the morning target, so the field writes straight through.
+    With a morning routine present, wake is derived (obligation − routine) and
+    the field is disabled with the derivation spelled out — a control that
+    silently moved the school bell would be a lie. Entering track mode therefore
+    enables the pair *without* seeding `MORNING_SEED`, unlike the Chain checkbox:
+    the tracker's question is sleep, and an empty morning is what makes the wake
+    time directly settable.
+  - **The morning offset is the one piece of genuinely new math.** The pair
+    derives which day the morning lands on from the *evening plan's*
+    Today/Tomorrow toggle. Track mode has no such toggle and, worse, is the one
+    mode routinely used after midnight — so it takes the **next occurrence of
+    wake after now** (`solveNight(0).wake > now ? 0 : 1`). Without this, a 12:40am
+    departure plans for the 6am 29 hours away and reports 28 hours of sleep.
+  - **Sleep is floored, not rounded.** Claiming a minute you don't have is the
+    one error the headline number is not allowed to make.
+  - **Two clock resolutions on purpose.** The sleep figure is minute-grain (it
+    visibly drops once a minute); the departure deadline carries a H:MM:SS hand,
+    because that is the thing genuinely running out. Verdict bands match the
+    bridge exactly — on track / tight (≤15 min short) / short — so one night
+    can't read "tight" in one lens and "fine" in the other.
+  - **The mode swaps surfaces, it doesn't stack.** Hero, plan tabs, bridge and
+    the target card all step back: every one of them reads out from a bedtime you
+    didn't type here. The Steps list stays and is retitled **Wind-down**, because
+    trimming it is the one lever the figure answers to. Wake and sleep need come
+    along into the tracker card, since the card that normally holds them is the
+    one being hidden. iOS additionally hides the arm bar — "Arm plan" beside a
+    card deriving lights-out from now would be arming a different question.
+  - **Web gotchas.** The whole section is `aria-live`, so it keeps the same
+    render-once / tick-often split the bridge uses: `renderTrack()` rebuilds the
+    ride controls and never touches them via `innerHTML` (the origin is a live
+    text input someone may be mid-search in), `renderTrackLive()` runs on the 1s
+    interval. `.field` only stacks its label inside `.target-row`, so `.track-tail`
+    has to restate it. The origin autocomplete gets its own handler pair rather
+    than joining the step list's delegation — the same shape the Places
+    add-field already has — while reusing `renderPlaceMenu` / `menuResults` so
+    the three fields can't drift.
+  - **iOS gotchas.** `TrackState` needs a hand-written lenient `init(from:)` and
+    `PairSnapshot.track` has to be `Optional`: a default value does **not** make
+    a key optional to the synthesized decoder (same trap `PlaceRef` documents),
+    and one missing key would take the whole saved pair down with it. The
+    ticking `TimelineView` wraps only the figure and verdict — wrapping the ride
+    controls too would rebuild their sheet/loading `@State` every second.
+  - **Mode state is persisted.** Losing it on a refresh mid-evening is worse than
+    opening in it once, and Exit is one tap. The storage record stays `v: 2` with
+    an additive `track` key, so it round-trips through a build that predates it.
+
 - [x] **Collapsible travel legs** — once both endpoints resolve, a leg folds to a
   one-line summary (`🚗 from → to · 0.9 mi · 4 min`) with a chevron to reopen. An
   error or a missing endpoint always renders expanded, since the fields are what
@@ -144,6 +235,12 @@ Today saving is localStorage only — per-device, no sync.
   share-link mechanism (#3) before committing to full accounts.
 
 ### 5. Next-day impact (day-pair planning)
+**Shipped** — see the pair and **Track to sleep** in Done. Track mode is a third
+lens on this same one edge, anchored at *now* instead of at a bedtime you typed;
+it promoted this item's "if the evening started right now" line from a footnote
+to the headline and gave it the ride home the pair had nowhere to put. The
+original write-up is kept below because the model reasoning is still the model.
+
 Today a plan is an island. But the question that actually matters at 8pm isn't
 "when do I start bath" — it's *"if lights-out slips to 9:15, what does tomorrow
 morning cost?"* Backwards planning hides that by construction: the target is the
