@@ -21,16 +21,12 @@ extension Color {
     static let bpCard = Color.white
     static let bpMuted = Color(hex: 0x696969)
     static let bpBorder = Color(hex: 0xE6E6E6)
+    /// Stroke colour for every internal line. `bpBorder` is near-invisible on
+    /// white, which made bordered controls read as unbounded — it now survives
+    /// only as a fill. Matches the web `--rule` token.
+    static let bpRule = Color(hex: 0xCFCCD6)
     static let bpLimeTint = Color(hex: 0xF1FAE3)
     static let bpCoralTint = Color(hex: 0xFDECE8)
-
-    /// 4-color cycle for timeline segments (light tints).
-    static let timelineTints: [Color] = [
-        Color(hex: 0xEDE4FF),
-        Color(hex: 0xE6F4D0),
-        Color(hex: 0xFFEFC4),
-        Color(hex: 0xFFD8CF),
-    ]
 }
 
 extension ShapeStyle where Self == Color {
@@ -45,6 +41,7 @@ extension ShapeStyle where Self == Color {
     static var bpGold: Color { .bpGold }
     static var bpMuted: Color { .bpMuted }
     static var bpBorder: Color { .bpBorder }
+    static var bpRule: Color { .bpRule }
     static var bpLimeTint: Color { .bpLimeTint }
     static var bpCoralTint: Color { .bpCoralTint }
 }

@@ -12,11 +12,113 @@ enum DurationUnit: String, Codable, CaseIterable, Identifiable {
     var label: String { self == .min ? "min" : "hr" }
 }
 
+/// KEEP IN SYNC with the web `TRAVEL_MODES` table in index.html. These are stock
+/// BRouter profiles served by brouter.de; measured on a 3.5 mi Portland trip:
+/// car-eco 15 min, trekking ~14 mph, hiking-beta ~3.2 mph.
+enum TravelMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case drive, bike, walk
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .drive: return "Drive"
+        case .bike: return "Bike"
+        case .walk: return "Walk"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .drive: return "car.fill"
+        case .bike: return "bicycle"
+        case .walk: return "figure.walk"
+        }
+    }
+    var profile: String {
+        switch self {
+        case .drive: return "car-eco"
+        case .bike: return "trekking"
+        case .walk: return "hiking-beta"
+        }
+    }
+    /// Verb used to auto-name a travel step ("Drive to Powell's").
+    var verb: String { label }
+}
+
+/// A resolved point. `label` is the display name, `sub` the qualifying context
+/// line ("838 NW 23rd Ave, Portland").
+struct PlaceRef: Codable, Hashable, Sendable {
+    var label: String
+    var sub: String = ""
+    var lat: Double
+    var lng: Double
+
+    init(label: String, sub: String = "", lat: Double, lng: Double) {
+        self.label = label
+        self.sub = sub
+        self.lat = lat
+        self.lng = lng
+    }
+
+    // A default value does NOT make a key optional to the synthesized decoder —
+    // a payload without "sub" would throw and take the whole plan down with it.
+    // `encode(to:)` stays synthesized because CodingKeys matches the properties.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
+        sub = try c.decodeIfPresent(String.self, forKey: .sub) ?? ""
+        lat = try c.decode(Double.self, forKey: .lat)
+        lng = try c.decode(Double.self, forKey: .lng)
+    }
+}
+
+struct TravelResult: Codable, Hashable, Sendable {
+    var minutes: Int
+    var distanceM: Int
+    var fetchedAt: Date
+}
+
+/// The travel leg attached to a step. Every property is defaulted so plans
+/// encoded before travel existed still decode — note there is deliberately no
+/// custom `init(from:)`, which would break the synthesized `Encodable`.
+struct Travel: Codable, Hashable, Sendable {
+    var mode: TravelMode = .drive
+    /// `nil` means "inherit the previous leg's destination" (see PlanStore.resolveOrigin).
+    var from: PlaceRef?
+    var to: PlaceRef?
+    var result: TravelResult?
+    /// Set once the user hand-edits the duration; refreshes stop overwriting it.
+    var manual: Bool = false
+
+    init(mode: TravelMode = .drive, from: PlaceRef? = nil, to: PlaceRef? = nil,
+         result: TravelResult? = nil, manual: Bool = false) {
+        self.mode = mode
+        self.from = from
+        self.to = to
+        self.result = result
+        self.manual = manual
+    }
+
+    // Lenient by design: a Travel block written with only some of its keys (a
+    // template snapshot, a payload from an older or newer build) must still
+    // decode. Without this, one missing key throws and the user loses the whole
+    // saved plan, not just the travel leg.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try c.decodeIfPresent(TravelMode.self, forKey: .mode) ?? .drive
+        from = try c.decodeIfPresent(PlaceRef.self, forKey: .from)
+        to = try c.decodeIfPresent(PlaceRef.self, forKey: .to)
+        result = try c.decodeIfPresent(TravelResult.self, forKey: .result)
+        manual = try c.decodeIfPresent(Bool.self, forKey: .manual) ?? false
+    }
+}
+
 struct Step: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     var name: String = ""
     var duration: Double = 5
     var unit: DurationUnit = .min
+    /// Present only on travel steps. Optional so pre-travel payloads decode.
+    var travel: Travel?
 
     /// Normalized duration in whole minutes, matching the web `stepMinutes`:
     /// clamps negatives/NaN to 0, rounds, converts hours → minutes.

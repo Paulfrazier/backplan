@@ -3,6 +3,9 @@ import SwiftUI
 struct PlanView: View {
     @Environment(PlanStore.self) private var store
     @State private var showingClearConfirm = false
+    /// Edit vs. Overview for the Steps section. Persisted because checking the
+    /// schedule is what most sessions open the app for.
+    @AppStorage("backplan.view") private var overviewMode = false
 
     var body: some View {
         @Bindable var store = store
@@ -14,6 +17,7 @@ struct PlanView: View {
                 resultSection(result)
                 targetSection(store: $store)
                 stepsSection(store: $store, result: result)
+                placesSection
                 templatesSection
             }
             .listStyle(.plain)
@@ -22,6 +26,10 @@ struct PlanView: View {
             .background(.bpPaper)
             .scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom) { ArmBar() }
+            // A List is lazy, so a travel row below the fold never gets to fetch
+            // its own leg — which would leave the plan's start time wrong until
+            // the user happened to scroll to it. Resolve every leg up front.
+            .task { await store.refreshAllTravel() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -123,14 +131,106 @@ struct PlanView: View {
 
     private func stepsSection(store: Bindable<PlanStore>, result: PlanResult) -> some View {
         Section {
+            if overviewMode {
+                overviewRows(store: store, result: result)
+            } else {
+                editorRows(store: store, result: result)
+            }
+        } header: {
+            HStack {
+                sectionTitle("Steps")
+                Spacer()
+                viewToggle
+                if !overviewMode && store.wrappedValue.plan.steps.count > 1 {
+                    EditButton()
+                        .font(.subheadline.weight(.semibold))
+                        .textCase(nil)
+                        .tint(.bpPurpleElectric)
+                }
+            }
+        }
+        .confirmationDialog("Clear all steps?", isPresented: $showingClearConfirm, titleVisibility: .visible) {
+            Button("Clear all", role: .destructive) { store.wrappedValue.clearSteps() }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    /// Segmented Edit / Overview control, matching the web `.view-toggle`.
+    private var viewToggle: some View {
+        HStack(spacing: 0) {
+            toggleHalf("Edit", active: !overviewMode) { overviewMode = false }
+            Rectangle().fill(.bpInk).frame(width: 2)
+            toggleHalf("Overview", active: overviewMode) { overviewMode = true }
+        }
+        .clipShape(Capsule())
+        .overlay(Capsule().strokeBorder(.bpInk, lineWidth: 2))
+        .textCase(nil)
+    }
+
+    private func toggleHalf(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .kerning(0.5)
+                .textCase(.uppercase)
+                .foregroundStyle(active ? Color.white : .bpInk)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(active ? Color.bpPurpleElectric : .bpCard)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+
+    @ViewBuilder
+    private func overviewRows(store: Bindable<PlanStore>, result: PlanResult) -> some View {
+        let steps = store.wrappedValue.plan.steps
+        if steps.isEmpty {
+            Text("No steps yet. Switch to Edit to add some.")
+                .font(.subheadline)
+                .foregroundStyle(.bpMuted)
+                .plainRow()
+        } else {
+            let now = Date()
+            let dayStart = Calendar.current.startOfDay(for: result.target)
+            ForEach(Array(steps.enumerated()), id: \.element.id) { idx, step in
+                let start = idx < result.startTimes.count ? result.startTimes[idx] : nil
+                OverviewRowView(
+                    step: step,
+                    start: start,
+                    overflow: (start.map { $0 < dayStart }) ?? false,
+                    state: rowState(start: start, minutes: step.minutes, now: now),
+                    origin: store.wrappedValue.resolveOrigin(for: step.id)?.place
+                )
+                .plainRow()
+            }
+            OverviewTargetRow(target: result.target,
+                              eventName: store.wrappedValue.plan.eventName)
+                .plainRow()
+        }
+    }
+
+    private func rowState(start: Date?, minutes: Int, now: Date) -> OverviewRowView.RowState {
+        guard let start else { return .upcoming }
+        let end = start.addingTimeInterval(TimeInterval(minutes) * 60)
+        if now >= end { return .done }
+        if now >= start { return .now }
+        return .upcoming
+    }
+
+    @ViewBuilder
+    private func editorRows(store: Bindable<PlanStore>, result: PlanResult) -> some View {
             ForEach(Array(store.wrappedValue.plan.steps.enumerated()), id: \.element.id) { idx, _ in
                 StepRowView(
                     step: store.plan.steps[idx],
                     startTime: idx < result.startTimes.count && store.wrappedValue.plan.steps[idx].minutes > 0 ? result.startTimes[idx] : nil,
                     overflow: idx < result.startTimes.count && result.startTimes[idx] < Calendar.current.startOfDay(for: result.target)
                 )
-                .listRowBackground(Color.bpCard)
-                .listRowSeparatorTint(.bpBorder)
+                // A bordered card per row, inset to the same gutter as the cards
+                // above. Edge-to-edge white slabs on paper read as floating.
+                .listRowBackground(stepRowBackground)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 20))
             }
             .onMove { store.wrappedValue.moveStep(from: $0, to: $1) }
             .onDelete { store.wrappedValue.removeStep(at: $0) }
@@ -144,6 +244,17 @@ struct PlanView: View {
                         .foregroundStyle(.bpInk)
                         .padding(.horizontal, 14).padding(.vertical, 9)
                         .neoPill(fill: .bpLime)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    store.wrappedValue.addTravelStep()
+                } label: {
+                    Label("Travel", systemImage: "car.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.bpInk)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .neoPill(fill: .bpCard)
                 }
                 .buttonStyle(.plain)
 
@@ -168,24 +279,14 @@ struct PlanView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 12))
+    }
+
+    private var placesSection: some View {
+        Section {
+            PlacesView()
+                .plainRow()
         } header: {
-            HStack {
-                Text("Steps")
-                    .font(.display(16))
-                    .foregroundStyle(.bpInk)
-                    .textCase(nil)
-                Spacer()
-                if store.wrappedValue.plan.steps.count > 1 {
-                    EditButton()
-                        .font(.subheadline.weight(.semibold))
-                        .textCase(nil)
-                        .tint(.bpPurpleElectric)
-                }
-            }
-        }
-        .confirmationDialog("Clear all steps?", isPresented: $showingClearConfirm, titleVisibility: .visible) {
-            Button("Clear all", role: .destructive) { store.wrappedValue.clearSteps() }
-            Button("Cancel", role: .cancel) {}
+            sectionTitle("Places")
         }
     }
 
@@ -194,14 +295,37 @@ struct PlanView: View {
             TemplatesView()
                 .plainRow()
         } header: {
-            Text("Templates")
-                .font(.display(16))
-                .foregroundStyle(.bpInk)
-                .textCase(nil)
+            sectionTitle("Templates")
         }
     }
 
     // MARK: Helpers
+
+    /// The card surface behind a step row. Drawn as a row background rather than
+    /// wrapping the steps in one `VStack` card, because `.onMove` / `.onDelete`
+    /// / `EditButton` only work on real `List` rows.
+    private var stepRowBackground: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(.bpCard)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(.bpInk, lineWidth: 2)
+            )
+    }
+
+    /// Section title: purple like the web `h2`, with the same rule trailing off
+    /// the end so sections read as anchored rather than free-floating.
+    private func sectionTitle(_ text: String) -> some View {
+        HStack(spacing: 12) {
+            Text(text)
+                .font(.display(17))
+                .foregroundStyle(.bpPurple)
+                .textCase(nil)
+            Rectangle()
+                .fill(.bpRule)
+                .frame(height: 1.5)
+        }
+    }
 
     private func fieldLabel(_ text: String) -> some View {
         Text(text)

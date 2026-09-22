@@ -22,7 +22,6 @@
       --paper: #FBFAFF;
       --card: #ffffff;
       --muted: #696969;
-      --border: #e6e6e6;
       --lime-tint: #f1fae3;
       --coral-tint: #fdece8;
       --shadow: 4px 4px 0 var(--ink);
@@ -30,6 +29,21 @@
       --shadow-sm: 2px 2px 0 var(--ink);
       --radius: 14px;
       --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      /* ── Lines. Two weights, no more. `--line-strong` bounds a surface
+         (card, input, button, chip); `--line-hair` divides *inside* one.
+         The old #e6e6e6 was invisible on white, which is why bordered
+         controls looked like they were floating unbounded. */
+      --rule: #cfccd6;
+      --line-strong: 2px solid var(--ink);
+      --line-hair: 1.5px solid var(--rule);
+
+      /* ── Spacing. One scale; nothing between sections should be off-scale. */
+      --s1: 6px;
+      --s2: 10px;
+      --s3: 16px;
+      --s4: 24px;
+      --s5: 32px;
     }
 
     * { box-sizing: border-box; }
@@ -67,32 +81,62 @@
     .thesis {
       font-size: 19px;
       color: var(--ink);
-      margin: 0 0 24px;
+      margin: 0 0 var(--s4);
     }
     h2 {
       font-family: "Space Grotesk", sans-serif;
       font-size: 22px;
       font-weight: 700;
-      margin: 32px 0 12px;
+      margin: var(--s5) 0 var(--s3);
       color: var(--purple);
       letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+    }
+    /* A rule trailing off every section title. The page had no horizontal lines
+       at all, which is what made the sections read as unanchored. */
+    h2::after {
+      content: "";
+      flex: 1 1 auto;
+      height: 0;
+      border-top: var(--line-hair);
     }
 
-    /* ── Result strip ── */
-    .result {
+    /* ── Hero: start time, target, and the timeline are one fact, so they live
+       in one card. They used to be three separately-floating blocks. ── */
+    .hero {
       background: var(--card);
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       border-radius: var(--radius);
-      padding: 22px 24px;
+      padding: var(--s4);
       box-shadow: var(--shadow-lg);
+      margin-bottom: var(--s4);
+    }
+    .hero-head {
+      display: flex;
+      align-items: baseline;
+      gap: var(--s1);
+      margin-bottom: var(--s3);
+    }
+    .hero-head[hidden] { display: none; }
+    .hero-times {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      gap: 16px;
+      gap: var(--s3);
       flex-wrap: wrap;
-      margin-bottom: 20px;
     }
-    .result .label {
+    .hero-target { text-align: right; }
+    /* Full-bleed to the card's padding, so the rule reads as a real division
+       of the card rather than a floating dash. */
+    .hero-rule {
+      border: 0;
+      border-top: var(--line-hair);
+      margin: var(--s3) calc(-1 * var(--s4)) var(--s3);
+    }
+    .hero-rule[hidden] { display: none; }
+    .hero .label {
       font-family: "Space Grotesk", sans-serif;
       font-size: 13px;
       letter-spacing: 0.08em;
@@ -100,7 +144,7 @@
       color: var(--muted);
       margin: 0 0 4px;
     }
-    .result .start-time {
+    .hero .start-time {
       font-family: "Space Grotesk", sans-serif;
       font-size: 44px;
       font-weight: 700;
@@ -109,28 +153,33 @@
       line-height: 1;
       margin: 0;
     }
-    .result .start-time.overflow { color: var(--coral); }
-    .result .meta {
+    .hero .start-time.overflow { color: var(--coral); }
+    .hero .target-time {
+      font-size: 32px;
+      color: var(--purple);
+    }
+    .hero .meta {
       font-family: "Space Grotesk", sans-serif;
       font-size: 14px;
       color: var(--muted);
-      margin-top: 6px;
+      margin-top: var(--s1);
     }
-    .result .event-name {
+    /* Full-width line of its own. Sharing the right-hand column with the target
+       time pushed that time off the start time's baseline. */
+    .hero .event-name {
       font-family: "Space Grotesk", sans-serif;
       font-size: 17px;
       font-weight: 700;
       color: var(--purple);
-      margin: 0 0 2px;
+      margin: 0;
       line-height: 1.2;
       letter-spacing: -0.01em;
-      max-width: 280px;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .result .event-name:empty { display: none; }
-    .result .prev-day {
+    .hero .prev-day {
       display: inline-block;
       margin-left: 8px;
       padding: 2px 8px;
@@ -145,10 +194,13 @@
       vertical-align: middle;
     }
 
-    /* ── Timeline ── */
-    .timeline-section {
-      margin-bottom: 20px;
-    }
+    /* ── Timeline (lives inside .hero) ──
+       A progress bar, not a chart. Colour encodes elapsed / current / upcoming
+       instead of cycling four decorative pastels, and the segments are now only
+       tick boundaries. Names used to render inside the segments, which meant a
+       15-minute step inside a three-hour plan came out as an anonymous block —
+       or "Dr…" at phone width. All naming lives in the status block below the
+       track now, so nothing truncates at any width. */
     .timeline-section[hidden] { display: none; }
     .timeline-axis {
       display: flex;
@@ -158,96 +210,153 @@
       font-size: 13px;
       color: var(--muted);
       letter-spacing: 0.02em;
-      margin-bottom: 6px;
       padding: 0 2px;
     }
+
+    /* The flag rides in its own unclipped rail above the track. Inside the track
+       it collided with the corner radius and punched a white notch through the
+       last segment. The rail keeps a fixed height so the track never shifts when
+       the flag appears or disappears. */
+    .timeline-flag-rail {
+      position: relative;
+      height: 28px;
+      margin-top: var(--s1);
+    }
+    /* No flag outside the plan window — don't hold open an empty band of white
+       above the track for it. */
+    .timeline-flag-rail.empty { height: 4px; }
+    .timeline-flag {
+      position: absolute;
+      /* Clears the track: at bottom:0 the pill's 2px drop shadow lands on the
+         track's top edge and smears over the now-marker. */
+      bottom: 4px;
+      left: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      border: var(--line-strong);
+      border-radius: 999px;
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      white-space: nowrap;
+      transform: translateX(-50%);
+      transition: left 0.5s linear;
+    }
+    .timeline-flag[hidden] { display: none; }
+    /* Near either end the centred pill would hang off the card; anchor it inward. */
+    .timeline-flag.at-start { transform: translateX(0); }
+    .timeline-flag.at-end { transform: translateX(-100%); }
+    .timeline-flag::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--coral);
+      border: 1.5px solid var(--ink);
+      box-sizing: border-box;
+      flex: 0 0 8px;
+    }
+
     .timeline-track {
       position: relative;
-      display: flex;
       width: 100%;
-      height: 44px;
-      border: 2px solid var(--ink);
-      border-radius: 10px;
+      height: 34px;
+      border: var(--line-strong);
+      border-radius: 999px;
       box-shadow: var(--shadow-sm);
       overflow: hidden;
       background: var(--card);
     }
-    .timeline-segment {
-      position: relative;
+    .timeline-segments {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+    .timeline-segment {
       flex: 0 0 0;
       min-width: 0;
-      padding: 0 6px;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--ink);
-      letter-spacing: -0.005em;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      border-right: 1.5px solid var(--ink);
+      /* Ticks sit *under* the fill, so --rule washes out to nothing inside the
+         elapsed span. Ink at low alpha survives the overlay at both ends. */
+      border-right: 1px solid rgba(29, 28, 29, 0.28);
     }
     .timeline-segment:last-child { border-right: none; }
-    .timeline-segment .seg-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .timeline-segment .seg-dur {
-      font-weight: 500;
-      opacity: 0.78;
-      margin-left: 6px;
-      font-variant-numeric: tabular-nums;
-    }
-    .timeline-segment.color-0 { background: #ede4ff; }
-    .timeline-segment.color-1 { background: #e6f4d0; }
-    .timeline-segment.color-2 { background: #ffefc4; }
-    .timeline-segment.color-3 { background: #ffd8cf; }
-    .timeline-segment.narrow .seg-name { display: none; }
-    .timeline-segment.narrow .seg-dur { margin-left: 0; }
-    .timeline-segment.tiny .seg-dur { display: none; }
+    /* Two tones of one hue, alternating. Before the plan starts nothing is
+       elapsed and nothing is current, so state-colour alone leaves the bar
+       blank — and "when do I start" is the state you open this app in. The
+       alternation carries the plan's shape without assigning meaning to any
+       particular colour, and it holds up on a 6px sliver where a label can't.
+       16%, not 7% — at 7% it read on a desktop monitor and vanished on a phone. */
+    .timeline-segment:nth-child(even) { background: rgba(74, 21, 75, 0.16); }
+    /* The full span of the step you are in, so it stays legible under the fill.
+       Declared after the zebra so it wins at equal specificity. */
+    .timeline-segment.now { background: var(--lime-tint); }
+    .timeline-segment:hover { background: var(--lime-tint); }
 
+    /* One overlay for the whole elapsed span. Because it cuts across the active
+       segment, progress *through* the current step comes for free. */
+    .timeline-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      background: var(--lime);
+      opacity: 0.28;
+      pointer-events: none;
+      z-index: 1;
+      transition: width 0.5s linear;
+    }
+    /* A full lime bar reads as "all good" — but a full bar means the target has
+       already passed. Match the overrun to its coral status pill. */
+    .timeline-track.past .timeline-fill { background: var(--coral); }
+    .timeline-track.past .timeline-segment.now { background: var(--coral-tint); }
     .timeline-now {
       position: absolute;
-      top: -3px;
-      bottom: -3px;
+      top: 0;
+      bottom: 0;
       width: 2px;
+      margin-left: -1px;
       background: var(--ink);
       pointer-events: none;
       z-index: 2;
+      transition: left 0.5s linear;
     }
-    .timeline-now::before {
-      content: "";
-      position: absolute;
-      left: -5px;
-      top: -6px;
-      width: 12px;
-      height: 12px;
-      background: var(--coral);
-      border: 2px solid var(--ink);
-      border-radius: 50%;
-      box-sizing: border-box;
-    }
-    .timeline-now.before { left: 0; }
-    .timeline-now.before::before { left: -6px; }
-    .timeline-now.after { left: 100%; }
-    .timeline-now.after::before { left: -6px; }
+    .timeline-now[hidden] { display: none; }
 
+    /* ── Status: what is happening now, and what is next ── */
+    .timeline-status {
+      margin-top: var(--s2);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--s1);
+    }
+    /* Labels are the shouty part; the value keeps its own case so step names
+       aren't yelled at the reader. */
+    .tl-key {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
     .timeline-countdown {
       font-family: "Space Grotesk", sans-serif;
       font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-top: 10px;
+      letter-spacing: 0.01em;
       padding: 6px 12px;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       box-shadow: var(--shadow-sm);
     }
     .timeline-countdown .dot {
@@ -261,19 +370,46 @@
     .timeline-countdown.active { background: var(--lime-tint); color: var(--lime-ink); }
     .timeline-countdown.active .dot { background: var(--lime); animation: pulse 1.4s ease-in-out infinite; }
     .timeline-countdown.past { background: var(--coral-tint); color: #9a2a16; }
+    .timeline-next {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0;
+      /* Lines the NEXT key up with the NOW key: pill border 2 + padding 12
+         + dot 9 + gap 8. */
+      padding-left: 31px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .timeline-next[hidden] { display: none; }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(0.85); }
     }
 
-    /* ── Cards ── */
-    .card {
+    /* ── Cards & panels ──
+       `.card` is a standalone block; `.panel` is the same surface but is what a
+       section's whole body lives in, so Steps / Places / Templates stop being
+       loose chips and inputs scattered on the page background. */
+    .card, .panel {
       background: var(--card);
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       border-radius: var(--radius);
-      padding: 18px 20px;
       box-shadow: var(--shadow);
-      margin-bottom: 16px;
+    }
+    .card {
+      padding: var(--s3) 20px;
+      margin-bottom: var(--s3);
+    }
+    .panel { padding: var(--s3); }
+    .panel + .panel { margin-top: var(--s3); }
+    /* Sub-blocks inside a panel are divided by a hairline, not by empty space. */
+    .panel-divider {
+      border: 0;
+      border-top: var(--line-hair);
+      margin: var(--s3) calc(-1 * var(--s3));
     }
 
     /* ── Target row ── */
@@ -336,24 +472,142 @@
       font-weight: 700;
     }
 
-    /* ── Steps ── */
-    .steps { display: flex; flex-direction: column; gap: 10px; }
+    /* ── View toggle (Edit / Overview) ──
+       Same segmented control as the day toggle, sized down to sit on an h2. */
+    .view-toggle {
+      display: inline-flex;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      flex: 0 0 auto;
+      /* h2::after is the trailing rule and defaults to order 0; this puts the
+         toggle after it, at the far right of the heading. */
+      order: 1;
+    }
+    .view-toggle button {
+      appearance: none;
+      border: none;
+      background: #fff;
+      padding: 5px 12px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .view-toggle button + button { border-left: 2px solid var(--ink); }
+    .view-toggle button[aria-pressed="true"] {
+      background: var(--purple-electric);
+      color: #fff;
+    }
+    .view-toggle button:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+
+    /* `hidden` is a UA-stylesheet `display:none`, which an author `display`
+       rule on these containers beats — they need it stated explicitly. */
+    .overview[hidden], .steps[hidden], .add-row[hidden], .quick-add[hidden] { display: none; }
+
+    /* ── Overview ──
+       The schedule, readable at arm's length. The bar can show a plan's shape
+       and how far through it you are, but it cannot name a 15-minute step on a
+       phone — that's what put "Dr…" on screen. Names live here instead. */
+    .overview { display: flex; flex-direction: column; }
+    .ov-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: baseline;
+      gap: var(--s3);
+      padding: 12px var(--s3);
+      border-bottom: var(--line-hair);
+    }
+    .ov-row:last-child { border-bottom: none; }
+    .ov-time {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--lime-ink);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .ov-time.overflow { color: var(--coral); }
+    .ov-body { min-width: 0; }
+    .ov-name {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-name.unnamed { color: var(--muted); font-weight: 500; font-style: italic; }
+    .ov-leg {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ov-leg .arrow { margin: 0 3px; }
+    .ov-dur {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    /* State, mirroring the bar: done recedes, current is marked. */
+    .ov-row.done { opacity: 0.45; }
+    .ov-row.now { background: var(--lime-tint); }
+    .ov-row.now .ov-name::after {
+      content: "NOW";
+      margin-left: 8px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--lime);
+      border: 1.5px solid var(--ink);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      vertical-align: 1px;
+    }
+    /* The target itself, so the list ends where the plan does. */
+    .ov-row.target .ov-time { color: var(--purple); }
+    .ov-row.target .ov-name { color: var(--purple); }
+
+    /* ── Steps ──
+       Rows in one panel, divided by hairlines — not N free-floating mini-cards
+       each with its own border and shadow. */
+    /* Bleed to the panel's edges so the row rules read as real divisions of the
+       panel rather than short floating dashes. */
+    .steps { display: flex; flex-direction: column; gap: 0; margin: 0 calc(-1 * var(--s3)); }
     .step {
       display: grid;
       grid-template-columns: auto 1fr auto auto 28px;
       align-items: center;
       gap: 12px;
       background: var(--card);
-      border: 2px solid var(--ink);
-      border-radius: 12px;
-      padding: 10px 12px;
-      box-shadow: var(--shadow-sm);
+      border: 1.5px solid transparent;
+      border-top-color: var(--rule);
+      border-radius: 0;
+      padding: var(--s2) var(--s3);
       transition: transform 0.18s var(--bounce);
+    }
+    .step:first-child { border-top-color: transparent; }
+    /* The lift only appears while dragging, so a row reads as part of the list
+       until you pick it up. */
+    .step.dragging {
+      border-color: var(--ink);
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
     }
     .step .duration-group {
       display: inline-flex;
       align-items: stretch;
-      border: 1.5px solid #d4d4d4;
+      border: var(--line-hair);
       border-radius: 8px;
       overflow: hidden;
       background: #fff;
@@ -366,8 +620,7 @@
       font-size: 15px;
       padding: 8px 10px;
       box-shadow: none;
-      border-width: 1.5px;
-      border-color: #d4d4d4;
+      border: var(--line-hair);
       border-radius: 8px;
       width: 100%;
     }
@@ -393,7 +646,7 @@
       font-weight: 500;
       padding: 7px 6px 7px 8px;
       border: none;
-      border-left: 1.5px solid #d4d4d4;
+      border-left: var(--line-hair);
       border-radius: 0;
       background: #fafafa;
       color: var(--ink);
@@ -425,7 +678,7 @@
     }
     .step .remove {
       appearance: none;
-      border: 1.5px solid #d4d4d4;
+      border: var(--line-hair);
       background: #fff;
       width: 28px;
       height: 28px;
@@ -451,7 +704,7 @@
       padding: 0;
       border: none;
       background: transparent;
-      color: #c4c4c4;
+      color: #8f8c99;
       font-size: 17px;
       line-height: 1;
       cursor: grab;
@@ -460,15 +713,15 @@
       align-self: center;
       flex: none;
     }
-    .step .handle:hover { color: var(--muted); background: #f3f3f3; }
+    .step .handle:hover { color: var(--ink); background: #f3f3f3; }
     .step .handle:focus-visible {
       outline: 2px solid var(--purple-electric);
       outline-offset: 1px;
-      color: var(--muted);
+      color: var(--ink);
     }
     .step.dragging {
       z-index: 5;
-      box-shadow: var(--shadow-lg);
+      position: relative;
       transition: none;
     }
     .step.dragging .handle { cursor: grabbing; }
@@ -481,7 +734,7 @@
       font-weight: 700;
       font-size: 14px;
       padding: 11px 18px;
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       border-radius: 10px;
       background: #fff;
       color: var(--ink);
@@ -493,25 +746,24 @@
     .btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
     .btn:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: 2px; }
     .btn.primary { background: var(--purple-electric); color: #fff; }
-    .btn.ghost { background: transparent; box-shadow: none; border-color: #c4c4c4; color: var(--muted); }
+    .btn.ghost { background: transparent; box-shadow: none; border-color: var(--rule); color: var(--muted); }
     .btn.ghost:hover { box-shadow: none; transform: none; color: var(--ink); border-color: var(--ink); }
 
-    .add-row { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .add-row { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; }
 
     /* ── Templates ── */
-    .templates-section { margin-top: 28px; }
     .chips {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: var(--s2);
     }
     .chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       background: #f3eefc;
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       border-radius: 999px;
       padding: 6px 6px 6px 14px;
       font-family: "Space Grotesk", sans-serif;
@@ -541,7 +793,7 @@
     .chips-empty {
       font-size: 13.5px;
       color: var(--muted);
-      margin-top: 10px;
+      margin: var(--s2) 0 0;
     }
 
     /* ── Quick add + Starters ── */
@@ -552,15 +804,16 @@
       text-transform: uppercase;
       color: var(--muted);
       font-weight: 500;
-      margin: 16px 0 8px;
+      margin: 0 0 var(--s2);
     }
-    .quick-add { margin-top: 16px; }
+    .sub-label + .sub-label,
+    * + .sub-label { margin-top: var(--s3); }
     .qa-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       background: var(--lime-tint);
-      border: 2px solid var(--ink);
+      border: var(--line-strong);
       border-radius: 999px;
       padding: 7px 14px;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -601,7 +854,7 @@
 
     /* ── Footer ── */
     footer {
-      margin-top: 52px;
+      margin-top: var(--s5);
       font-size: 13px;
       color: var(--muted);
       text-align: center;
@@ -614,22 +867,334 @@
     }
     footer a:hover { text-decoration: underline; }
 
-    /* ── Responsive ── */
+    /* ── Travel steps ── */
+    .step .name-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .step .name-cell input[type="text"] { flex: 1 1 auto; min-width: 0; }
+    .step .travel-toggle {
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1;
+      background: var(--card);
+      border: var(--line-hair);
+      border-radius: 9px;
+      cursor: pointer;
+      filter: grayscale(1);
+      opacity: 0.55;
+      transition: all 0.12s ease;
+    }
+    .step .travel-toggle:hover { opacity: 1; border-color: var(--ink); }
+    .step .travel-toggle.on {
+      filter: none;
+      opacity: 1;
+      border: var(--line-strong);
+      background: var(--lime-tint);
+      box-shadow: var(--shadow-sm);
+    }
+    .step .travel-toggle:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+
+    /* A travel row is marked by a purple spine on the left edge, not by
+       recolouring the row border — the row shares its rules with its
+       neighbours now, so a per-row border colour would break the list. */
+    .step.is-travel { box-shadow: inset 3px 0 0 var(--purple-electric); }
+    .travel-detail {
+      grid-column: 1 / -1;
+      margin-top: var(--s2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Travel: collapsed summary ──
+       Once From and To resolve, the panel folds to this one line. */
+    .travel-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      font-size: 13.5px;
+      color: var(--ink);
+      padding: 8px var(--s2);
+      border: var(--line-hair);
+      border-radius: 10px;
+      background: #faf9fc;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .travel-summary:hover { border-color: var(--ink); }
+    .travel-summary:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+    .travel-summary .tm-glyph { flex: 0 0 auto; font-size: 14px; line-height: 1; }
+    .travel-summary .tm-route {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .travel-summary .tm-route .arrow { color: var(--muted); font-weight: 400; margin: 0 2px; }
+    .travel-summary .tm-stat {
+      flex: 0 0 auto;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 500;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .travel-summary .chev {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+      transition: transform 0.15s ease;
+    }
+    .travel-summary[aria-expanded="true"] .chev { transform: rotate(180deg); }
+    /* Collapsed: the summary is the whole panel. Expanded: it becomes the
+       header, so the body needs its own rule to sit under. */
+    .travel-summary[aria-expanded="true"] {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .travel-body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+      padding: var(--s2);
+      border: var(--line-hair);
+      border-top: 0;
+      border-radius: 0 0 10px 10px;
+      background: #faf9fc;
+    }
+    .travel-body[hidden] { display: none; }
+
+    .travel-modes { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mode-btn {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform 0.12s var(--bounce), box-shadow 0.12s ease, background 0.12s ease;
+    }
+    .mode-btn:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow-sm); }
+    .mode-btn.active { background: var(--purple-electric); color: #fff; box-shadow: var(--shadow-sm); }
+    .mode-btn:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+
+    .travel-places { display: flex; gap: 10px; flex-wrap: wrap; }
+    .place-field { position: relative; flex: 1 1 200px; min-width: 0; }
+    .place-field label {
+      display: block;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .place-input {
+      width: 100%;
+      font: inherit;
+      font-size: 15px;
+      padding: 9px 11px;
+      border: var(--line-strong);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--ink);
+    }
+    .place-input:focus { outline: none; border-color: var(--ink); box-shadow: var(--shadow-sm); }
+    .chain-pill {
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      font-size: 15px;
+      padding: 9px 11px;
+      border: 2px solid var(--lime);
+      border-radius: 10px;
+      background: var(--lime-tint);
+      color: var(--ink);
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .chain-pill:hover { border-color: var(--ink); }
+    .chain-pill:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+    .chain-pill .chain-hint {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    .place-menu {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 260px;
+      overflow-y: auto;
+      background: var(--card);
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .place-menu[hidden] { display: none; }
+    .place-option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      padding: 8px 11px;
+      border: none;
+      border-bottom: var(--line-hair);
+      background: none;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .place-option:last-child { border-bottom: none; }
+    .place-option:hover, .place-option:focus { background: var(--lime-tint); outline: none; }
+    .place-option .saved-dot { color: var(--gold); margin-right: 5px; }
+    .place-option .po-label { font-weight: 600; font-size: 14.5px; }
+    .place-option .po-sub {
+      display: block;
+      font-size: 12.5px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .place-option .po-sub:empty { display: none; }
+    .place-empty { padding: 10px 11px; font-size: 13.5px; color: var(--muted); }
+
+    .travel-result {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 22px;
+    }
+    .travel-result.error { color: var(--coral); font-weight: 700; }
+    .travel-result .manual-tag {
+      padding: 1px 7px;
+      border: 2px solid var(--gold);
+      border-radius: 999px;
+      background: #fdf3d9;
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .travel-refresh {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1;
+      border: var(--line-hair);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .travel-refresh:hover { border-color: var(--ink); color: var(--ink); }
+    .travel-refresh:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+
+    /* ── Places section ── */
+    .places-section .place-field { max-width: 380px; margin-bottom: var(--s3); flex: 0 1 auto; }
+    .place-chip { cursor: default; align-items: center; }
+    .place-chip .pc-name { font-weight: 700; }
+    .place-chip .pc-sub {
+      color: var(--muted);
+      font-weight: 400;
+      font-size: 12px;
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .place-chip:hover { transform: none; box-shadow: var(--shadow-sm); }
+    .place-chip.is-home { background: var(--lime-tint); }
+    .place-chip .home-btn {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1;
+      border: var(--line-hair);
+      border-radius: 7px;
+      background: var(--card);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .place-chip.is-home .home-btn { border-color: var(--ink); background: var(--lime); color: var(--ink); }
+    .place-chip .home-btn:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+
     @media (max-width: 540px) {
       h1 { font-size: 34px; }
-      .result .start-time { font-size: 36px; }
+      .hero { padding: var(--s3); }
+      .hero-rule { margin-left: calc(-1 * var(--s3)); margin-right: calc(-1 * var(--s3)); }
+      .hero .start-time { font-size: 36px; }
+      .hero .target-time { font-size: 28px; }
+      .steps { margin: 0 calc(-1 * var(--s3)); }
       .step {
         grid-template-columns: auto 1fr auto 28px;
+        /* The name gets its own full-width row here — sharing a row with the
+           duration left it truncated to "Drive to…" once the travel toggle
+           claimed 30px. */
         grid-template-areas:
-          "handle name   dur x"
-          "handle start  start start";
+          "handle name   name  x"
+          "handle dur    start start"
+          "detail detail detail detail";
         gap: 8px;
       }
       .step .handle { grid-area: handle; height: auto; align-self: stretch; }
       .step .name-cell { grid-area: name; }
       .step .duration-group { grid-area: dur; }
-      .step .start { grid-area: start; justify-self: start; min-width: 0; }
+      .step .start { grid-area: start; justify-self: start; align-self: center; min-width: 0; }
       .step .remove { grid-area: x; }
+      /* Named area, not `grid-column: 1 / -1` — with grid-template-areas an
+         unplaced child would get auto-placed into the wrong cell. */
+      .step .travel-detail { grid-area: detail; }
+      /* The route is the point of the summary, so it keeps the first line and
+         ellipsizes; the stat drops below it. Grid rather than flex-wrap — a
+         nowrap route with a max-content basis wraps to its own line under
+         flex-wrap instead of shrinking, which cost three lines. */
+      .travel-summary {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+          "glyph route chev"
+          ".     stat  stat";
+        align-items: center;
+        column-gap: 8px;
+        row-gap: 2px;
+      }
+      .travel-summary .tm-glyph { grid-area: glyph; }
+      .travel-summary .tm-route { grid-area: route; }
+      .travel-summary .tm-stat { grid-area: stat; }
+      .travel-summary .chev { grid-area: chev; }
+      .travel-places { flex-direction: column; gap: 8px; }
+      /* flex-basis is the HEIGHT once the container is a column, so the 200px
+         basis inherited from the desktop rule left a 200px hole per field. */
+      .travel-places .place-field { flex: 0 0 auto; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -645,26 +1210,50 @@
     <h1>Backplan</h1>
     <p class="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
 
-    <section class="result" aria-live="polite">
-      <div>
-        <p class="label">Start at</p>
-        <p class="start-time" id="start-time">—</p>
-        <p class="meta" id="meta">Add steps below.</p>
-      </div>
-      <div style="text-align:right;">
-        <p class="label" id="target-label">Be ready by</p>
+    <section class="hero" aria-live="polite">
+      <!-- The event name owns a full-width line. Sharing the right column with
+           the target time knocked that time off the start time's baseline. -->
+      <div class="hero-head" id="hero-head" hidden>
+        <p class="label">For</p>
         <p class="event-name" id="event-display"></p>
-        <p class="start-time" id="target-display" style="color:var(--purple); font-size:32px;">—</p>
       </div>
-    </section>
-
-    <section class="timeline-section" id="timeline-section" hidden aria-label="Timeline">
-      <div class="timeline-axis">
-        <span id="timeline-start-label">—</span>
-        <span id="timeline-end-label">—</span>
+      <div class="hero-times">
+        <div>
+          <p class="label">Start at</p>
+          <p class="start-time" id="start-time">—</p>
+          <p class="meta" id="meta">Add steps below.</p>
+        </div>
+        <div class="hero-target">
+          <p class="label" id="target-label">Be ready by</p>
+          <p class="start-time target-time" id="target-display">—</p>
+        </div>
       </div>
-      <div class="timeline-track" id="timeline-track"></div>
-      <div id="timeline-countdown-wrap"></div>
+      <hr class="hero-rule" id="hero-rule" hidden />
+      <div class="timeline-section" id="timeline-section" hidden>
+        <div class="timeline-axis">
+          <span id="timeline-start-label">—</span>
+          <span id="timeline-end-label">—</span>
+        </div>
+        <div class="timeline-flag-rail">
+          <span class="timeline-flag" id="timeline-flag" aria-hidden="true" hidden></span>
+        </div>
+        <div class="timeline-track" id="timeline-track" role="img" aria-label="Timeline">
+          <div class="timeline-segments" id="timeline-segments"></div>
+          <div class="timeline-fill" id="timeline-fill"></div>
+          <div class="timeline-now" id="timeline-now" hidden></div>
+        </div>
+        <div class="timeline-status">
+          <div class="timeline-countdown" id="timeline-countdown">
+            <span class="dot"></span>
+            <span class="tl-key" id="timeline-now-key">Now</span>
+            <span id="timeline-now-text"></span>
+          </div>
+          <p class="timeline-next" id="timeline-next" hidden>
+            <span class="tl-key">Next</span>
+            <span id="timeline-next-text"></span>
+          </p>
+        </div>
+      </div>
     </section>
 
     <div class="card">
@@ -687,23 +1276,46 @@
       </div>
     </div>
 
-    <h2>Steps</h2>
-    <div class="steps" id="steps"></div>
-    <div class="add-row">
-      <button class="btn primary" id="add-step" type="button">+ Add step</button>
-      <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
-    </div>
+    <h2>Steps<span class="view-toggle" role="group" aria-label="Steps view">
+        <button type="button" id="view-edit" aria-pressed="true">Edit</button>
+        <button type="button" id="view-overview" aria-pressed="false">Overview</button>
+      </span></h2>
+    <section class="panel">
+      <div class="overview" id="overview" hidden></div>
+      <div class="steps" id="steps"></div>
+      <p class="chips-empty" id="steps-empty" hidden>No steps yet. Add one below, or tap a quick-add chip.</p>
+      <div class="add-row" id="add-row">
+        <button class="btn primary" id="add-step" type="button">+ Add step</button>
+        <button class="btn" id="add-travel" type="button">+ Travel step</button>
+        <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
+      </div>
+      <hr class="panel-divider" id="quick-add-divider" />
+      <div class="quick-add" id="quick-add-wrap">
+        <p class="sub-label">Quick add — tap to drop a common step in</p>
+        <div class="chips" id="quick-add-chips"></div>
+      </div>
+    </section>
 
-    <div class="quick-add">
-      <p class="sub-label">Quick add — tap to drop a common step in</p>
-      <div class="chips" id="quick-add-chips"></div>
-    </div>
+    <h2>Places</h2>
+    <section class="panel places-section">
+      <p class="sub-label">Save the spots you travel between. Mark one as home and travel steps start there by default.</p>
+      <div class="place-field" id="place-add-field">
+        <label for="place-add-input">Add a place</label>
+        <input type="text" id="place-add-input" class="place-input" data-field="new"
+               placeholder="Search an address or place" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="false" aria-autocomplete="list" />
+        <div class="place-menu" hidden role="listbox"></div>
+      </div>
+      <div class="chips" id="place-chips"></div>
+      <p class="chips-empty" id="places-empty">No saved places yet. Add home first — it becomes the default starting point.</p>
+    </section>
 
-    <section class="templates-section">
-      <h2>Templates</h2>
-
-      <p class="sub-label" style="margin-top:0;">Starters — tap to load a ready-made routine</p>
+    <h2>Templates</h2>
+    <section class="panel templates-section">
+      <p class="sub-label">Starters — tap to load a ready-made routine</p>
       <div class="chips" id="starter-chips"></div>
+
+      <hr class="panel-divider" />
 
       <p class="sub-label">Your templates</p>
       <div class="add-row" style="margin-top:0;">
@@ -724,6 +1336,23 @@
 
     const KEY_LAST = 'backplan:last';
     const KEY_TEMPLATES = 'backplan:templates';
+    const KEY_PLACES = 'backplan:places';
+    const KEY_VIEW = 'backplan:view';
+    const KEY_GEOCACHE = 'backplan:geocache';
+    const KEY_ROUTECACHE = 'backplan:routecache';
+
+    // ── Travel modes.
+    // KEEP IN SYNC with ios/Backplan/Models/Plan.swift → TravelMode.profile.
+    // Profiles are stock BRouter ones served by brouter.de; measured on a 3.5 mi
+    // Portland trip: car-eco 15 min, trekking ~14 mph, hiking-beta ~3.2 mph.
+    const TRAVEL_MODES = [
+      { id: 'drive', label: 'Drive', glyph: '🚗', profile: 'car-eco' },
+      { id: 'bike', label: 'Bike', glyph: '🚲', profile: 'trekking' },
+      { id: 'walk', label: 'Walk', glyph: '🚶', profile: 'hiking-beta' },
+    ];
+    function travelMode(id) {
+      return TRAVEL_MODES.find(m => m.id === id) || TRAVEL_MODES[0];
+    }
 
     // One-tap steps — append a fully-formed step, no typing required.
     const QUICK_ADDS = [
@@ -790,7 +1419,9 @@
     const $startTime = document.getElementById('start-time');
     const $targetDisplay = document.getElementById('target-display');
     const $eventDisplay = document.getElementById('event-display');
-    const $targetLabel = document.getElementById('target-label');
+    const $stepsEmpty = document.getElementById('steps-empty');
+    const $heroHead = document.getElementById('hero-head');
+    const $heroRule = document.getElementById('hero-rule');
     const $meta = document.getElementById('meta');
     const $targetInput = document.getElementById('target-time');
     const $eventInput = document.getElementById('event-name');
@@ -803,7 +1434,22 @@
     const $timelineStartLabel = document.getElementById('timeline-start-label');
     const $timelineEndLabel = document.getElementById('timeline-end-label');
     const $timelineTrack = document.getElementById('timeline-track');
-    const $timelineCountdownWrap = document.getElementById('timeline-countdown-wrap');
+    const $timelineSegments = document.getElementById('timeline-segments');
+    const $timelineFill = document.getElementById('timeline-fill');
+    const $timelineNow = document.getElementById('timeline-now');
+    const $timelineFlag = document.getElementById('timeline-flag');
+    const $timelineFlagRail = document.querySelector('.timeline-flag-rail');
+    const $overview = document.getElementById('overview');
+    const $addRow = document.getElementById('add-row');
+    const $quickAddWrap = document.getElementById('quick-add-wrap');
+    const $quickAddDivider = document.getElementById('quick-add-divider');
+    const $viewEdit = document.getElementById('view-edit');
+    const $viewOverview = document.getElementById('view-overview');
+    const $timelineCountdown = document.getElementById('timeline-countdown');
+    const $timelineNowKey = document.getElementById('timeline-now-key');
+    const $timelineNowText = document.getElementById('timeline-now-text');
+    const $timelineNext = document.getElementById('timeline-next');
+    const $timelineNextText = document.getElementById('timeline-next-text');
 
     // ── Helpers
     function nextRoundHalfHour() {
@@ -849,16 +1495,486 @@
       return step.unit === 'hr' ? Math.round(n * 60) : Math.round(n);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Travel: place search + routing. No backend, no API keys — both upstreams
+    // send `Access-Control-Allow-Origin: *`, so they're called straight from
+    // the browser. That puts the politeness burden on us: 3-char minimum,
+    // debounce, abort-in-flight, and cache everything (see geoCache/routeCache).
+    // ═══════════════════════════════════════════════════════════════════════
+    const PHOTON_URL = 'https://photon.komoot.io/api/';
+    const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+    const BROUTER_URL = 'https://brouter.de/brouter';
+    const DEFAULT_ANCHOR = { lat: 45.5231, lng: -122.6765 }; // Portland, OR
+    const SEARCH_MIN_CHARS = 3;
+    const SEARCH_DEBOUNCE_MS = 300;
+
+    function TravelError(code) { this.code = code; }
+
+    // ── TTL + LRU cache persisted to localStorage
+    function makeCache(storageKey, ttlMs, maxEntries) {
+      let map;
+      try { map = new Map(JSON.parse(localStorage.getItem(storageKey) || '[]')); }
+      catch { map = new Map(); }
+      const now = Date.now();
+      for (const [k, v] of map) if (!v || !v.t || now - v.t > ttlMs) map.delete(k);
+      let flushTimer = null;
+      function flush() {
+        try { localStorage.setItem(storageKey, JSON.stringify([...map])); }
+        catch { /* quota — cache is disposable, drop it */ }
+      }
+      return {
+        get(k) {
+          const hit = map.get(k);
+          if (!hit) return null;
+          if (Date.now() - hit.t > ttlMs) { map.delete(k); return null; }
+          return hit.v;
+        },
+        set(k, v) {
+          map.delete(k); // re-insert to refresh LRU recency (Map keeps insertion order)
+          map.set(k, { t: Date.now(), v });
+          while (map.size > maxEntries) map.delete(map.keys().next().value);
+          clearTimeout(flushTimer);
+          flushTimer = setTimeout(flush, 250);
+        },
+      };
+    }
+    const geoCache = makeCache(KEY_GEOCACHE, 24 * 60 * 60 * 1000, 120);
+    const routeCache = makeCache(KEY_ROUTECACHE, 7 * 24 * 60 * 60 * 1000, 200);
+
+    // ── Text helpers
+    // Punctuation-insensitive fold. "&" → "and" matters: Photon returns
+    // "Salt & Straw" for the query "salt and straw".
+    // People type "3703 NE 22nd Ave"; OSM stores "3703 Northeast 22nd Avenue".
+    // Collapsing both sides onto the short form is what makes that query match \u2014
+    // note "northeast" does NOT contain the substring "ne", so without this the
+    // directional simply never lines up.
+    const FOLD_SYNONYMS = [
+      [/\bnortheast\b/g, 'ne'], [/\bnorthwest\b/g, 'nw'],
+      [/\bsoutheast\b/g, 'se'], [/\bsouthwest\b/g, 'sw'],
+      [/\bnorth\b/g, 'n'], [/\bsouth\b/g, 's'], [/\beast\b/g, 'e'], [/\bwest\b/g, 'w'],
+      [/\bavenue\b/g, 'ave'], [/\bstreet\b/g, 'st'], [/\bsaint\b/g, 'st'],
+      [/\bboulevard\b/g, 'blvd'], [/\bdrive\b/g, 'dr'], [/\broad\b/g, 'rd'],
+      [/\bcourt\b/g, 'ct'], [/\blane\b/g, 'ln'], [/\bplace\b/g, 'pl'],
+      [/\bterrace\b/g, 'ter'], [/\bparkway\b/g, 'pkwy'], [/\bhighway\b/g, 'hwy'],
+    ];
+    function fold(s) {
+      let out = String(s || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+      for (const [re, to] of FOLD_SYNONYMS) out = out.replace(re, to);
+      return out.replace(/\s+/g, ' ').trim();
+    }
+    // Applied to street strings only — abbreviating inside a POI name would
+    // mangle things like "Pioneer Courthouse Square".
+    const STREET_ABBREV = [
+      [/\bNortheast\b/g, 'NE'], [/\bNorthwest\b/g, 'NW'],
+      [/\bSoutheast\b/g, 'SE'], [/\bSouthwest\b/g, 'SW'],
+      [/\bNorth\b/g, 'N'], [/\bSouth\b/g, 'S'], [/\bEast\b/g, 'E'], [/\bWest\b/g, 'W'],
+      [/\bAvenue\b/g, 'Ave'], [/\bStreet\b/g, 'St'], [/\bBoulevard\b/g, 'Blvd'],
+      [/\bDrive\b/g, 'Dr'], [/\bRoad\b/g, 'Rd'], [/\bCourt\b/g, 'Ct'],
+      [/\bLane\b/g, 'Ln'], [/\bTerrace\b/g, 'Ter'], [/\bParkway\b/g, 'Pkwy'],
+      [/\bHighway\b/g, 'Hwy'],
+    ];
+    function shortenStreet(s) {
+      let out = String(s || '');
+      for (const [re, to] of STREET_ABBREV) out = out.replace(re, to);
+      return out;
+    }
+    // Equirectangular metres — plenty accurate at city scale, much cheaper
+    // than haversine.
+    function distanceM(a, b) {
+      const mLat = 111320;
+      const mLng = 111320 * Math.cos((a.lat * Math.PI) / 180);
+      const dy = (a.lat - b.lat) * mLat;
+      const dx = (a.lng - b.lng) * mLng;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    function fmtDistance(m) {
+      const mi = m / 1609.34;
+      if (mi < 0.1) return Math.round(m * 3.28084) + ' ft';
+      return (mi < 10 ? mi.toFixed(1) : Math.round(mi)) + ' mi';
+    }
+
+    // ── Photon → normalized result
+    function uniqJoin(parts) {
+      const out = [];
+      for (const raw of parts) {
+        const v = String(raw || '').trim();
+        if (v && !out.includes(v)) out.push(v);
+      }
+      return out.join(', ');
+    }
+    function buildLabel(p) {
+      const street = shortenStreet(p.street || '');
+      const addr = [p.housenumber, street].filter(Boolean).join(' ').trim();
+      const town = p.city || p.district || '';
+      // No street means a locality or region. Photon fills `county` there, but
+      // "Forest Grove, Washington" reads as the wrong state — the state is the
+      // part that actually disambiguates, so county gets dropped.
+      if (!addr) {
+        return {
+          primary: p.name || town || p.state || 'Unknown',
+          context: uniqJoin(p.name ? [town, p.state] : [p.state]),
+        };
+      }
+      if (p.name) return { primary: p.name, context: uniqJoin([addr, town]) };
+      return { primary: addr, context: uniqJoin([p.district, p.city, p.state]) };
+    }
+    function normalizePhoton(feature) {
+      const p = feature.properties || {};
+      const c = (feature.geometry || {}).coordinates || [];
+      if (typeof c[0] !== 'number' || typeof c[1] !== 'number') return null;
+      const { primary, context } = buildLabel(p);
+      return {
+        label: primary,
+        sub: context,
+        lat: c[1],
+        lng: c[0],
+        housenumber: p.housenumber || '',
+        // Everything the query could plausibly be matching against — the town
+        // case ("Forest Grove Oregon") only ranks correctly if `state` is in here.
+        haystack: fold([p.name, p.housenumber, p.street, p.district, p.city, p.state]
+          .filter(Boolean).join(' ')),
+        nameFold: fold(p.name || ''),
+        key: p.osm_type && p.osm_id ? p.osm_type + p.osm_id
+          : c[1].toFixed(5) + ',' + c[0].toFixed(5),
+      };
+    }
+    // 0 = exact, 1 = prefix, 2 = all query tokens present, 3 = no textual match.
+    function matchTier(q, hay) {
+      if (!hay) return 3;
+      if (hay === q) return 0;
+      if (hay.startsWith(q)) return 1;
+      const tokens = q.split(' ').filter(Boolean);
+      if (tokens.length && tokens.every(t => hay.includes(t))) return 2;
+      return 3;
+    }
+
+    async function photonFetch(query, anchor, useBbox, signal) {
+      const params = new URLSearchParams({
+        q: query, lang: 'en', limit: '8',
+        lat: String(anchor.lat), lon: String(anchor.lng),
+      });
+      if (useBbox) {
+        params.set('bbox', [
+          (anchor.lng - 0.35).toFixed(4), (anchor.lat - 0.20).toFixed(4),
+          (anchor.lng + 0.35).toFixed(4), (anchor.lat + 0.20).toFixed(4),
+        ].join(','));
+      }
+      const res = await fetch(PHOTON_URL + '?' + params, { signal });
+      if (!res.ok) throw new TravelError('network');
+      const data = await res.json();
+      return (data.features || []).map(normalizePhoton).filter(Boolean);
+    }
+
+    // Photon's two bias modes each fail on the other's cases, measured:
+    //   proximity-only  → "salt and straw" resolves to Anaheim, California
+    //   bbox            → "Forest Grove Oregon" resolves to "South Forest Grove Loop"
+    // So run both and merge, ranking by textual match first and distance second.
+    async function photonSearch(query, anchor, signal) {
+      const [a, b] = await Promise.allSettled([
+        photonFetch(query, anchor, false, signal),
+        photonFetch(query, anchor, true, signal),
+      ]);
+      if (a.status === 'rejected' && b.status === 'rejected') throw a.reason;
+      const merged = new Map();
+      for (const settled of [a, b]) {
+        if (settled.status !== 'fulfilled') continue;
+        for (const r of settled.value) if (!merged.has(r.key)) merged.set(r.key, r);
+      }
+      const q = fold(query);
+      return [...merged.values()]
+        .map(r => ({
+          ...r,
+          _tier: matchTier(q, r.haystack),
+          _nameTier: matchTier(q, r.nameFold),
+          _dist: distanceM(anchor, r),
+        }))
+        .sort((x, y) => x._tier - y._tier || x._nameTier - y._nameTier || x._dist - y._dist)
+        .slice(0, 6);
+    }
+
+    // On a zero-result set, drop the trailing qualifier token and retry once —
+    // Photon matches terms strictly, so "salt and straw hawthorne" returns
+    // nothing even though "salt and straw" returns three hits.
+    const QUERY_CONNECTORS = new Set(['on', 'in', 'near', 'at', 'by', 'the', 'of', 'and']);
+    function relaxQuery(query) {
+      const tokens = query.trim().split(/\s+/);
+      if (tokens.length < 2) return null;
+      tokens.pop();
+      while (tokens.length && QUERY_CONNECTORS.has(tokens[tokens.length - 1].toLowerCase())) tokens.pop();
+      return tokens.length ? tokens.join(' ') : null;
+    }
+    // A leading house number is a strong signal Photon's own ranking ignores.
+    function reorderByHouseNumber(query, results) {
+      const m = query.trim().match(/^(\d+)\b/);
+      if (!m) return results;
+      return results.slice().sort(
+        (a, b) => (a.housenumber === m[1] ? 0 : 1) - (b.housenumber === m[1] ? 0 : 1)
+      );
+    }
+
+    // Nominatim fallback. It 403s without a Referer, and the 403 carries no CORS
+    // headers, so the browser reports it as an opaque "Failed to fetch" —
+    // referrerPolicy:"origin" is what makes this work at all.
+    async function nominatimSearch(query, anchor, signal) {
+      const params = new URLSearchParams({
+        q: query, format: 'jsonv2', limit: '6', addressdetails: '1', bounded: '0',
+        viewbox: [anchor.lng - 0.6, anchor.lat + 0.4, anchor.lng + 0.6, anchor.lat - 0.4].join(','),
+      });
+      const res = await fetch(NOMINATIM_URL + '?' + params, { signal, referrerPolicy: 'origin' });
+      if (!res.ok) throw new TravelError('network');
+      const data = await res.json();
+      return (data || []).map(r => {
+        const parts = String(r.display_name || '').split(',').map(s => s.trim());
+        return {
+          label: shortenStreet(parts[0] || r.name || 'Unknown'),
+          sub: parts.slice(1, 3).join(', '),
+          lat: parseFloat(r.lat),
+          lng: parseFloat(r.lon),
+          housenumber: (r.address && r.address.house_number) || '',
+          key: 'n' + r.place_id,
+        };
+      }).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
+    }
+
+    async function searchPlaces(query, signal) {
+      const q = query.trim();
+      if (q.length < SEARCH_MIN_CHARS) return [];
+      const anchor = searchAnchor();
+      const cacheKey = fold(q) + '|' + anchor.lat.toFixed(2) + ',' + anchor.lng.toFixed(2);
+      const cached = geoCache.get(cacheKey);
+      if (cached) return cached;
+
+      let results;
+      try {
+        results = await photonSearch(q, anchor, signal);
+        // Photon matches every term strictly, so a natural "name + neighbourhood"
+        // query either returns nothing or — worse — silently drifts to another
+        // state: "salt and straw hawthorne" answers with Pasadena and LA. Retry
+        // without the trailing qualifier when the answer is empty or absurdly far.
+        const far = results.length && distanceM(anchor, results[0]) > 150000;
+        if (results.length === 0 || (far && q.split(/\s+/).length >= 3)) {
+          const relaxed = relaxQuery(q);
+          const alt = relaxed ? await photonSearch(relaxed, anchor, signal) : [];
+          if (alt.length && (results.length === 0 ||
+              distanceM(anchor, alt[0]) < distanceM(anchor, results[0]))) {
+            results = alt;
+          }
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') throw err;
+        results = await nominatimSearch(q, anchor, signal);
+      }
+      results = reorderByHouseNumber(q, results)
+        .map(r => ({ label: r.label, sub: r.sub, lat: r.lat, lng: r.lng }));
+      geoCache.set(cacheKey, results);
+      return results;
+    }
+
+    // ── Routing
+    function routeCacheKey(mode, from, to) {
+      const c = p => p.lat.toFixed(5) + ',' + p.lng.toFixed(5);
+      return mode + '|' + c(from) + '|' + c(to);
+    }
+    async function routeLeg(mode, from, to, signal, force) {
+      const key = routeCacheKey(mode, from, to);
+      const cached = force ? null : routeCache.get(key);
+      if (cached) return cached;
+
+      const lonlats = from.lng.toFixed(6) + ',' + from.lat.toFixed(6) + '|' +
+                      to.lng.toFixed(6) + ',' + to.lat.toFixed(6);
+      const url = BROUTER_URL + '?lonlats=' + encodeURIComponent(lonlats) +
+                  '&profile=' + encodeURIComponent(travelMode(mode).profile) +
+                  '&alternativeidx=0&format=geojson';
+
+      // brouter.de is a volunteer-run host and intermittently answers a routable
+      // request with a non-JSON body. That's indistinguishable from a real "no
+      // route", so retry once before telling the user their trip is impossible.
+      let data = null, status = 0;
+      for (let attempt = 0; attempt < 2 && !data; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 600));
+        const res = await fetch(url, { signal });
+        status = res.status;
+        // BRouter reports routing problems as a plain-text body, not as JSON and
+        // not consistently by status: "can't route" comes back 200, "outside tile
+        // coverage" comes back 400 ("datafile W165_N15.rd5 not found"). So parse
+        // first and let the shape decide — only a 5xx is genuinely "service down".
+        const text = await res.text();
+        try { data = JSON.parse(text); } catch { /* plain-text error body */ }
+      }
+      if (!data) throw new TravelError(status >= 500 ? 'network' : 'no_route');
+      const props = data && data.features && data.features[0] && data.features[0].properties;
+      if (!props) throw new TravelError('no_route');
+      const meters = Math.round(Number(props['track-length']) || 0);
+      const seconds = Math.round(Number(props['total-time']) || 0);
+      if (!seconds) throw new TravelError('no_route');
+      const result = { minutes: Math.max(1, Math.round(seconds / 60)), distanceM: meters, fetchedAt: Date.now() };
+      routeCache.set(key, result);
+      return result;
+    }
+
+    // ── Saved places
+    function loadPlaces() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(KEY_PLACES) || '[]');
+        return Array.isArray(arr) ? arr : [];
+      } catch { return []; }
+    }
+    function savePlaces(arr) {
+      localStorage.setItem(KEY_PLACES, JSON.stringify(arr));
+    }
+    function homePlace() {
+      return loadPlaces().find(p => p.isHome) || null;
+    }
+    // Bias place search around home when it's set — a Portland default is only
+    // right until someone else uses this.
+    function searchAnchor() {
+      const home = homePlace();
+      return home ? { lat: home.lat, lng: home.lng } : DEFAULT_ANCHOR;
+    }
+
+    // ── Travel step model
+    function newId() {
+      return 's_' + Math.random().toString(36).slice(2, 9);
+    }
+    // Every step needs a stable id, but plans saved before travel steps existed
+    // don't have one — backfill on the way in rather than migrating storage.
+    function normalizeStep(s) {
+      const step = {
+        id: s.id || newId(),
+        name: s.name || '',
+        duration: s.duration ?? s.duration_min ?? 0,
+        unit: s.unit || 'min',
+      };
+      if (s.travel && typeof s.travel === 'object') {
+        step.travel = {
+          mode: travelMode(s.travel.mode).id,
+          from: validPlace(s.travel.from),
+          to: validPlace(s.travel.to),
+          result: s.travel.result || null,
+          status: s.travel.result ? 'ok' : 'idle',
+          error: null,
+          manual: !!s.travel.manual,
+        };
+      }
+      return step;
+    }
+    function validPlace(p) {
+      if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
+      return { label: String(p.label || ''), sub: String(p.sub || ''), lat: p.lat, lng: p.lng };
+    }
+    function makeTravel(mode) {
+      return { mode: mode || 'drive', from: null, to: null, result: null, status: 'idle', error: null, manual: false };
+    }
+    function placeRef(p) {
+      return { label: p.label, sub: p.sub || '', lat: p.lat, lng: p.lng };
+    }
+    // Chain rule: an explicit origin wins; otherwise inherit the nearest earlier
+    // leg's destination; otherwise fall back to home. This is what lets a
+    // home → school → work plan fill itself in with one address typed per stop.
+    // KEEP IN SYNC with ios/Backplan/ViewModels/PlanStore.swift → resolveOrigin.
+    function resolveOrigin(i) {
+      const step = state.steps[i];
+      if (!step || !step.travel) return null;
+      if (step.travel.from) return { place: step.travel.from, chained: false };
+      for (let j = i - 1; j >= 0; j--) {
+        const prev = state.steps[j];
+        if (prev.travel && prev.travel.to) return { place: prev.travel.to, chained: true };
+      }
+      const home = homePlace();
+      // A saved place is known by its nickname — "Home" reads better than the
+      // street address it expands to.
+      if (home) return { place: { label: home.name, sub: home.label, lat: home.lat, lng: home.lng }, chained: true };
+      return null;
+    }
+
+    // Fetch (or re-fetch) the routed duration for one travel step. Resolves the
+    // step by id, never by index — a reorder or delete mid-flight would
+    // otherwise write the answer onto the wrong row.
+    const travelRequests = new Map(); // step id → AbortController
+    async function refreshTravel(id, force) {
+      const step = state.steps.find(s => s.id === id);
+      if (!step || !step.travel) return;
+      const t = step.travel;
+      const origin = resolveOrigin(state.steps.indexOf(step));
+      if (!origin || !t.to) {
+        t.status = 'idle';
+        t.error = null;
+        patchTravelRow(id);
+        return;
+      }
+      const cached = routeCache.get(routeCacheKey(t.mode, origin.place, t.to));
+      if (cached && !force) {
+        applyTravelResult(step, cached);
+        patchTravelRow(id);
+        compute();
+        persistLast();
+        return;
+      }
+
+      const prev = travelRequests.get(id);
+      if (prev) prev.abort();
+      const ctrl = new AbortController();
+      travelRequests.set(id, ctrl);
+
+      t.status = 'loading';
+      t.error = null;
+      patchTravelRow(id);
+      try {
+        const result = await routeLeg(t.mode, origin.place, t.to, ctrl.signal, force);
+        const live = state.steps.find(s => s.id === id);
+        if (!live || !live.travel) return;
+        applyTravelResult(live, result);
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        const live = state.steps.find(s => s.id === id);
+        if (!live || !live.travel) return;
+        live.travel.status = 'error';
+        live.travel.error = (err && err.code) || 'network';
+      } finally {
+        if (travelRequests.get(id) === ctrl) travelRequests.delete(id);
+      }
+      patchTravelRow(id);
+      compute();
+      persistLast();
+    }
+    function applyTravelResult(step, result) {
+      step.travel.result = result;
+      step.travel.status = 'ok';
+      step.travel.error = null;
+      // A hand-typed duration is a deliberate override; never stomp it.
+      if (!step.travel.manual) {
+        step.duration = result.minutes;
+        step.unit = 'min';
+      }
+    }
+    function travelStepName(step) {
+      const t = step.travel;
+      const verb = { drive: 'Drive', bike: 'Bike', walk: 'Walk' }[t.mode] || 'Travel';
+      return t.to ? verb + ' to ' + t.to.label : verb + ' there';
+    }
+
     // ── Render steps
     function renderSteps() {
       $stepsEl.innerHTML = '';
       state.steps.forEach((step, i) => {
         const row = document.createElement('div');
-        row.className = 'step';
+        row.className = 'step' + (step.travel ? ' is-travel' : '');
         row.dataset.idx = i;
+        row.dataset.id = step.id;
         row.innerHTML = `
           <button class="handle" type="button" aria-label="Reorder step — drag, or focus and press up/down arrows" title="Drag to reorder">⠿</button>
-          <div class="name-cell"><input type="text" class="step-name" placeholder="What's this step?" value="${escapeAttr(step.name)}"/></div>
+          <div class="name-cell">
+            <input type="text" class="step-name" placeholder="What's this step?" value="${escapeAttr(step.name)}"/>
+            <button class="travel-toggle${step.travel ? ' on' : ''}" type="button"
+                    aria-pressed="${step.travel ? 'true' : 'false'}"
+                    title="${step.travel ? 'Turn off travel lookup' : 'Look up real travel time'}"
+                    aria-label="${step.travel ? 'Turn off travel lookup' : 'Look up real travel time'}">${step.travel ? travelMode(step.travel.mode).glyph : '🚗'}</button>
+          </div>
           <div class="duration-group">
             <input type="number" class="step-duration" min="0" step="1" inputmode="numeric" aria-label="duration" value="${escapeAttr(String(step.duration ?? ''))}"/>
             <select class="step-unit" aria-label="duration unit">
@@ -869,89 +1985,412 @@
           <div class="start" data-start></div>
           <button class="remove" type="button" aria-label="remove step">×</button>
         `;
+        if (step.travel) row.appendChild(buildTravelDetail(step, i));
         $stepsEl.appendChild(row);
       });
+      $stepsEmpty.hidden = state.steps.length > 0 || viewMode === 'overview';
       compute();
+      state.steps.forEach(s => { if (s.travel) patchTravelRow(s.id); });
+    }
+
+    // ── Travel: collapse
+    // Which travel panels the user has explicitly opened. Kept out of the DOM
+    // because renderSteps() rebuilds the whole list via innerHTML; keyed by step
+    // id so it survives a reorder. Deliberately not persisted — reopening the
+    // page on a settled leg should show the tidy one-line version.
+    const travelOpen = new Set();
+
+    // A leg is "settled" once both ends resolve and the lookup isn't mid-flight
+    // or broken. Only settled legs are allowed to collapse — an error or a
+    // missing endpoint means the fields are exactly what the user needs.
+    function travelSettled(step, i) {
+      const t = step && step.travel;
+      if (!t) return false;
+      return !!(t.to && resolveOrigin(i) && t.status !== 'error' && t.status !== 'loading');
+    }
+    function travelExpanded(step, i) {
+      return !travelSettled(step, i) || travelOpen.has(step.id);
+    }
+    // The stat half of the summary line, shared with the expanded result row so
+    // the two can never disagree.
+    function travelStatText(step) {
+      const t = step.travel;
+      if (!t || !t.result) return '';
+      return `${fmtDistance(t.result.distanceM)} · ${fmtDuration(t.result.minutes)}`;
+    }
+
+    function buildTravelDetail(step, i) {
+      const t = step.travel;
+      const origin = resolveOrigin(i);
+      const expanded = travelExpanded(step, i);
+      const wrap = document.createElement('div');
+      wrap.className = 'travel-detail';
+      wrap.innerHTML = `
+        <button type="button" class="travel-summary" data-travel-summary
+                aria-expanded="${expanded ? 'true' : 'false'}"
+                aria-label="${expanded ? 'Hide travel details' : 'Show travel details'}">
+          ${travelSummaryInnerHTML(step, i)}
+        </button>
+        <div class="travel-body" data-travel-body ${expanded ? '' : 'hidden'}>
+          <div class="travel-modes" role="group" aria-label="Travel mode">
+            ${TRAVEL_MODES.map(m => `
+              <button type="button" class="mode-btn${m.id === t.mode ? ' active' : ''}"
+                      data-mode="${m.id}" aria-pressed="${m.id === t.mode ? 'true' : 'false'}">
+                <span aria-hidden="true">${m.glyph}</span> ${m.label}
+              </button>`).join('')}
+          </div>
+          <div class="travel-places">
+            ${originFieldHTML(t, origin)}
+            ${placeFieldHTML('to', 'To', t.to, 'Search an address or place')}
+          </div>
+          <div class="travel-result" data-travel-result></div>
+        </div>
+      `;
+      return wrap;
+    }
+    function travelSummaryInnerHTML(step, i) {
+      const t = step.travel;
+      const origin = resolveOrigin(i);
+      const from = origin ? origin.place.label : 'Set a starting point';
+      const to = t.to ? t.to.label : 'Pick a destination';
+      const stat = travelStatText(step);
+      return `
+        <span class="tm-glyph" aria-hidden="true">${travelMode(t.mode).glyph}</span>
+        <span class="tm-route">${escapeAttr(from)}<span class="arrow" aria-hidden="true">→</span>${escapeAttr(to)}</span>
+        ${stat ? `<span class="tm-stat">${stat}</span>` : ''}
+        <span class="chev" aria-hidden="true">▾</span>
+      `;
+    }
+    function originFieldHTML(t, origin) {
+      if (!t.from && origin) {
+        return `<div class="place-field chained">
+          <label>From</label>
+          <button type="button" class="chain-pill" data-action="unchain">
+            <span aria-hidden="true">↑</span> ${escapeAttr(origin.place.label)}
+            <span class="chain-hint">tap to change</span>
+          </button>
+        </div>`;
+      }
+      return placeFieldHTML('from', 'From', t.from, 'Starting point');
+    }
+    function placeFieldHTML(field, label, place, placeholder) {
+      const id = 'pf-' + field + '-' + Math.random().toString(36).slice(2, 8);
+      return `<div class="place-field">
+        <label for="${id}">${label}</label>
+        <input type="text" id="${id}" class="place-input" data-field="${field}"
+               placeholder="${escapeAttr(placeholder)}" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="false" aria-autocomplete="list"
+               value="${escapeAttr(place ? place.label : '')}"/>
+        <div class="place-menu" hidden role="listbox"></div>
+      </div>`;
+    }
+
+    // Targeted update for one travel row. renderSteps() wipes the whole list via
+    // innerHTML, so calling it when an async route lands would destroy whatever
+    // the user is typing — this touches only the two things a result changes.
+    function patchTravelRow(id) {
+      const row = $stepsEl.querySelector(`.step[data-id="${CSS.escape(id)}"]`);
+      const step = state.steps.find(s => s.id === id);
+      if (!row || !step || !step.travel) return;
+      const t = step.travel;
+
+      const nameInput = row.querySelector('.step-name');
+      if (nameInput && document.activeElement !== nameInput) nameInput.value = step.name;
+      const durInput = row.querySelector('.step-duration');
+      if (durInput && document.activeElement !== durInput) durInput.value = String(step.duration ?? '');
+
+      syncTravelCollapse(row, step);
+
+      const out = row.querySelector('[data-travel-result]');
+      if (!out) return;
+      out.className = 'travel-result' + (t.status === 'error' ? ' error' : '');
+      if (t.status === 'loading') {
+        out.textContent = 'Looking up route…';
+      } else if (t.status === 'error') {
+        out.textContent = t.error === 'no_route'
+          ? 'No route found between those two points.'
+          : "Couldn't reach the routing service.";
+        out.appendChild(refreshButton(id));
+      } else if (t.status === 'ok' && t.result) {
+        // "free-flow" is the honest label: BRouter has no traffic model, so this
+        // is the uncongested time. Padding stays the user's call (Buffer chip).
+        out.textContent = `${fmtDistance(t.result.distanceM)} · ${fmtDuration(t.result.minutes)} free-flow ${travelMode(t.mode).label.toLowerCase()}`;
+        if (t.manual) {
+          const tag = document.createElement('span');
+          tag.className = 'manual-tag';
+          tag.textContent = 'duration edited by hand';
+          out.appendChild(tag);
+        }
+        out.appendChild(refreshButton(id));
+      } else {
+        out.textContent = t.to ? 'Set a starting point.' : 'Pick a destination to get a real travel time.';
+      }
+    }
+    // Redraw the summary line and open/close the body to match the model. This
+    // is what produces the auto-collapse: the moment a route lands, the leg
+    // becomes settled and folds itself away.
+    function syncTravelCollapse(row, step) {
+      const summary = row.querySelector('[data-travel-summary]');
+      const body = row.querySelector('[data-travel-body]');
+      if (!summary || !body) return;
+      const i = state.steps.indexOf(step);
+      const expanded = travelExpanded(step, i);
+
+      // Never collapse out from under someone mid-search — the async result of
+      // an earlier leg must not yank the field being typed in.
+      const typing = row.contains(document.activeElement)
+        && document.activeElement.closest('.travel-body');
+      if (typing && !expanded) return;
+
+      summary.innerHTML = travelSummaryInnerHTML(step, i);
+      summary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      summary.setAttribute('aria-label', expanded ? 'Hide travel details' : 'Show travel details');
+      body.hidden = !expanded;
+    }
+    function refreshButton(id) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'travel-refresh';
+      btn.dataset.refresh = id;
+      btn.title = 'Re-fetch travel time';
+      btn.setAttribute('aria-label', 'Re-fetch travel time');
+      btn.textContent = '↻';
+      return btn;
     }
     function escapeAttr(s) {
       return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
     // ── Timeline
+    // Split in two on purpose. `renderTimeline` touches the DOM and only needs to
+    // run when the plan changes; `tickTimeline` moves things and is cheap enough
+    // to run every second. That is what lets the fill glide instead of jumping in
+    // 30-second hops (compute() is on a 30s interval), and it stops hover state
+    // being thrown away on every tick.
+    let timelineData = null;
+    let lastNowText = null;   // .hero is aria-live; only write text that changed,
+    let lastNextText = null;  // or a screen reader re-announces it once a second.
+
     function renderTimeline(target, segments) {
       if (!segments || segments.length === 0) {
+        timelineData = null;
         $timelineSection.hidden = true;
+        $heroRule.hidden = true;
         return;
       }
       $timelineSection.hidden = false;
+      $heroRule.hidden = false;
 
       const chainStart = segments[0].start;
       const chainEnd = target;
-      const totalMs = chainEnd - chainStart;
 
       $timelineStartLabel.textContent = fmtTime(chainStart);
       $timelineEndLabel.textContent = fmtTime(chainEnd);
 
-      // Segments
-      $timelineTrack.innerHTML = '';
-      const totalMins = segments.reduce((s, x) => s + x.mins, 0);
-      segments.forEach((seg, i) => {
+      $timelineSegments.innerHTML = '';
+      segments.forEach((seg) => {
         const div = document.createElement('div');
-        div.className = 'timeline-segment color-' + (i % 4);
+        div.className = 'timeline-segment';
         div.style.flex = seg.mins + ' 0 0';
-        const pct = seg.mins / totalMins;
-        if (pct < 0.18) div.classList.add('narrow');
-        if (pct < 0.08) div.classList.add('tiny');
+        // The only per-segment detail left, now that nothing is drawn inside them.
         div.title = `${seg.name} · ${fmtDuration(seg.mins)} · ${fmtTime(seg.start)} → ${fmtTime(seg.end)}`;
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'seg-name';
-        nameSpan.textContent = seg.name;
-        const durSpan = document.createElement('span');
-        durSpan.className = 'seg-dur';
-        durSpan.textContent = seg.mins + 'm';
-        div.appendChild(nameSpan);
-        div.appendChild(durSpan);
-        $timelineTrack.appendChild(div);
+        $timelineSegments.appendChild(div);
       });
 
-      // Now marker
+      timelineData = { chainStart, chainEnd, segments };
+      lastNowText = lastNextText = null;
+      tickTimeline();
+    }
+
+    // Position-and-text only: builds nothing, so it is safe on a 1s interval.
+    function tickTimeline() {
+      if (!timelineData || $timelineSection.hidden) return;
+      const { chainStart, chainEnd, segments } = timelineData;
       const now = new Date();
-      const nowEl = document.createElement('div');
-      nowEl.className = 'timeline-now';
+      const totalMs = Math.max(1, chainEnd - chainStart);
+      const pct = Math.max(0, Math.min(1, (now - chainStart) / totalMs));
+      const started = now >= chainStart;
+      const finished = now > chainEnd;
+      const inWindow = started && !finished;
 
-      $timelineCountdownWrap.innerHTML = '';
-      const countdown = document.createElement('div');
-      countdown.className = 'timeline-countdown';
-      const dot = document.createElement('span');
-      dot.className = 'dot';
-      const label = document.createElement('span');
-      countdown.appendChild(dot);
-      countdown.appendChild(label);
+      $timelineFill.style.width = (pct * 100) + '%';
 
-      if (now < chainStart) {
-        nowEl.classList.add('before');
-        const minsUntil = Math.max(1, Math.round((chainStart - now) / 60000));
-        countdown.classList.add('future');
-        label.textContent = `Start in ${fmtDuration(minsUntil)} · ${fmtTime(chainStart)}`;
-      } else if (now > chainEnd) {
-        nowEl.classList.add('after');
-        const minsOver = Math.round((now - chainEnd) / 60000);
-        countdown.classList.add('past');
-        label.textContent = `Target was ${fmtDuration(Math.max(1, minsOver))} ago`;
+      // Marker and flag exist only while the clock is inside the plan; before and
+      // after, the fill being empty or full already says everything.
+      $timelineNow.hidden = !inWindow;
+      $timelineFlag.hidden = !inWindow;
+      $timelineFlagRail.classList.toggle('empty', !inWindow);
+      if (inWindow) {
+        const left = (pct * 100) + '%';
+        $timelineNow.style.left = left;
+        $timelineFlag.style.left = left;
+        $timelineFlag.textContent = fmtTime(now);
+        $timelineFlag.classList.toggle('at-start', pct < 0.06);
+        $timelineFlag.classList.toggle('at-end', pct > 0.94);
+      }
+
+      const currentIdx = segments.findIndex(s => now >= s.start && now < s.end);
+      const cells = $timelineSegments.children;
+      for (let i = 0; i < cells.length; i++) {
+        cells[i].classList.toggle('now', i === currentIdx);
+      }
+
+      let key, nowText, nextText = '', state;
+      if (!started) {
+        state = 'future';
+        key = 'Start';
+        // No clock time here — the NEXT line below already carries it, and the
+        // first step always starts exactly at the chain start.
+        nowText = `in ${fmtDuration(Math.max(1, Math.round((chainStart - now) / 60000)))}`;
+        nextText = `${segments[0].name} at ${fmtTime(segments[0].start)}`;
+      } else if (finished) {
+        state = 'past';
+        key = 'Past';
+        nowText = `target was ${fmtDuration(Math.max(1, Math.round((now - chainEnd) / 60000)))} ago`;
       } else {
-        const pct = Math.max(0, Math.min(1, (now - chainStart) / totalMs));
-        nowEl.style.left = (pct * 100) + '%';
-        const current = segments.find(s => now >= s.start && now < s.end);
-        countdown.classList.add('active');
-        if (current) {
-          const minsLeft = Math.max(1, Math.round((current.end - now) / 60000));
-          label.textContent = `Now: ${current.name} · ${fmtDuration(minsLeft)} left`;
+        state = 'active';
+        key = 'Now';
+        const cur = segments[currentIdx];
+        if (cur) {
+          nowText = `${cur.name} · ${fmtDuration(Math.max(1, Math.round((cur.end - now) / 60000)))} left`;
+          const next = segments[currentIdx + 1];
+          nextText = next ? `${next.name} at ${fmtTime(next.start)}` : `Done at ${fmtTime(chainEnd)}`;
         } else {
-          label.textContent = `In progress · target ${fmtTime(chainEnd)}`;
+          nowText = `in progress · target ${fmtTime(chainEnd)}`;
         }
       }
-      $timelineTrack.appendChild(nowEl);
-      $timelineCountdownWrap.appendChild(countdown);
+
+      $timelineCountdown.classList.remove('future', 'active', 'past');
+      $timelineCountdown.classList.add(state);
+      $timelineTrack.classList.toggle('past', state === 'past');
+      $timelineNext.hidden = !nextText;
+
+      if (nowText !== lastNowText || nextText !== lastNextText) {
+        lastNowText = nowText;
+        lastNextText = nextText;
+        $timelineNowKey.textContent = key;
+        $timelineNowText.textContent = nowText;
+        $timelineNextText.textContent = nextText;
+        // The bar carries no text of its own now, so the whole picture has to
+        // reach a screen reader through one composed label.
+        const n = segments.length;
+        $timelineTrack.setAttribute('aria-label',
+          `Timeline: ${n} step${n === 1 ? '' : 's'} from ${fmtTime(chainStart)} to ` +
+          `${fmtTime(chainEnd)}. ${key}: ${nowText}.`);
+      }
+    }
+
+    // ── Overview
+    // The schedule as a list. The bar carries shape and progress; it physically
+    // cannot name a 15-minute step at phone width — that is what put "Dr…" on
+    // screen — so the names live here.
+    let viewMode = 'edit';
+
+    function applyViewMode() {
+      const overview = viewMode === 'overview';
+      $overview.hidden = !overview;
+      $stepsEl.hidden = overview;
+      $addRow.hidden = overview;
+      $quickAddWrap.hidden = overview;
+      $quickAddDivider.hidden = overview;
+      $viewEdit.setAttribute('aria-pressed', String(!overview));
+      $viewOverview.setAttribute('aria-pressed', String(overview));
+      // The empty-state prompt talks about adding steps, which only Edit can do.
+      if (overview) $stepsEmpty.hidden = true;
+      else $stepsEmpty.hidden = state.steps.length > 0;
+    }
+
+    function setViewMode(mode) {
+      viewMode = mode === 'overview' ? 'overview' : 'edit';
+      try { localStorage.setItem(KEY_VIEW, viewMode); } catch (e) {}
+      applyViewMode();
+      compute();
+    }
+
+    function renderOverview(target, startTimes, targetDayStart) {
+      $overview.innerHTML = '';
+      if (viewMode !== 'overview') return;
+
+      const now = new Date();
+      if (state.steps.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'chips-empty';
+        empty.textContent = 'No steps yet. Switch to Edit to add some.';
+        $overview.appendChild(empty);
+        return;
+      }
+
+      state.steps.forEach((step, i) => {
+        const mins = stepMinutes(step);
+        const start = startTimes[i];
+        const end = start ? new Date(start.getTime() + mins * 60000) : null;
+
+        const row = document.createElement('div');
+        row.className = 'ov-row';
+        if (start && end) {
+          if (now >= end) row.classList.add('done');
+          else if (now >= start) row.classList.add('now');
+        }
+
+        const time = document.createElement('span');
+        time.className = 'ov-time';
+        time.textContent = start ? fmtTime(start) : '—';
+        if (start && start < targetDayStart) time.classList.add('overflow');
+
+        const body = document.createElement('div');
+        body.className = 'ov-body';
+        const name = document.createElement('div');
+        name.className = 'ov-name';
+        const trimmed = (step.name || '').trim();
+        if (trimmed) {
+          name.textContent = trimmed;
+        } else {
+          name.classList.add('unnamed');
+          name.textContent = `Step ${i + 1}`;
+        }
+        body.appendChild(name);
+
+        // Travel legs get the same one-line form the collapsed editor row uses.
+        if (step.travel) {
+          const origin = resolveOrigin(i);
+          const leg = document.createElement('div');
+          leg.className = 'ov-leg';
+          const from = origin ? origin.place.label : 'no start';
+          const to = step.travel.to ? step.travel.to.label : 'no destination';
+          leg.append(
+            document.createTextNode(`${travelMode(step.travel.mode).glyph} ${from}`)
+          );
+          const arrow = document.createElement('span');
+          arrow.className = 'arrow';
+          arrow.textContent = '→';
+          leg.appendChild(arrow);
+          const stat = travelStatText(step);
+          leg.append(document.createTextNode(to + (stat ? ` · ${stat}` : '')));
+          body.appendChild(leg);
+        }
+
+        const dur = document.createElement('span');
+        dur.className = 'ov-dur';
+        dur.textContent = mins > 0 ? fmtDuration(mins) : '—';
+
+        row.append(time, body, dur);
+        $overview.appendChild(row);
+      });
+
+      // Close the list on the thing the whole plan is aimed at.
+      const targetRow = document.createElement('div');
+      targetRow.className = 'ov-row target';
+      const tTime = document.createElement('span');
+      tTime.className = 'ov-time';
+      tTime.textContent = fmtTime(target);
+      const tBody = document.createElement('div');
+      tBody.className = 'ov-body';
+      const tName = document.createElement('div');
+      tName.className = 'ov-name';
+      tName.textContent = (state.eventName || '').trim() || 'Be ready';
+      tBody.appendChild(tName);
+      targetRow.append(tTime, tBody, document.createElement('span'));
+      $overview.appendChild(targetRow);
     }
 
     // ── Backwards math
@@ -960,7 +2399,8 @@
       $targetDisplay.textContent = fmtTime(target);
       const name = (state.eventName || '').trim();
       $eventDisplay.textContent = name;
-      $targetLabel.textContent = name ? 'For' : 'Be ready by';
+      // The name now has its own line, so the target keeps its own label.
+      $heroHead.hidden = !name;
       document.title = name ? `${name} — Backplan` : 'Backplan';
 
       const rows = $stepsEl.querySelectorAll('.step');
@@ -984,6 +2424,8 @@
       targetDayStart.setHours(0, 0, 0, 0);
       const overflowsPrevDay = overallStart && overallStart < targetDayStart;
 
+      renderOverview(target, startTimes, targetDayStart);
+
       // Per-row update
       rows.forEach((row, i) => {
         const el = row.querySelector('[data-start]');
@@ -1002,7 +2444,7 @@
         $startTime.textContent = '—';
         $startTime.classList.remove('overflow');
         $meta.textContent = 'Add steps below.';
-        document.querySelectorAll('.result .prev-day').forEach(n => n.remove());
+        document.querySelectorAll('.hero .prev-day').forEach(n => n.remove());
         renderTimeline(target, []);
         return;
       }
@@ -1042,20 +2484,241 @@
     $stepsEl.addEventListener('input', (e) => {
       const row = e.target.closest('.step');
       if (!row) return;
+      if (e.target.classList.contains('place-input')) { onPlaceInput(row, e.target); return; }
       const i = Number(row.dataset.idx);
       if (e.target.classList.contains('step-name')) state.steps[i].name = e.target.value;
-      if (e.target.classList.contains('step-duration')) state.steps[i].duration = e.target.value === '' ? '' : Number(e.target.value);
+      if (e.target.classList.contains('step-duration')) {
+        state.steps[i].duration = e.target.value === '' ? '' : Number(e.target.value);
+        // Typing over an auto-filled number claims it; refreshes stop overwriting.
+        if (state.steps[i].travel) {
+          state.steps[i].travel.manual = true;
+          patchTravelRow(state.steps[i].id);
+        }
+      }
       if (e.target.classList.contains('step-unit')) state.steps[i].unit = e.target.value;
       persistLast();
       compute();
     });
     $stepsEl.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('remove')) return;
       const row = e.target.closest('.step');
+      if (!row) return;
       const i = Number(row.dataset.idx);
-      state.steps.splice(i, 1);
+      const step = state.steps[i];
+
+      if (e.target.classList.contains('remove')) {
+        travelOpen.delete(step.id);
+        state.steps.splice(i, 1);
+        persistLast();
+        renderSteps();
+        return;
+      }
+      const summary = e.target.closest('[data-travel-summary]');
+      if (summary && step.travel) {
+        // Re-render just this row — renderSteps() would blow away anything the
+        // user has half-typed in another row.
+        if (travelOpen.has(step.id)) travelOpen.delete(step.id);
+        else travelOpen.add(step.id);
+        syncTravelCollapse(row, step);
+        return;
+      }
+      if (e.target.closest('.travel-toggle')) {
+        if (step.travel) {
+          step.travel = null;
+          travelOpen.delete(step.id);
+        } else {
+          step.travel = makeTravel('drive');
+          travelOpen.add(step.id);   // a brand-new leg starts open
+          if (!step.name.trim()) step.name = travelStepName(step);
+        }
+        persistLast();
+        renderSteps();
+        if (step.travel) {
+          const input = $stepsEl.querySelector(`.step[data-id="${CSS.escape(step.id)}"] .place-input[data-field="to"]`);
+          if (input) input.focus();
+        }
+        return;
+      }
+      const modeBtn = e.target.closest('.mode-btn');
+      if (modeBtn && step.travel) {
+        step.travel.mode = modeBtn.dataset.mode;
+        if (!step.travel.manual) step.name = travelStepName(step);
+        persistLast();
+        renderSteps();
+        refreshTravel(step.id, false);
+        return;
+      }
+      if (e.target.closest('[data-action="unchain"]') && step.travel) {
+        // Materialize the inherited origin so it becomes editable.
+        const origin = resolveOrigin(i);
+        step.travel.from = origin ? origin.place : null;
+        persistLast();
+        renderSteps();
+        const input = $stepsEl.querySelector(`.step[data-id="${CSS.escape(step.id)}"] .place-input[data-field="from"]`);
+        if (input) { input.focus(); input.select(); }
+        return;
+      }
+      const refresh = e.target.closest('[data-refresh]');
+      if (refresh) { refreshTravel(refresh.dataset.refresh, true); return; }
+
+      const option = e.target.closest('.place-option');
+      if (option) { choosePlace(row, option); return; }
+    });
+
+    // ── Place autocomplete
+    const searchTimers = new Map();   // input element → debounce timer
+    const searchAborts = new Map();   // input element → AbortController
+
+    function onPlaceInput(row, input) {
+      const query = input.value;
+      clearTimeout(searchTimers.get(input));
+      const pending = searchAborts.get(input);
+      if (pending) pending.abort();
+
+      // Emptying the field clears the place — otherwise a stale coordinate would
+      // keep routing against a destination no longer shown on screen.
+      if (query.trim() === '') {
+        const step = state.steps.find(s => s.id === row.dataset.id);
+        if (step && step.travel) {
+          if (input.dataset.field === 'to') step.travel.to = null;
+          else step.travel.from = null;
+          step.travel.result = null;
+          step.travel.status = 'idle';
+          persistLast();
+          patchTravelRow(step.id);
+        }
+      }
+
+      if (query.trim().length < SEARCH_MIN_CHARS) {
+        renderPlaceMenu(input, savedPlaceMatches(query), query);
+        return;
+      }
+      searchTimers.set(input, setTimeout(async () => {
+        const ctrl = new AbortController();
+        searchAborts.set(input, ctrl);
+        try {
+          const results = await searchPlaces(query, ctrl.signal);
+          if (!input.isConnected) return;
+          renderPlaceMenu(input, savedPlaceMatches(query).concat(results), query);
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          if (input.isConnected) renderPlaceMenu(input, [], query, "Couldn't reach the place search.");
+        } finally {
+          if (searchAborts.get(input) === ctrl) searchAborts.delete(input);
+        }
+      }, SEARCH_DEBOUNCE_MS));
+    }
+    function savedPlaceMatches(query) {
+      const q = fold(query);
+      return loadPlaces()
+        .filter(p => !q || fold(p.name).includes(q) || fold(p.label).includes(q))
+        .map(p => ({ label: p.name, sub: p.label, lat: p.lat, lng: p.lng, saved: true }));
+    }
+    function renderPlaceMenu(input, results, query, errorText) {
+      const menu = input.parentElement.querySelector('.place-menu');
+      if (!menu) return;
+      menu.innerHTML = '';
+      if (errorText) {
+        const div = document.createElement('div');
+        div.className = 'place-empty';
+        div.textContent = errorText;
+        menu.appendChild(div);
+      } else if (results.length === 0) {
+        if (query.trim().length < SEARCH_MIN_CHARS) { closePlaceMenu(input); return; }
+        const div = document.createElement('div');
+        div.className = 'place-empty';
+        div.textContent = 'Nothing found for “' + query.trim() + '”.';
+        menu.appendChild(div);
+      } else {
+        results.forEach((r, idx) => {
+          const opt = document.createElement('button');
+          opt.type = 'button';
+          opt.className = 'place-option';
+          opt.setAttribute('role', 'option');
+          opt.dataset.idx = String(idx);
+          opt.innerHTML =
+            (r.saved ? '<span class="saved-dot" aria-hidden="true">★</span>' : '') +
+            '<span class="po-label"></span><span class="po-sub"></span>';
+          opt.querySelector('.po-label').textContent = r.label;
+          opt.querySelector('.po-sub').textContent = r.sub || '';
+          menu.appendChild(opt);
+        });
+      }
+      menu.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      menuResults.set(menu, results);
+    }
+    const menuResults = new WeakMap();
+    function closePlaceMenu(input) {
+      const menu = input.parentElement.querySelector('.place-menu');
+      if (!menu) return;
+      menu.hidden = true;
+      menu.innerHTML = '';
+      input.setAttribute('aria-expanded', 'false');
+    }
+    function choosePlace(row, option) {
+      const menu = option.parentElement;
+      const input = menu.parentElement.querySelector('.place-input');
+      const results = menuResults.get(menu) || [];
+      const chosen = results[Number(option.dataset.idx)];
+      if (!chosen || !input) return;
+      const step = state.steps.find(s => s.id === row.dataset.id);
+      if (!step || !step.travel) return;
+
+      const ref = placeRef(chosen);
+      if (input.dataset.field === 'to') step.travel.to = ref;
+      else step.travel.from = ref;
+      if (!step.travel.manual) step.name = travelStepName(step);
+
+      input.value = ref.label;
+      closePlaceMenu(input);
+      // Picking an endpoint is the user finishing with this panel — drop the
+      // explicit-open flag so it folds itself up once the route lands.
+      if (step.travel.to && resolveOrigin(state.steps.indexOf(step))) travelOpen.delete(step.id);
       persistLast();
       renderSteps();
+      refreshTravel(step.id, false);
+      // Every later leg inherits from this one, so they need re-resolving too.
+      state.steps.forEach(s => { if (s.travel && s.id !== step.id) refreshTravel(s.id, false); });
+    }
+    // Dismiss on outside mousedown, not blur: blur fires before the option's
+    // click does, so closing on blur would swallow the pick being made.
+    document.addEventListener('mousedown', (e) => {
+      const inField = e.target.closest('.place-field');
+      document.querySelectorAll('.place-input').forEach(input => {
+        if (inField && input.parentElement === inField) return;
+        closePlaceMenu(input);
+      });
+    });
+    $stepsEl.addEventListener('focusin', (e) => {
+      if (!e.target.classList.contains('place-input')) return;
+      const saved = savedPlaceMatches('');
+      if (saved.length) renderPlaceMenu(e.target, saved, '');
+    });
+    $stepsEl.addEventListener('keydown', (e) => {
+      if (!e.target.classList.contains('place-input')) return;
+      const menu = e.target.parentElement.querySelector('.place-menu');
+      if (!menu || menu.hidden) return;
+      const options = [...menu.querySelectorAll('.place-option')];
+      if (!options.length) return;
+      const active = document.activeElement;
+      const at = options.indexOf(active);
+      if (e.key === 'ArrowDown') { e.preventDefault(); options[Math.min(at + 1, options.length - 1)].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); at <= 0 ? e.target.focus() : options[at - 1].focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); closePlaceMenu(e.target); }
+    });
+    $stepsEl.addEventListener('keydown', (e) => {
+      if (!e.target.classList.contains('place-option')) return;
+      const input = e.target.closest('.place-field').querySelector('.place-input');
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.target.click(); }
+      else if (e.key === 'Escape') { e.preventDefault(); closePlaceMenu(input); input.focus(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const options = [...e.target.parentElement.querySelectorAll('.place-option')];
+        const at = options.indexOf(e.target);
+        if (e.key === 'ArrowDown') options[Math.min(at + 1, options.length - 1)].focus();
+        else if (at <= 0) input.focus();
+        else options[at - 1].focus();
+      }
     });
 
     // ── Reorder steps (drag + keyboard)
@@ -1095,7 +2758,13 @@
       const from = rows.indexOf(row);
       if (from < 0 || rows.length < 2) return;
       const rects = rows.map(r => r.getBoundingClientRect());
-      const pitch = Math.abs(rects[Math.min(1, rows.length - 1)].top - rects[0].top) || (rects[0].height + 10);
+      // Rows are no longer uniform height (a travel row is much taller), so the
+      // make-space shift must be the dragged row's own height plus the gap —
+      // a single pitch sampled off the first two rows would be visibly wrong.
+      const gap = rows.length > 1
+        ? Math.max(0, rects[1].top - (rects[0].top + rects[0].height))
+        : 10;
+      const pitch = rects[from].height + gap;
       drag = { handle, row, rows, rects, from, to: from, startY: e.clientY, pitch, pointerId: e.pointerId };
       row.classList.add('dragging');
       document.body.classList.add('dragging-active');
@@ -1144,7 +2813,7 @@
     }
 
     document.getElementById('add-step').addEventListener('click', () => {
-      state.steps.push({ name: '', duration: 5, unit: 'min' });
+      state.steps.push(normalizeStep({ name: '', duration: 5, unit: 'min' }));
       persistLast();
       renderSteps();
       // focus the new name input
@@ -1153,10 +2822,23 @@
       if (last) last.querySelector('.step-name').focus();
     });
 
+    document.getElementById('add-travel').addEventListener('click', () => {
+      const step = normalizeStep({ name: '', duration: 5, unit: 'min' });
+      step.travel = makeTravel('drive');
+      step.name = travelStepName(step);
+      travelOpen.add(step.id);   // a brand-new leg starts open
+      state.steps.push(step);
+      persistLast();
+      renderSteps();
+      const input = $stepsEl.querySelector(`.step[data-id="${CSS.escape(step.id)}"] .place-input[data-field="to"]`);
+      if (input) input.focus();
+    });
+
     document.getElementById('clear-steps').addEventListener('click', () => {
       if (state.steps.length === 0) return;
       if (!confirm('Clear all steps?')) return;
       state.steps = [];
+      travelOpen.clear();
       persistLast();
       renderSteps();
     });
@@ -1216,11 +2898,7 @@
           state.eventName = t.eventName || '';
           state.target = t.target || '18:00';
           state.day = t.day || 'today';
-          state.steps = (t.steps || []).map(s => ({
-            name: s.name || '',
-            duration: s.duration ?? s.duration_min ?? 0,
-            unit: s.unit || 'min',
-          }));
+          state.steps = (t.steps || []).map(normalizeStep);
           $eventInput.value = state.eventName;
           $targetInput.value = state.target;
           $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
@@ -1244,6 +2922,9 @@
           name: s.name,
           duration: typeof s.duration === 'number' ? s.duration : Number(s.duration) || 0,
           unit: s.unit || 'min',
+          // Carry the travel leg so a saved routine re-routes on load instead of
+          // freezing yesterday's number.
+          travel: s.travel ? { mode: s.travel.mode, from: s.travel.from, to: s.travel.to, manual: s.travel.manual } : undefined,
         })),
       };
       // replace if a template with that name already exists
@@ -1252,6 +2933,94 @@
       else arr.push(snapshot);
       saveTemplates(arr);
       renderChips();
+    });
+
+    // ── Places section
+    const $placeChips = document.getElementById('place-chips');
+    const $placesEmpty = document.getElementById('places-empty');
+    const $placeAddInput = document.getElementById('place-add-input');
+
+    function renderPlaceChips() {
+      const places = loadPlaces();
+      $placeChips.innerHTML = '';
+      $placesEmpty.style.display = places.length ? 'none' : 'block';
+      places.forEach((p, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip place-chip' + (p.isHome ? ' is-home' : '');
+        chip.innerHTML =
+          `<button type="button" class="home-btn" aria-pressed="${p.isHome ? 'true' : 'false'}"
+                   title="${p.isHome ? 'This is home' : 'Make this home'}"
+                   aria-label="${p.isHome ? 'This is home' : 'Make this home'}">⌂</button>` +
+          `<span class="pc-name"></span><span class="pc-sub"></span>` +
+          `<button type="button" class="x" aria-label="delete place">×</button>`;
+        chip.querySelector('.pc-name').textContent = p.name;
+        chip.querySelector('.pc-sub').textContent = p.label;
+        chip.querySelector('.home-btn').addEventListener('click', () => {
+          const arr = loadPlaces();
+          const makeHome = !arr[i].isHome;
+          arr.forEach((q, j) => { q.isHome = makeHome && j === i; });
+          savePlaces(arr);
+          renderPlaceChips();
+          // Home is both the search bias and the default first origin, so every
+          // unresolved leg can change meaning here.
+          renderSteps();
+          state.steps.forEach(s => { if (s.travel) refreshTravel(s.id, false); });
+        });
+        chip.querySelector('.x').addEventListener('click', () => {
+          if (!confirm('Delete place "' + p.name + '"?')) return;
+          const arr = loadPlaces();
+          arr.splice(i, 1);
+          savePlaces(arr);
+          renderPlaceChips();
+          renderSteps();
+        });
+        $placeChips.appendChild(chip);
+      });
+    }
+
+    $placeAddInput.addEventListener('input', () => {
+      const query = $placeAddInput.value;
+      clearTimeout(searchTimers.get($placeAddInput));
+      const pending = searchAborts.get($placeAddInput);
+      if (pending) pending.abort();
+      if (query.trim().length < SEARCH_MIN_CHARS) { closePlaceMenu($placeAddInput); return; }
+      searchTimers.set($placeAddInput, setTimeout(async () => {
+        const ctrl = new AbortController();
+        searchAborts.set($placeAddInput, ctrl);
+        try {
+          renderPlaceMenu($placeAddInput, await searchPlaces(query, ctrl.signal), query);
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          renderPlaceMenu($placeAddInput, [], query, "Couldn't reach the place search.");
+        } finally {
+          if (searchAborts.get($placeAddInput) === ctrl) searchAborts.delete($placeAddInput);
+        }
+      }, SEARCH_DEBOUNCE_MS));
+    });
+    document.getElementById('place-add-field').addEventListener('click', (e) => {
+      const option = e.target.closest('.place-option');
+      if (!option) return;
+      const menu = option.parentElement;
+      const chosen = (menuResults.get(menu) || [])[Number(option.dataset.idx)];
+      if (!chosen) return;
+      const name = (prompt('Name this place:', chosen.label) || '').trim();
+      if (!name) return;
+      const arr = loadPlaces();
+      const entry = {
+        id: newId(), name,
+        label: [chosen.label, chosen.sub].filter(Boolean).join(', '),
+        lat: chosen.lat, lng: chosen.lng,
+        isHome: arr.length === 0, // first place saved is almost always home
+      };
+      const existing = arr.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+      if (existing >= 0) { entry.isHome = arr[existing].isHome; arr[existing] = entry; }
+      else arr.push(entry);
+      savePlaces(arr);
+      $placeAddInput.value = '';
+      closePlaceMenu($placeAddInput);
+      renderPlaceChips();
+      renderSteps();
+      state.steps.forEach(s => { if (s.travel) refreshTravel(s.id, false); });
     });
 
     // ── Quick add
@@ -1268,7 +3037,7 @@
           `<span class="plus">+</span><span>${escapeAttr(item.name)}</span>` +
           `<span class="dur">${durLabel(item)}</span>`;
         chip.addEventListener('click', () => {
-          state.steps.push({ name: item.name, duration: item.duration, unit: item.unit });
+          state.steps.push(normalizeStep(item));
           persistLast();
           renderSteps();
         });
@@ -1293,7 +3062,7 @@
     function loadStarter(st) {
       const hasContent = state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
       if (hasContent && !confirm(`Replace your current steps with the "${st.name}" starter?`)) return;
-      state.steps = st.steps.map(s => ({ name: s.name, duration: s.duration, unit: s.unit }));
+      state.steps = st.steps.map(normalizeStep);
       persistLast();
       renderSteps();
     }
@@ -1323,7 +3092,7 @@
         state.eventName = saved.eventName || '';
         state.target = saved.target || toHHMM(nextRoundHalfHour());
         state.day = saved.day || 'today';
-        state.steps = saved.steps;
+        state.steps = saved.steps.map(normalizeStep);
       } else {
         state.eventName = '';
         state.target = toHHMM(nextRoundHalfHour());
@@ -1333,17 +3102,34 @@
           { name: 'Get ready', duration: 10, unit: 'min' },
           { name: 'Drive there', duration: 15, unit: 'min' },
           { name: 'Buffer', duration: 5, unit: 'min' },
-        ];
+        ].map(normalizeStep);
       }
       $eventInput.value = state.eventName;
       $targetInput.value = state.target;
       $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
       renderSteps();
       renderChips();
+      renderPlaceChips();
       renderQuickAdds();
       renderStarters();
+      // Re-route any leg restored without a result (or whose cache expired).
+      state.steps.forEach(s => {
+        if (s.travel && s.travel.to && !s.travel.result) refreshTravel(s.id, false);
+      });
+      // Restore the last view; the schedule is what most sessions open for.
+      try { viewMode = localStorage.getItem(KEY_VIEW) === 'overview' ? 'overview' : 'edit'; }
+      catch (e) { viewMode = 'edit'; }
+      applyViewMode();
+      // renderOverview bails when the mode isn't active, and the first compute()
+      // ran before the mode was restored — so re-run it now.
+      compute();
+      $viewEdit.addEventListener('click', () => setViewMode('edit'));
+      $viewOverview.addEventListener('click', () => setViewMode('overview'));
+
       // keep the "now" marker fresh
       setInterval(compute, 30000);
+      // Positional-only; keeps the fill and marker moving between full recomputes.
+      setInterval(tickTimeline, 1000);
     }
     init();
   </script>

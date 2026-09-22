@@ -9,45 +9,60 @@ struct ResultHeaderView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Start at")
-                    .font(.caption.weight(.semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(.bpMuted)
-                    .textCase(.uppercase)
-
-                Text(result.overallStart.map { Fmt.time($0) } ?? "—")
-                    .font(.display(40))
-                    .foregroundStyle(result.overflowsPrevDay || result.isPast ? .bpCoral : .bpLimeInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-
-                metaLine
+        VStack(alignment: .leading, spacing: 10) {
+            // The event name gets its own full-width line. Sharing the row with
+            // the two times meant a name like "Flight to Denver" claimed most of
+            // the width and squeezed the left column until the meta line wrapped.
+            if !trimmedName.isEmpty {
+                HStack(spacing: 7) {
+                    Text("For")
+                        .font(.caption.weight(.semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(.bpMuted)
+                        .textCase(.uppercase)
+                    Text(trimmedName)
+                        .font(.display(17))
+                        .foregroundStyle(.bpPurple)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                }
             }
 
-            Spacer(minLength: 8)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Start at")
+                        .font(.caption.weight(.semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(.bpMuted)
+                        .textCase(.uppercase)
 
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(trimmedName.isEmpty ? "Be ready by" : "For")
-                    .font(.caption.weight(.semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(.bpMuted)
-                    .textCase(.uppercase)
+                    Text(result.overallStart.map { Fmt.time($0) } ?? "—")
+                        .font(.display(40))
+                        .foregroundStyle(result.overflowsPrevDay || result.isPast ? .bpCoral : .bpLimeInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
 
-                if !trimmedName.isEmpty {
-                    Text(trimmedName)
-                        .font(.display(18))
-                        .foregroundStyle(.bpPurple)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.trailing)
+                    metaLine
                 }
 
-                Text(Fmt.time(result.target))
-                    .font(.display(28))
-                    .foregroundStyle(.bpInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("Be ready by")
+                        .font(.caption.weight(.semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(.bpMuted)
+                        .textCase(.uppercase)
+                        .lineLimit(1)
+
+                    Text(Fmt.time(result.target))
+                        .font(.display(28))
+                        .foregroundStyle(.bpInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
     }
@@ -61,6 +76,8 @@ struct ResultHeaderView: View {
                 Text(parts)
                     .font(.footnote)
                     .foregroundStyle(.bpMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 if result.overflowsPrevDay {
                     Text("← previous day")
                         .font(.caption2.weight(.semibold))

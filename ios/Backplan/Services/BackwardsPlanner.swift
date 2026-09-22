@@ -100,3 +100,93 @@ enum Fmt {
         return m == 0 ? "\(h) hr" : "\(h) hr \(m) min"
     }
 }
+
+/// Where the wall clock sits relative to a plan.
+enum PlanPhase {
+    case future  // hasn't started
+    case active  // running
+    case past    // target has come and gone
+}
+
+/// The one place that turns a `PlanResult` plus "now" into words. Both the
+/// timeline's Now/Next block and the arm bar's countdown read from this — they
+/// used to compute nearly-identical strings separately and drifted apart.
+struct PlanStatus {
+    let phase: PlanPhase
+    /// Short column label: "Start" / "Now" / "Past".
+    let key: String
+    /// Value for the label column — reads as a fragment after `key`.
+    let now: String
+    /// Standalone form, for contexts with no label column (the arm bar).
+    let headline: String
+    /// What follows the current step. Empty when there is nothing after it.
+    let next: String
+
+    /// `precise` swaps minute-granular durations for an H:MM:SS clock, which is
+    /// what the arm bar wants once a plan is actually running.
+    static func make(result: PlanResult, now date: Date, precise: Bool = false) -> PlanStatus {
+        guard let start = result.overallStart else {
+            return PlanStatus(phase: .future, key: "Now", now: "no steps", headline: "No steps", next: "")
+        }
+        let end = result.target
+
+        func span(_ interval: TimeInterval) -> String {
+            precise ? clock(Int(interval)) : Fmt.duration(max(1, Int((interval / 60).rounded())))
+        }
+        func label(_ seg: PlanSegment) -> String { "\(seg.name) at \(Fmt.time(seg.start))" }
+
+        if date < start {
+            let ahead = span(start.timeIntervalSince(date))
+            return PlanStatus(
+                phase: .future,
+                key: "Start",
+                // No clock time here — the Next line already carries it, and the
+                // first step always starts exactly at the chain start.
+                now: "in \(ahead)",
+                headline: "Starts in \(ahead)",
+                next: result.segments.first.map(label) ?? ""
+            )
+        }
+
+        if date > end {
+            let over = Fmt.duration(max(1, Int((date.timeIntervalSince(end) / 60).rounded())))
+            return PlanStatus(
+                phase: .past,
+                key: "Past",
+                now: "target was \(over) ago",
+                headline: "Target was \(over) ago",
+                next: ""
+            )
+        }
+
+        if let idx = result.segments.firstIndex(where: { date >= $0.start && date < $0.end }) {
+            let cur = result.segments[idx]
+            let body = "\(cur.name) · \(span(cur.end.timeIntervalSince(date))) left"
+            let following = result.segments.indices.contains(idx + 1) ? result.segments[idx + 1] : nil
+            return PlanStatus(
+                phase: .active,
+                key: "Now",
+                now: body,
+                headline: "Now: \(body)",
+                next: following.map(label) ?? "Done at \(Fmt.time(end))"
+            )
+        }
+
+        // Inside the window but between segments (only reachable with zero-length gaps).
+        return PlanStatus(
+            phase: .active,
+            key: "Now",
+            now: "in progress · target \(Fmt.time(end))",
+            headline: "In progress · target \(Fmt.time(end))",
+            next: ""
+        )
+    }
+
+    /// H:MM:SS or M:SS countdown clock.
+    private static func clock(_ seconds: Int) -> String {
+        let s = max(0, seconds)
+        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
+    }
+}

@@ -23,7 +23,7 @@ struct ArmBar: View {
         .padding(.bottom, 8)
         .background(.bpPaper)
         .overlay(alignment: .top) {
-            Rectangle().fill(.bpBorder).frame(height: 1)
+            Rectangle().fill(.bpRule).frame(height: 1)
         }
     }
 
@@ -116,27 +116,8 @@ struct ArmBar: View {
     }
 
     static func countdownText(result: PlanResult, now: Date) -> String {
-        guard let start = result.overallStart else { return "No steps" }
-        let end = result.target
-        if now < start {
-            let secs = Int(start.timeIntervalSince(now))
-            return "Starts in \(clock(secs))"
-        } else if now > end {
-            let mins = max(1, Int((now.timeIntervalSince(end) / 60).rounded()))
-            return "Target was \(Fmt.duration(mins)) ago"
-        } else if let cur = result.segments.first(where: { now >= $0.start && now < $0.end }) {
-            let secs = Int(cur.end.timeIntervalSince(now))
-            return "Now: \(cur.name) · \(clock(secs)) left"
-        } else {
-            return "In progress · target \(Fmt.time(end))"
-        }
-    }
-
-    /// H:MM:SS or M:SS countdown clock.
-    private static func clock(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
+        // Shared with the timeline's Now/Next block so the two can't drift.
+        // `precise` keeps the arm bar's H:MM:SS clock.
+        PlanStatus.make(result: result, now: now, precise: true).headline
     }
 }

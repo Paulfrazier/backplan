@@ -34,9 +34,11 @@ targets:
         CFBundleName: Backplan
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        # App makes no network calls and uses no custom cryptography, so it is
-        # exempt from export-compliance documentation. Declaring this here clears
-        # the "Missing Compliance" status automatically on every TestFlight upload.
+        # Travel steps call photon.komoot.io and brouter.de over plain HTTPS.
+        # That is standard TLS with no custom cryptography, which is an exempt
+        # use — so this stays false and keeps clearing "Missing Compliance"
+        # automatically on every TestFlight upload. No ATS exception is needed
+        # either, since both hosts are HTTPS.
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
           UIColorName: "LaunchBrand"
