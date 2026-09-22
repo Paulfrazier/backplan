@@ -549,6 +549,106 @@
       50% { opacity: 0.5; transform: scale(0.85); }
     }
 
+    /* ── Live tracking ──
+       Disarmed this is a single button on the page background — a full card
+       around one button reads as a section that isn't one. Arming is what
+       promotes it to a real surface, which is also the clearest signal that the
+       plan just stopped being passive. */
+    .arm { margin-bottom: var(--s4); }
+    .arm.on {
+      background: var(--card);
+      border: var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--s3) 20px;
+    }
+    .arm-live { display: flex; align-items: flex-start; gap: var(--s4); flex-wrap: wrap; }
+    .arm-live[hidden] { display: none; }
+    .arm-clock-cell { flex: 0 0 auto; }
+    .arm-clock-cell .label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 5px;
+      white-space: nowrap;
+    }
+    /* Tabular figures are not optional here: proportional digits make a 1-second
+       clock jitter sideways every tick, which is the one place on the page where
+       something is genuinely repainting 60 times a minute. */
+    .arm-clock {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--lime-ink);
+      margin: 0;
+    }
+    .arm.future .arm-clock { color: var(--purple); }
+    .arm.past .arm-clock { color: var(--coral); }
+    .arm-body { min-width: 0; flex: 1 1 200px; }
+    .arm-phase {
+      display: inline-block;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 11px;
+      border-radius: 999px;
+      border: var(--line-strong);
+      box-shadow: var(--shadow-sm);
+      background: #f3eefc;
+      color: var(--purple);
+      margin: 0 0 var(--s2);
+    }
+    .arm.active .arm-phase { background: var(--lime-tint); color: var(--lime-ink); }
+    .arm.past .arm-phase { background: var(--coral-tint); color: #9a2a16; }
+    .arm-detail {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0;
+    }
+    .arm-next {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .arm-next[hidden] { display: none; }
+    .arm-meta { margin: var(--s1) 0 0; font-size: 13px; color: var(--muted); }
+    .arm-stale {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      flex-wrap: wrap;
+      margin-top: var(--s3);
+      padding: var(--s2) var(--s3);
+      border: 2px solid var(--coral);
+      border-radius: 10px;
+      background: var(--coral-tint);
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .arm-stale[hidden] { display: none; }
+    .arm-stale .btn { padding: 6px 12px; font-size: 12.5px; }
+    .arm-actions { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+    .arm.on .arm-actions {
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: var(--line-hair);
+    }
+    .arm-note { margin: 0; font-size: 13px; color: var(--muted); flex: 1 1 200px; }
+    .arm-note[hidden] { display: none; }
+    .arm-note.warn { color: var(--coral); font-weight: 600; }
+
     /* ── Cards & panels ──
        `.card` is a standalone block; `.panel` is the same surface but is what a
        section's whole body lives in, so Steps / Places / Templates stop being
@@ -908,6 +1008,16 @@
     .btn.primary { background: var(--purple-electric); color: #fff; }
     .btn.ghost { background: transparent; box-shadow: none; border-color: var(--rule); color: var(--muted); }
     .btn.ghost:hover { box-shadow: none; transform: none; color: var(--ink); border-color: var(--ink); }
+    /* Stopping a countdown is a coral action, not a purple one — it matches the
+       overrun state it most often interrupts. */
+    .btn.stop { background: var(--coral-tint); color: var(--ink); }
+    /* Must come after :hover / :active or the lift still fires on a dead button. */
+    .btn:disabled, .btn:disabled:hover, .btn:disabled:active {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
 
     .add-row { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; }
 
@@ -1426,6 +1536,36 @@
       </div>
     </section>
 
+    <!-- Live tracking. Deliberately *outside* `.hero`, which is an aria-live
+         region: a clock that reprints every second inside one would never stop
+         announcing itself. Only the phase word below is live, and it only
+         changes when the plan actually crosses a boundary. -->
+    <section class="arm" id="arm">
+      <div class="arm-live" id="arm-live" hidden>
+        <div class="arm-clock-cell">
+          <p class="label" id="arm-clock-label">Starts in</p>
+          <p class="arm-clock" id="arm-clock">—</p>
+        </div>
+        <div class="arm-body">
+          <p class="arm-phase" id="arm-phase" aria-live="polite">Not started</p>
+          <p class="arm-detail" id="arm-detail"></p>
+          <p class="arm-next" id="arm-next" hidden>
+            <span class="tl-key">Next</span>
+            <span id="arm-next-text"></span>
+          </p>
+          <p class="arm-meta" id="arm-meta"></p>
+        </div>
+      </div>
+      <div class="arm-stale" id="arm-stale" hidden>
+        <span>Plan changed since you started the countdown.</span>
+        <button class="btn arm-rearm" id="arm-rearm" type="button">Re-arm</button>
+      </div>
+      <div class="arm-actions">
+        <button class="btn primary" id="arm-toggle" type="button">Start countdown</button>
+        <p class="arm-note" id="arm-note"></p>
+      </div>
+    </section>
+
     <section class="bridge" id="bridge" aria-live="polite" hidden>
       <div class="bridge-chain">
         <div class="bridge-node deadline">
@@ -1714,6 +1854,19 @@
     const $timelineNowText = document.getElementById('timeline-now-text');
     const $timelineNext = document.getElementById('timeline-next');
     const $timelineNextText = document.getElementById('timeline-next-text');
+    const $arm = document.getElementById('arm');
+    const $armLive = document.getElementById('arm-live');
+    const $armClock = document.getElementById('arm-clock');
+    const $armClockLabel = document.getElementById('arm-clock-label');
+    const $armPhase = document.getElementById('arm-phase');
+    const $armDetail = document.getElementById('arm-detail');
+    const $armNext = document.getElementById('arm-next');
+    const $armNextText = document.getElementById('arm-next-text');
+    const $armMeta = document.getElementById('arm-meta');
+    const $armStale = document.getElementById('arm-stale');
+    const $armRearm = document.getElementById('arm-rearm');
+    const $armToggle = document.getElementById('arm-toggle');
+    const $armNote = document.getElementById('arm-note');
 
     // ── Helpers
     function nextRoundHalfHour() {
@@ -1740,6 +1893,13 @@
       const m = mins - h * 60;
       if (m === 0) return h + ' hr';
       return h + ' hr ' + m + ' min';
+    }
+    // H:MM:SS (or M:SS under an hour). Only the live countdown wants this —
+    // everywhere else a minute is the smallest unit anyone acts on.
+    function fmtClock(ms) {
+      const s = Math.max(0, Math.round(ms / 1000));
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      return h > 0 ? h + ':' + pad2(m) + ':' + pad2(sec) : m + ':' + pad2(sec);
     }
     function parseHHMM(s) {
       const [h, m] = s.split(':').map(Number);
@@ -2438,6 +2598,61 @@
       return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
+    // ── Status words
+    // The one place that turns a set of segments + a target + "now" into words.
+    // The timeline's Now/Next block and the live countdown both read from it.
+    // iOS shipped those as two separate string builders and they drifted apart
+    // until `PlanStatus` consolidated them (see BackwardsPlanner.swift); this is
+    // that fix made once here rather than twice.
+    //
+    // `precise` swaps minute-granular durations for an H:MM:SS clock, which is
+    // what a per-second countdown wants and a 30s-refresh strip does not.
+    function planStatus(segments, chainEnd, now, precise) {
+      if (!segments || segments.length === 0) {
+        return { phase: 'future', key: 'Now', index: -1, now: 'no steps', next: '', headline: 'No steps' };
+      }
+      const chainStart = segments[0].start;
+      const span = (ms) => precise ? fmtClock(ms) : fmtDuration(Math.max(1, Math.round(ms / 60000)));
+
+      if (now < chainStart) {
+        const ahead = span(chainStart - now);
+        return {
+          phase: 'future', key: 'Start', index: -1,
+          // No clock time here — the NEXT line already carries it, and the first
+          // step always starts exactly at the chain start.
+          now: `in ${ahead}`,
+          headline: `Starts in ${ahead}`,
+          next: `${segments[0].name} at ${fmtTime(segments[0].start)}`,
+        };
+      }
+      if (now > chainEnd) {
+        // Always minutes, never the precise clock: "target was 0:47 ago" reads
+        // like a lap time rather than a number you can act on.
+        const over = fmtDuration(Math.max(1, Math.round((now - chainEnd) / 60000)));
+        return {
+          phase: 'past', key: 'Past', index: -1,
+          now: `target was ${over} ago`, headline: `Target was ${over} ago`, next: '',
+        };
+      }
+      const idx = segments.findIndex(s => now >= s.start && now < s.end);
+      if (idx >= 0) {
+        const cur = segments[idx];
+        const body = `${cur.name} · ${span(cur.end - now)} left`;
+        const nxt = segments[idx + 1];
+        return {
+          phase: 'active', key: 'Now', index: idx,
+          now: body, headline: `Now: ${body}`,
+          next: nxt ? `${nxt.name} at ${fmtTime(nxt.start)}` : `Done at ${fmtTime(chainEnd)}`,
+        };
+      }
+      // Inside the window but between segments — only reachable with zero-length gaps.
+      return {
+        phase: 'active', key: 'Now', index: -1,
+        now: `in progress · target ${fmtTime(chainEnd)}`,
+        headline: `In progress · target ${fmtTime(chainEnd)}`, next: '',
+      };
+    }
+
     // ── Timeline
     // Split in two on purpose. `renderTimeline` touches the DOM and only needs to
     // run when the plan changes; `tickTimeline` moves things and is cheap enough
@@ -2512,30 +2727,8 @@
         cells[i].classList.toggle('now', i === currentIdx);
       }
 
-      let key, nowText, nextText = '', state;
-      if (!started) {
-        state = 'future';
-        key = 'Start';
-        // No clock time here — the NEXT line below already carries it, and the
-        // first step always starts exactly at the chain start.
-        nowText = `in ${fmtDuration(Math.max(1, Math.round((chainStart - now) / 60000)))}`;
-        nextText = `${segments[0].name} at ${fmtTime(segments[0].start)}`;
-      } else if (finished) {
-        state = 'past';
-        key = 'Past';
-        nowText = `target was ${fmtDuration(Math.max(1, Math.round((now - chainEnd) / 60000)))} ago`;
-      } else {
-        state = 'active';
-        key = 'Now';
-        const cur = segments[currentIdx];
-        if (cur) {
-          nowText = `${cur.name} · ${fmtDuration(Math.max(1, Math.round((cur.end - now) / 60000)))} left`;
-          const next = segments[currentIdx + 1];
-          nextText = next ? `${next.name} at ${fmtTime(next.start)}` : `Done at ${fmtTime(chainEnd)}`;
-        } else {
-          nowText = `in progress · target ${fmtTime(chainEnd)}`;
-        }
-      }
+      const st = planStatus(segments, chainEnd, now, false);
+      const state = st.phase, key = st.key, nowText = st.now, nextText = st.next;
 
       $timelineCountdown.classList.remove('future', 'active', 'past');
       $timelineCountdown.classList.add(state);
@@ -2784,6 +2977,283 @@
       $bridgeLive.hidden = false;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Live tracking. "Start countdown" arms the plan against the real clock: a
+    // frozen snapshot of what was armed, a per-second clock to the next
+    // boundary, and a browser notification at each step change.
+    //
+    // The snapshot is the whole point. Re-deriving the chain on every tick would
+    // let an edit — or a midnight rollover — silently slide the countdown under
+    // the user while they were relying on it. Freezing it means any divergence
+    // gets *reported* (the stale banner) instead of absorbed, which is the same
+    // contract iOS's `planChanged` has.
+    //
+    // Tab-open only for v1: everything here runs on the page's own 1s interval,
+    // so a closed tab is a stopped countdown. Surviving that needs a Service
+    // Worker with scheduled notifications, which only Chromium ships — see the
+    // backlog entry.
+    // ═══════════════════════════════════════════════════════════════════════
+    const KEY_ARMED = 'backplan:armed';
+    // A snapshot whose target is this far behind us is debris from a session
+    // nobody disarmed. Restoring it would open the app onto a dead countdown
+    // claiming you're nine hours late for yesterday.
+    const ARMED_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+    let armed = null;        // the snapshot, with real Dates; null when disarmed
+    let armedFired = null;   // Set of boundary ids already notified
+
+    function notifyPermission() {
+      if (typeof Notification === 'undefined') return 'unsupported';
+      return Notification.permission;
+    }
+
+    // The moments worth interrupting someone for: every step's start, plus the
+    // target. A step's *end* is the next step's start, so boundaries are not
+    // doubled up.
+    function armBoundaries() {
+      if (!armed) return [];
+      const forWhat = armed.eventName ? ` for ${armed.eventName}` : '';
+      const list = armed.segments.map((s, i) => ({
+        id: 's' + i,
+        at: s.start,
+        title: `Time to start: ${s.name}`,
+        body: `Next up${forWhat}.`,
+      }));
+      list.push({
+        id: 'target',
+        at: armed.target,
+        title: armed.eventName ? `Time for ${armed.eventName}.` : 'It’s time.',
+        body: 'Your target has arrived.',
+      });
+      return list;
+    }
+
+    // A boundary that has already gone by was never going to ring. Mark it
+    // silently — otherwise arming late, or reopening the tab after lunch, dumps
+    // a stack of notifications about steps that are long finished.
+    function swallowPastBoundaries(now) {
+      armBoundaries().forEach(b => { if (b.at <= now) armedFired.add(b.id); });
+    }
+
+    function fireDueNotifications(now) {
+      const granted = notifyPermission() === 'granted';
+      armBoundaries().forEach(b => {
+        if (armedFired.has(b.id) || b.at > now) return;
+        armedFired.add(b.id);
+        persistArmed();
+        if (!granted) return;
+        // `tag` collapses a duplicate rather than stacking it, which matters if
+        // two tabs of the app are open on the same plan.
+        try { new Notification(b.title, { body: b.body, tag: 'backplan-' + b.id }); }
+        catch (e) { /* some browsers only permit ServiceWorkerRegistration.showNotification */ }
+      });
+    }
+
+    // Absolute target, not the "HH:MM" string: the snapshot holds real clock
+    // times, so a day rollover genuinely invalidates it even though nothing in
+    // the plan object changed. That is a stale banner, not a silent reslide.
+    function planSignature(plan) {
+      const { target } = planSegments(plan);
+      return JSON.stringify([
+        (plan.eventName || '').trim(),
+        target.getTime(),
+        plan.steps.map(s => [(s.name || '').trim(), stepMinutes(s)]),
+      ]);
+    }
+
+    // The two guards iOS also enforces: nothing to schedule against a target
+    // that has passed, and nothing to count down through with no timed steps.
+    function canArmPlan(plan) {
+      const { target, segments } = planSegments(plan);
+      return segments.length > 0 && target > new Date();
+    }
+
+    function armPlan(key) {
+      const plan = plans[key];
+      if (!canArmPlan(plan)) return;
+      const { target, segments } = planSegments(plan);
+
+      // Has to ride the click that armed the plan — browsers drop a permission
+      // request with no user gesture behind it.
+      if (notifyPermission() === 'default') {
+        Notification.requestPermission().then(renderArm).catch(() => {});
+      }
+
+      armed = {
+        key,
+        eventName: (plan.eventName || '').trim(),
+        target,
+        sig: planSignature(plan),
+        segments: segments.map(s => ({ name: s.name, mins: s.mins, start: s.start, end: s.end })),
+      };
+      armedFired = new Set();
+      swallowPastBoundaries(new Date());
+      persistArmed();
+      renderArm();
+    }
+
+    function disarmPlan() {
+      armed = null;
+      armedFired = null;
+      try { localStorage.removeItem(KEY_ARMED); } catch (e) {}
+      renderArm();
+    }
+
+    function persistArmed() {
+      if (!armed) return;
+      try {
+        localStorage.setItem(KEY_ARMED, JSON.stringify({
+          v: 1,
+          key: armed.key,
+          eventName: armed.eventName,
+          target: armed.target.getTime(),
+          sig: armed.sig,
+          segments: armed.segments.map(s => ({
+            name: s.name, mins: s.mins, start: s.start.getTime(), end: s.end.getTime(),
+          })),
+          fired: [...armedFired],
+        }));
+      } catch (e) { /* quota — the countdown still runs, it just won't survive reload */ }
+    }
+
+    function loadArmed() {
+      let snap;
+      try { snap = JSON.parse(localStorage.getItem(KEY_ARMED) || 'null'); }
+      catch (e) { return; }
+      if (!snap || !Array.isArray(snap.segments) || !snap.segments.length) return;
+      if (!plans[snap.key]) return;
+      if (Date.now() - snap.target > ARMED_MAX_AGE_MS) {
+        try { localStorage.removeItem(KEY_ARMED); } catch (e) {}
+        return;
+      }
+      armed = {
+        key: snap.key,
+        eventName: snap.eventName || '',
+        target: new Date(snap.target),
+        sig: snap.sig || '',
+        segments: snap.segments.map(s => ({
+          name: s.name, mins: s.mins, start: new Date(s.start), end: new Date(s.end),
+        })),
+      };
+      armedFired = new Set(Array.isArray(snap.fired) ? snap.fired : []);
+      swallowPastBoundaries(new Date());
+    }
+
+    // Structure only — everything that moves is in tickArm().
+    function renderArm() {
+      const live = !!armed;
+      $arm.classList.toggle('on', live);
+      $armLive.hidden = !live;
+
+      if (!live) {
+        $arm.classList.remove('future', 'active', 'past');
+        $armStale.hidden = true;
+        $armToggle.textContent = 'Start countdown';
+        $armToggle.classList.add('primary');
+        $armToggle.classList.remove('stop');
+        const { target, segments } = planSegments(state);
+        const blocked = !segments.length
+          ? 'Add a step with a duration first.'
+          : (target <= new Date() ? 'Target time has passed — pick a later time.' : '');
+        $armToggle.disabled = !!blocked;
+        setText($armNote, blocked || 'Tracks this plan against the clock and alerts you at every step.');
+        $armNote.classList.toggle('warn', !!blocked);
+        return;
+      }
+
+      $armToggle.textContent = 'Stop countdown';
+      $armToggle.classList.remove('primary');
+      $armToggle.classList.add('stop');
+      $armToggle.disabled = false;
+
+      const stale = planSignature(plans[armed.key]) !== armed.sig;
+      $armStale.hidden = !stale;
+      // Nothing to re-arm onto if the live plan is itself unarmable — the same
+      // reason iOS hides its Re-arm button when the result is past.
+      $armRearm.hidden = !canArmPlan(plans[armed.key]);
+
+      const perm = notifyPermission();
+      setText($armNote,
+        perm === 'granted' ? 'Alerts fire at each step while this tab is open.'
+        : perm === 'denied' ? 'Notifications are blocked — the countdown still runs here.'
+        : perm === 'unsupported' ? 'This browser has no notifications — the countdown still runs here.'
+        : 'Allow notifications to be told when each step starts.');
+      $armNote.classList.remove('warn');
+      tickArm();
+    }
+
+    // Position-and-text only, like tickTimeline: safe on a 1s interval.
+    function tickArm() {
+      if (!armed) return;
+      const now = new Date();
+      const segments = armed.segments;
+      const chainEnd = armed.target;
+      const st = planStatus(segments, chainEnd, now, true);
+
+      // The clock counts to the next moment the plan changes state: the chain
+      // start before it begins, the end of the running step while it does, the
+      // target once the last step is running. A clock to a moment that is not a
+      // boundary would run past zero and mean nothing.
+      let clockLabel, clockMs, phase, detail;
+      if (st.phase === 'future') {
+        const toStart = segments[0].start - now;
+        clockLabel = 'Starts in';
+        clockMs = toStart;
+        // Inside the last minute, "not started" is the wrong word — this is the
+        // moment the whole plan exists to produce.
+        phase = toStart <= 60000 ? 'Start now' : 'Not started';
+        detail = `${segments[0].name} at ${fmtTime(segments[0].start)}`;
+      } else if (st.phase === 'past') {
+        clockLabel = 'Over by';
+        clockMs = now - chainEnd;
+        phase = 'Running over';
+        detail = `Target was ${fmtTime(chainEnd)}`;
+      } else if (st.index >= 0) {
+        const cur = segments[st.index];
+        const last = st.index === segments.length - 1;
+        clockLabel = last ? 'Target in' : 'Next step in';
+        clockMs = cur.end - now;
+        phase = `Step ${st.index + 1} of ${segments.length}`;
+        detail = cur.name;
+      } else {
+        clockLabel = 'Target in';
+        clockMs = chainEnd - now;
+        phase = 'In progress';
+        detail = 'Between steps';
+      }
+
+      $arm.classList.remove('future', 'active', 'past');
+      $arm.classList.add(st.phase);
+      // The clock is the only thing on the page repainting every second, so it
+      // writes unguarded; everything beside it changes on boundaries at most.
+      $armClock.textContent = fmtClock(clockMs);
+      setText($armClockLabel, clockLabel);
+      setText($armPhase, phase);
+      setText($armDetail, detail);
+      // Before the plan starts, `st.next` *is* the first step — printing it
+      // under a detail line that already says the same thing reads as a bug.
+      const nextLine = st.phase === 'future' ? '' : st.next;
+      setText($armNextText, nextLine);
+      $armNext.hidden = !nextLine;
+
+      const pending = armBoundaries().filter(b => !armedFired.has(b.id)).length;
+      const half = link.enabled ? (armed.key === 'evening' ? 'Tonight' : 'Tomorrow AM') : '';
+      const parts = [];
+      if (half) parts.push(half);
+      parts.push(segments.length + ' ' + (segments.length === 1 ? 'step' : 'steps'));
+      parts.push(pending + ' alert' + (pending === 1 ? '' : 's') + ' left');
+      setText($armMeta, parts.join(' · '));
+
+      fireDueNotifications(now);
+    }
+
+    $armToggle.addEventListener('click', () => {
+      if (armed) disarmPlan(); else armPlan(activePlanKey);
+    });
+    // Re-arms the half that was armed, not the one being edited — the banner is
+    // about that plan having moved underneath its own countdown.
+    $armRearm.addEventListener('click', () => { if (armed) armPlan(armed.key); });
+
     // ── Switching which plan the editor points at
     function switchPlan(key) {
       if (!plans[key] || key === activePlanKey) return;
@@ -2830,8 +3300,46 @@
     }
 
     // ── Backwards math
+    // The walk itself, for *any* plan rather than only the one being edited:
+    // arming and the stale check need it for the armed half while the editor
+    // points at the other one. compute() below is the same math plus the DOM.
+    function planSegments(plan) {
+      const target = targetDateFor(plan);
+      const startTimes = new Array(plan.steps.length);
+      let totalMin = 0;
+
+      // Walk last → first
+      let cursor = new Date(target);
+      for (let i = plan.steps.length - 1; i >= 0; i--) {
+        const mins = stepMinutes(plan.steps[i]);
+        const start = new Date(cursor.getTime() - mins * 60000);
+        startTimes[i] = start;
+        totalMin += mins;
+        cursor = start;
+      }
+
+      // Zero-duration steps hold a place in the list but occupy no time, so they
+      // get a start time and no segment.
+      const segments = [];
+      for (let i = 0; i < plan.steps.length; i++) {
+        const mins = stepMinutes(plan.steps[i]);
+        if (mins <= 0) continue;
+        segments.push({
+          name: (plan.steps[i].name || '').trim() || `Step ${i + 1}`,
+          mins,
+          start: startTimes[i],
+          end: new Date(startTimes[i].getTime() + mins * 60000),
+        });
+      }
+
+      return {
+        target, startTimes, segments, totalMin,
+        overallStart: plan.steps.length > 0 ? startTimes[0] : null,
+      };
+    }
+
     function compute() {
-      const target = targetDate();
+      const { target, startTimes, segments, totalMin, overallStart } = planSegments(state);
       $targetDisplay.textContent = fmtTime(target);
       const name = (state.eventName || '').trim();
       $eventDisplay.textContent = name;
@@ -2840,20 +3348,6 @@
       document.title = name ? `${name} — Backplan` : 'Backplan';
 
       const rows = $stepsEl.querySelectorAll('.step');
-      let totalMin = 0;
-      const startTimes = new Array(state.steps.length);
-
-      // Walk last → first
-      let cursor = new Date(target);
-      for (let i = state.steps.length - 1; i >= 0; i--) {
-        const mins = stepMinutes(state.steps[i]);
-        const start = new Date(cursor.getTime() - mins * 60000);
-        startTimes[i] = start;
-        totalMin += mins;
-        cursor = start;
-      }
-
-      const overallStart = state.steps.length > 0 ? startTimes[0] : null;
 
       // Detect previous-day overflow (overall start is before the start of the target's day)
       const targetDayStart = new Date(target);
@@ -2883,25 +3377,14 @@
         $meta.textContent = 'Add steps below.';
         document.querySelectorAll('.hero .prev-day').forEach(n => n.remove());
         renderTimeline(target, []);
+        renderArm();
         return;
       }
 
       $startTime.textContent = fmtTime(overallStart);
       $startTime.classList.toggle('overflow', !!overflowsPrevDay);
-
-      // Build timeline segment data (drop zero-duration steps)
-      const segments = [];
-      for (let i = 0; i < state.steps.length; i++) {
-        const mins = stepMinutes(state.steps[i]);
-        if (mins <= 0) continue;
-        segments.push({
-          name: (state.steps[i].name || '').trim() || `Step ${i+1}`,
-          mins,
-          start: startTimes[i],
-          end: new Date(startTimes[i].getTime() + mins * 60000),
-        });
-      }
       renderTimeline(target, segments);
+      renderArm();
 
       // Build meta line
       const parts = [];
@@ -3621,6 +4104,10 @@
         ].map(normalizeStep);
       }
       state = plans[activePlanKey];
+      // Before the first compute(): renderArm runs inside it, and an armed
+      // session should come back on screen already ticking rather than blinking
+      // in a second later.
+      loadArmed();
       applyNightFields();
       syncPlanInputs();
       renderSteps();
@@ -3645,7 +4132,7 @@
       // keep the "now" marker fresh
       setInterval(compute, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
-      setInterval(() => { tickTimeline(); renderBridgeLive(); }, 1000);
+      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); }, 1000);
     }
     init();
   </script>

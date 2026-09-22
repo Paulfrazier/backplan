@@ -1,7 +1,8 @@
 import Foundation
 
 /// One step's resolved placement on the timeline.
-struct PlanSegment: Identifiable {
+/// `Codable` so an armed plan can be frozen to disk — see `TimerController`.
+struct PlanSegment: Identifiable, Codable, Hashable {
     let id: UUID
     let name: String
     let minutes: Int
@@ -11,8 +12,9 @@ struct PlanSegment: Identifiable {
 
 /// Result of walking a plan backwards from its target time.
 /// Pure data — produced by `BackwardsPlanner.compute` and consumed by the UI
-/// and the notification scheduler alike.
-struct PlanResult {
+/// and the notification scheduler alike. `Codable` because arming freezes one
+/// and reloads it next launch rather than re-deriving (see `TimerController`).
+struct PlanResult: Codable, Hashable {
     let target: Date
     /// Per-step start time, index-aligned to `plan.steps` (includes zero-duration steps).
     let startTimes: [Date]
@@ -99,6 +101,20 @@ enum Fmt {
         let m = mins - h * 60
         return m == 0 ? "\(h) hr" : "\(h) hr \(m) min"
     }
+
+    /// H:MM:SS (or M:SS under an hour). Only the live countdown wants this —
+    /// everywhere else a minute is the smallest unit anyone acts on. Mirrors
+    /// the web `fmtClock`.
+    static func clock(_ seconds: Int) -> String {
+        let s = max(0, seconds)
+        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
+    }
+
+    static func clock(_ interval: TimeInterval) -> String {
+        clock(Int(interval.rounded()))
+    }
 }
 
 /// Where the wall clock sits relative to a plan.
@@ -121,6 +137,8 @@ struct PlanStatus {
     let headline: String
     /// What follows the current step. Empty when there is nothing after it.
     let next: String
+    /// Index into `result.segments` of the running step; -1 outside one.
+    var index: Int = -1
 
     /// `precise` swaps minute-granular durations for an H:MM:SS clock, which is
     /// what the arm bar wants once a plan is actually running.
@@ -131,7 +149,7 @@ struct PlanStatus {
         let end = result.target
 
         func span(_ interval: TimeInterval) -> String {
-            precise ? clock(Int(interval)) : Fmt.duration(max(1, Int((interval / 60).rounded())))
+            precise ? Fmt.clock(Int(interval)) : Fmt.duration(max(1, Int((interval / 60).rounded())))
         }
         func label(_ seg: PlanSegment) -> String { "\(seg.name) at \(Fmt.time(seg.start))" }
 
@@ -168,7 +186,8 @@ struct PlanStatus {
                 key: "Now",
                 now: body,
                 headline: "Now: \(body)",
-                next: following.map(label) ?? "Done at \(Fmt.time(end))"
+                next: following.map(label) ?? "Done at \(Fmt.time(end))",
+                index: idx
             )
         }
 
@@ -182,12 +201,115 @@ struct PlanStatus {
         )
     }
 
-    /// H:MM:SS or M:SS countdown clock.
-    private static func clock(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%d:%02d", m, sec)
+}
+
+/// What the live countdown *counts to*, as opposed to what `PlanStatus` says is
+/// happening. The two are deliberately separate: the status line names the step,
+/// this names the next moment the plan changes state — the chain start before it
+/// begins, the end of the running step while it does, the target once the last
+/// step is running. A clock aimed at anything else runs past zero and stops
+/// meaning anything.
+///
+/// KEEP IN SYNC with the web `tickArm()` in index.html.
+struct PlanCountdown {
+    let phase: PlanPhase
+    /// Label above the clock: "Starts in" / "Next step in" / "Target in" / "Over by".
+    let label: String
+    /// The moment the clock is counting to (or, when past, counting up from).
+    let boundary: Date
+    /// Where that interval began. Only `Text(timerInterval:)` and progress bars
+    /// need it; the in-app clock just wants `boundary`.
+    let windowStart: Date
+    /// Pill copy: "Not started" / "Start now" / "Step 2 of 5" / "Running over".
+    let phaseWord: String
+    /// The step the user is (or is about to be) on.
+    let detail: String
+    /// 1-based position of that step; 0 when the plan is not inside one.
+    let stepNumber: Int
+    let stepCount: Int
+
+    var status: PlanStatus
+
+    /// `armedAt` only sets the *start* of the pre-plan interval, so a progress
+    /// bar before the first step has something to fill from.
+    static func make(result: PlanResult, now: Date, armedAt: Date) -> PlanCountdown? {
+        let segments = result.segments
+        guard let first = segments.first else { return nil }
+        let status = PlanStatus.make(result: result, now: now, precise: true)
+        let end = result.target
+
+        if now < first.start {
+            let toStart = first.start.timeIntervalSince(now)
+            return PlanCountdown(
+                phase: .future,
+                label: "Starts in",
+                boundary: first.start,
+                windowStart: min(armedAt, now),
+                // Inside the last minute, "not started" is the wrong word — this
+                // is the moment the whole plan exists to produce.
+                phaseWord: toStart <= 60 ? "Start now" : "Not started",
+                detail: "\(first.name) at \(Fmt.time(first.start))",
+                stepNumber: 0,
+                stepCount: segments.count,
+                status: status
+            )
+        }
+
+        if now > end {
+            return PlanCountdown(
+                phase: .past,
+                label: "Over by",
+                boundary: end,
+                windowStart: end,
+                phaseWord: "Running over",
+                detail: "Target was \(Fmt.time(end))",
+                stepNumber: 0,
+                stepCount: segments.count,
+                status: status
+            )
+        }
+
+        if status.index >= 0 {
+            let cur = segments[status.index]
+            let isLast = status.index == segments.count - 1
+            return PlanCountdown(
+                phase: .active,
+                label: isLast ? "Target in" : "Next step in",
+                boundary: cur.end,
+                windowStart: cur.start,
+                phaseWord: "Step \(status.index + 1) of \(segments.count)",
+                detail: cur.name,
+                stepNumber: status.index + 1,
+                stepCount: segments.count,
+                status: status
+            )
+        }
+
+        // Inside the window but between segments — only reachable with zero-length gaps.
+        return PlanCountdown(
+            phase: .active,
+            label: "Target in",
+            boundary: end,
+            windowStart: first.start,
+            phaseWord: "In progress",
+            detail: "Between steps",
+            stepNumber: 0,
+            stepCount: segments.count,
+            status: status
+        )
+    }
+
+    /// The next moment the countdown's own copy goes out of date. Drives both
+    /// the in-app refresh loop and the Live Activity's `staleDate`.
+    static func nextChange(result: PlanResult, now: Date) -> Date? {
+        var marks = result.segments.map(\.start)
+        marks.append(result.target)
+        // The "Start now" flip a minute before the chain start is a copy change
+        // with no boundary behind it, so it has to be listed explicitly.
+        if let first = result.segments.first {
+            marks.append(first.start.addingTimeInterval(-60))
+        }
+        return marks.filter { $0 > now }.min()
     }
 }
 
