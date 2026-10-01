@@ -8,6 +8,11 @@ struct PlanView: View {
     @AppStorage("backplan.view") private var overviewMode = false
     /// Drives the List's edit mode from `reorderButton`.
     @State private var editMode: EditMode = .inactive
+    @AppStorage("backplan.mode") private var mode = "plan"
+    /// Add to Day: asking for a name, or confirming an overwrite.
+    @State private var askingDayName = false
+    @State private var dayName = ""
+    @State private var confirmOverwrite: String?
 
     var body: some View {
         @Bindable var store = store
@@ -17,6 +22,7 @@ struct PlanView: View {
             List {
                 header
                 resultSection(result)
+                if let linked = store.linkedTemplate { linkBanner(linked) }
                 targetSection(store: $store)
                 stepsSection(store: $store, result: result)
                 placesSection
@@ -33,6 +39,26 @@ struct PlanView: View {
             // its own leg — which would leave the plan's start time wrong until
             // the user happened to scroll to it. Resolve every leg up front.
             .task { await store.refreshAllTravel() }
+            .alert("Name this plan", isPresented: $askingDayName) {
+                TextField("Pick-up", text: $dayName)
+                Button("Cancel", role: .cancel) {}
+                Button("Add to Day") { addToDay(named: dayName) }
+            } message: {
+                Text("Your Day block stays linked to it — edit the plan and the block follows.")
+            }
+            .confirmationDialog(
+                "Update your saved “\(confirmOverwrite ?? "")” template?",
+                isPresented: Binding(get: { confirmOverwrite != nil }, set: { if !$0 { confirmOverwrite = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Update and add to Day") {
+                    if let name = confirmOverwrite { commitAddToDay(name) }
+                    confirmOverwrite = nil
+                }
+                Button("Cancel", role: .cancel) { confirmOverwrite = nil }
+            } message: {
+                Text("A template with that name exists. This plan replaces it and links it to your Day.")
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -284,7 +310,25 @@ struct PlanView: View {
                 }
                 .buttonStyle(.plain)
 
+                Spacer()
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            HStack(spacing: 10) {
                 if !store.wrappedValue.plan.steps.isEmpty {
+                    Button {
+                        startAddToDay()
+                    } label: {
+                        Label("Add to Day", systemImage: "calendar.badge.plus")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.bpInk)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .neoPill(fill: Color(hex: 0xEFE6FB))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Adds this plan to your Day as one block, done by the target time")
+
                     Button(role: .destructive) {
                         showingClearConfirm = true
                     } label: {
@@ -323,6 +367,59 @@ struct PlanView: View {
         } header: {
             sectionTitle("Templates")
         }
+    }
+
+    // MARK: Plan → Day
+
+    /// Shown while the open plan writes through to a template and its Day blocks.
+    private func linkBanner(_ template: Template) -> some View {
+        Section {
+            HStack(spacing: 10) {
+                Image(systemName: "link")
+                    .foregroundStyle(.bpPurpleElectric)
+                (Text("Linked to your Day as ") + Text(template.name).bold().foregroundColor(.bpPurple)
+                    + Text(" — edits here update it."))
+                    .font(.footnote)
+                    .foregroundStyle(.bpInk)
+                Spacer(minLength: 4)
+                Menu {
+                    Button("Open Day", systemImage: "calendar") { mode = "day" }
+                    Button("Unlink", systemImage: "link.badge.plus", role: .destructive) { store.unlink() }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .foregroundStyle(.bpPurpleElectric)
+                }
+                .accessibilityLabel("Link options")
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: 0xF3EEFC)))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.bpPurpleElectric, lineWidth: 2))
+            .plainRow()
+        }
+    }
+
+    private func startAddToDay() {
+        if let name = store.addToDayName {
+            addToDay(named: name)
+        } else {
+            dayName = ""
+            askingDayName = true
+        }
+    }
+
+    private func addToDay(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        if store.addToDayConflicts(trimmed) {
+            confirmOverwrite = trimmed
+        } else {
+            commitAddToDay(trimmed)
+        }
+    }
+
+    private func commitAddToDay(_ name: String) {
+        if store.addPlanToDay(name: name) != nil { mode = "day" }
     }
 
     // MARK: Helpers

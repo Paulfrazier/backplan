@@ -34,8 +34,15 @@ no-backend / client-only solutions where possible.
     has you (Climb at the gym → pick-up bikes gym → school, re-routed), not the
     plan's own start; one tap flips it back to "from Home". Its last destination
     becomes the origin for the next block.
-  - Open: iOS port, on-device touch-drag QA, editing a plan-block's steps in
-    place (today it's a snapshot — re-add from Plan to update).
+  - **Linked.** Add to Day saves the plan as a template and links the block;
+    while the Plan shows "Linked to your Day", edits write through to the
+    template and every block made from it. "Edit plan" on a block reopens it
+    linked. Pins stay per block.
+  - **iOS:** ported — Plan | Day tabs, `DayPlanner` (pure port of
+    `computeDay`), tray above the tab bar (tap, or long-press-drag into the
+    List via `onInsert`), linking via template id.
+  - Open: on-device touch-drag QA (web + iOS — the simulator can't inject
+    touches), arming notifications for a whole day.
 - [x] **Travel steps / map support** (was item #2 below) — a step can carry a
   drive/bike/walk leg with a From and To, and Backplan fills in the real routed
   duration. Web + iOS, no backend and no API keys.

@@ -5,11 +5,29 @@ import Observation
 @Observable
 final class PlanStore {
     var plan: Plan {
-        didSet { persistLast() }
+        didSet {
+            persistLast()
+            syncLinked()
+        }
     }
     var templates: [Template] {
         didSet { persistTemplates() }
     }
+    /// The Day view's blocks. Lives here, not in its own store, because a
+    /// linked plan writes through to its blocks on every edit.
+    var day: DayPlan {
+        didSet { persistDay() }
+    }
+    /// The template the open plan writes through to (see `syncLinked`).
+    var linkedTemplateID: UUID? {
+        didSet { defaults.set(linkedTemplateID?.uuidString, forKey: linkedKey) }
+    }
+    /// Routed minutes for Day legs, keyed by `DayPlanner.legKey`. Persisted so
+    /// a relaunch doesn't re-route every leg (or show 0 min while offline).
+    var dayLegs: [String: DayLegCacheEntry] = [:]
+    /// Failed lookups this session. Not persisted — retry on next launch.
+    var dayLegErrors: [String: TravelError] = [:]
+    var dayLegsInFlight: Set<String> = []
     var places: [SavedPlace] {
         didSet { persistPlaces() }
     }
@@ -17,6 +35,9 @@ final class PlanStore {
     private let lastKey = "backplan.last"
     private let templatesKey = "backplan.templates"
     private let placesKey = "backplan.places"
+    private let dayKey = "backplan.day"
+    private let linkedKey = "backplan.linked"
+    let dayLegsKey = "backplan.daylegs"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -24,6 +45,12 @@ final class PlanStore {
         self.plan = PlanStore.load(Plan.self, key: "backplan.last", from: defaults) ?? PlanStore.seed()
         self.templates = PlanStore.load([Template].self, key: "backplan.templates", from: defaults) ?? []
         self.places = PlanStore.load([SavedPlace].self, key: "backplan.places", from: defaults) ?? []
+        self.day = PlanStore.load(DayPlan.self, key: "backplan.day", from: defaults) ?? .seed
+        let linked = defaults.string(forKey: "backplan.linked").flatMap(UUID.init(uuidString:))
+        self.linkedTemplateID = templates.contains { $0.id == linked } ? linked : nil
+        let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
+        self.dayLegs = (PlanStore.load([String: DayLegCacheEntry].self, key: "backplan.daylegs", from: defaults) ?? [:])
+            .filter { $0.value.fetchedAt > cutoff }
     }
 
     /// Live computed result for the current plan. Pass `now` so views can drive
@@ -45,6 +72,8 @@ final class PlanStore {
 
     /// Load a prebuilt routine, replacing the current steps. Keeps target/event.
     func loadStarter(_ starter: Starters.Starter) {
+        // Unlink first: otherwise the swap would be written into the template.
+        linkedTemplateID = nil
         plan.steps = starter.steps
     }
 
@@ -196,13 +225,18 @@ final class PlanStore {
         } else {
             templates.append(Template(name: trimmed, plan: plan))
         }
+        refreshLinkedBlocks()
     }
 
+    /// Loading a template is a fresh copy, not an edit of it.
     func loadTemplate(_ template: Template) {
+        linkedTemplateID = nil
         plan = template.plan
     }
 
     func deleteTemplate(_ template: Template) {
+        // Linked Day blocks keep their last snapshot; the plan just unlinks.
+        if linkedTemplateID == template.id { linkedTemplateID = nil }
         templates.removeAll { $0.id == template.id }
     }
 
@@ -223,6 +257,18 @@ final class PlanStore {
     private func persistPlaces() {
         if let data = try? JSONEncoder().encode(places) {
             defaults.set(data, forKey: placesKey)
+        }
+    }
+
+    private func persistDay() {
+        if let data = try? JSONEncoder().encode(day) {
+            defaults.set(data, forKey: dayKey)
+        }
+    }
+
+    func persistDayLegs() {
+        if let data = try? JSONEncoder().encode(dayLegs) {
+            defaults.set(data, forKey: dayLegsKey)
         }
     }
 
