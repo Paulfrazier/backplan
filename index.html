@@ -1440,6 +1440,30 @@
     .d-step.error { cursor: pointer; }
     .d-step.error .d-step-dur { color: var(--coral); font-weight: 700; }
 
+    .d-edit {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px; font-weight: 700;
+      padding: 6px 10px;
+      border: var(--line-hair); border-radius: 8px;
+      background: #fff; color: var(--purple-electric);
+      cursor: pointer; white-space: nowrap;
+    }
+    .d-edit:hover { border-color: var(--purple-electric); }
+    .d-edit[hidden] { display: none; }
+    .link-banner {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: var(--s3);
+      padding: 10px 12px;
+      border: 2px solid var(--purple-electric);
+      border-radius: 12px;
+      background: #f3eefc;
+      font-size: 14px;
+    }
+    .link-banner[hidden] { display: none; }
+    .link-banner .lb-text { flex: 1 1 220px; }
+    .link-banner b { color: var(--purple); }
+    .link-banner .btn { padding: 6px 12px; font-size: 13px; }
+
     .d-hint { font-size: 13px; color: var(--muted); margin: var(--s2) 0 0; }
     .d-hint[hidden] { display: none; }
     .d-line {
@@ -1618,6 +1642,11 @@
       </div>
     </section>
 
+    <div class="link-banner" id="link-banner" hidden>
+      <span class="lb-text">🔗 Linked to your Day as <b id="link-name"></b> — edits here update it.</span>
+      <button type="button" class="btn ghost" id="link-open-day">Open Day</button>
+      <button type="button" class="btn ghost" id="link-unlink">Unlink</button>
+    </div>
     <div class="card">
       <div class="target-row">
         <div class="field" style="flex:1 1 200px; min-width:0;">
@@ -1812,6 +1841,7 @@
       target: '18:20',
       day: 'today',
       steps: [],
+      linked: null,   // name of the template this plan writes through to
     };
 
     // ── DOM refs
@@ -3292,19 +3322,14 @@
             const arr = loadTemplates();
             arr.splice(i, 1);
             saveTemplates(arr);
+            // Linked Day blocks keep their last snapshot; the plan just unlinks.
+            if (state.linked === t.name) { state.linked = null; persistLast(); }
             renderChips();
             return;
           }
-          // load template
-          state.eventName = t.eventName || '';
-          state.target = t.target || '18:00';
-          state.day = t.day || 'today';
-          state.steps = (t.steps || []).map(normalizeStep);
-          $eventInput.value = state.eventName;
-          $targetInput.value = state.target;
-          $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
-          persistLast();
-          renderSteps();
+          // Loading a template is a fresh copy, not an edit of it.
+          state.linked = null;
+          loadTemplateIntoPlan(t);
         });
         $chips.appendChild(chip);
       });
@@ -3312,12 +3337,8 @@
     function travelSnapshot(t) {
       return t ? { mode: t.mode, from: t.from, to: t.to, manual: t.manual } : undefined;
     }
-    document.getElementById('save-template').addEventListener('click', () => {
-      const suggested = (state.eventName || '').trim();
-      const name = (prompt('Name this template:', suggested) || '').trim();
-      if (!name) return;
-      const arr = loadTemplates();
-      const snapshot = {
+    function planSnapshot(name) {
+      return {
         name,
         eventName: state.eventName,
         target: state.target,
@@ -3331,11 +3352,70 @@
           travel: travelSnapshot(s.travel),
         })),
       };
+    }
+    function loadTemplateIntoPlan(t) {
+      state.eventName = t.eventName || '';
+      state.target = t.target || '18:00';
+      state.day = t.day || 'today';
+      state.steps = (t.steps || []).map(normalizeStep);
+      travelOpen.clear();
+      $eventInput.value = state.eventName;
+      $targetInput.value = state.target;
+      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      persistLast();
+      renderSteps();
+      renderLinkBanner();
+      state.steps.forEach(s => { if (s.travel && s.travel.to && !s.travel.result) refreshTravel(s.id, false); });
+    }
+
+    // ── Plan ↔ Day link. Saved templates are the identity a Day block links to.
+    // While the Plan is linked, every edit is written through to that template
+    // and to every Day block made from it — so changing the pick-up plan here
+    // changes the pick-up block in your day. Pins stay per block.
+    function syncLinked() {
+      if (!state.linked) return;
+      const arr = loadTemplates();
+      const i = arr.findIndex(t => t.name === state.linked);
+      if (i < 0) { state.linked = null; renderLinkBanner(); return; }
+      arr[i] = planSnapshot(state.linked);
+      saveTemplates(arr);
+      refreshLinkedBlocks(arr);
+    }
+    function refreshLinkedBlocks(templates) {
+      if (!dayLoaded) return;
+      const byName = new Map((templates || loadTemplates()).map(t => [t.name, t]));
+      let changed = false;
+      dayState.blocks.forEach((b, i) => {
+        const t = b.link && byName.get(b.link);
+        if (!t) return;
+        dayState.blocks[i] = normalizeBlock({ ...b, steps: t.steps || [] });
+        changed = true;
+      });
+      if (changed) persistDay();
+    }
+    const $linkBanner = document.getElementById('link-banner');
+    function renderLinkBanner() {
+      $linkBanner.hidden = !state.linked;
+      if (state.linked) document.getElementById('link-name').textContent = state.linked;
+    }
+    document.getElementById('link-unlink').addEventListener('click', () => {
+      state.linked = null;
+      persistLast();
+      renderLinkBanner();
+    });
+    document.getElementById('link-open-day').addEventListener('click', () => setAppMode('day'));
+    document.getElementById('save-template').addEventListener('click', () => {
+      const suggested = (state.eventName || '').trim();
+      const name = (prompt('Name this template:', suggested) || '').trim();
+      if (!name) return;
+      const arr = loadTemplates();
+      const snapshot = planSnapshot(name);
       // replace if a template with that name already exists
       const existingIdx = arr.findIndex(t => t.name === name);
       if (existingIdx >= 0) arr[existingIdx] = snapshot;
       else arr.push(snapshot);
       saveTemplates(arr);
+      refreshLinkedBlocks(arr);
       renderChips();
     });
 
@@ -3466,9 +3546,11 @@
     function loadStarter(st) {
       const hasContent = state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
       if (hasContent && !confirm(`Replace your current steps with the "${st.name}" starter?`)) return;
+      state.linked = null;
       state.steps = st.steps.map(normalizeStep);
       persistLast();
       renderSteps();
+      renderLinkBanner();
     }
 
     // ── Persist last
@@ -3478,8 +3560,10 @@
         target: state.target,
         day: state.day,
         steps: state.steps,
+        linked: state.linked,
       };
       localStorage.setItem(KEY_LAST, JSON.stringify(snap));
+      syncLinked();
     }
     function loadLast() {
       try {
@@ -3519,6 +3603,7 @@
 
     let appMode = 'plan';
     const dayState = { date: 'today', blocks: [] };
+    let dayLoaded = false;   // persistLast can fire during init; don't sync into an unloaded day
 
     const $modePlan = document.getElementById('mode-plan');
     const $modeDay = document.getElementById('mode-day');
@@ -3569,6 +3654,9 @@
         // Bridge: the plan's first travel step leaves from wherever the day
         // left you, not the plan's own start. Off = the plan's start (usually home).
         bridge: b.bridge !== false,
+        // Name of the saved template this block follows. Its steps are kept in
+        // sync by refreshLinkedBlocks; if the template goes, the snapshot stays.
+        link: typeof b.link === 'string' && b.link ? b.link : null,
       };
     }
 
@@ -3804,6 +3892,7 @@
             </button>
             ${pin}
             <button type="button" class="d-bridge" data-action="bridge" hidden></button>
+            <button type="button" class="d-edit" data-action="edit" hidden title="Open this plan — edits update this block">✎ Edit plan</button>
           </div>
         </div>
         <div class="d-steps" data-steps${dayExpanded.has(b.id) ? '' : ' hidden'}>
@@ -3838,7 +3927,9 @@
     function patchComposite(g, it) {
       const c = it.comp;
       const n = it.b.steps.length;
-      g.querySelector('.d-comp-sum').textContent = `📋 ${n} step${n === 1 ? '' : 's'} · ${fmtDuration(c.mins)}`;
+      const linked = !!it.b.link && dayTemplateNames.has(it.b.link);
+      g.querySelector('.d-comp-sum').textContent = `${linked ? '🔗' : '📋'} ${n} step${n === 1 ? '' : 's'} · ${fmtDuration(c.mins)}`;
+      g.querySelector('.d-edit').hidden = !linked;
       const br = g.querySelector('.d-bridge');
       br.hidden = !c.bridge;
       if (c.bridge) {
@@ -3875,7 +3966,9 @@
       });
     }
 
+    let dayTemplateNames = new Set();
     function patchDayRows(m) {
+      dayTemplateNames = new Set(loadTemplates().map(t => t.name));
       const now = new Date();
       m.items.forEach(it => {
         const g = $dList.querySelector(`.dgroup[data-id="${CSS.escape(it.b.id)}"]`);
@@ -4010,7 +4103,7 @@
       // becomes a thing in your day, steps and travel legs intact.
       loadTemplates().forEach(t => {
         const total = (t.steps || []).map(normalizeStep).reduce((a, s) => a + stepMinutes(s), 0);
-        items.push({ kind: 'tpl', glyph: '📋', label: t.name, dur: fmtDuration(total), block: { name: t.name, steps: t.steps || [] } });
+        items.push({ kind: 'tpl', glyph: '📋', label: t.name, dur: fmtDuration(total), block: { name: t.name, steps: t.steps || [], link: t.name } });
       });
       return items;
     }
@@ -4090,6 +4183,17 @@
           const it = computeDay().items[i];
           b.at = toHHMM(round5(b.edge === 'end' ? it.end : it.start, false));
         }
+      } else if (action === 'edit') {
+        const t = loadTemplates().find(t => t.name === b.link);
+        if (!t) return;
+        const busy = state.linked !== t.name &&
+          state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
+        if (busy && !confirm(`Open “${t.name}” in Plan? It replaces the plan you have open there.`)) return;
+        state.linked = t.name;
+        loadTemplateIntoPlan(t);
+        setAppMode('plan');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       } else if (action === 'bridge') {
         b.bridge = !b.bridge;
       } else if (action === 'expand') {
@@ -4276,12 +4380,22 @@
     // target, slotted in where it falls chronologically.
     document.getElementById('send-to-day').addEventListener('click', () => {
       if (!state.steps.length) return;
-      const block = normalizeBlock({
-        name: (state.eventName || '').trim() || 'Plan',
-        steps: state.steps.map(st => ({ name: st.name, duration: st.duration, unit: st.unit, travel: travelSnapshot(st.travel) })),
-        at: state.target,
-        edge: 'end',
-      });
+      // The block links through a saved template, so the plan needs a name.
+      let name = state.linked || (state.eventName || '').trim();
+      if (!name) name = (prompt('Name this plan — your Day block stays linked to it:', '') || '').trim();
+      if (!name) return;
+      const arr = loadTemplates();
+      const existing = arr.findIndex(t => t.name === name);
+      if (existing >= 0 && state.linked !== name &&
+          !confirm(`You already have a template called “${name}”. Update it with this plan and link it to your Day?`)) return;
+      const snap = planSnapshot(name);
+      if (existing >= 0) arr[existing] = snap; else arr.push(snap);
+      saveTemplates(arr);
+      renderChips();
+      state.linked = name;
+      persistLast();
+      renderLinkBanner();
+      const block = normalizeBlock({ name, steps: snap.steps, at: state.target, edge: 'end', link: name });
       // An empty day adopts the plan's day; otherwise the day keeps its own.
       if (!dayState.blocks.length) { dayState.date = state.day; syncDayDateButtons(); }
       const due = dayClock(state.target);
@@ -4309,6 +4423,7 @@
       try { localStorage.setItem(KEY_MODE, appMode); } catch {}
       if (appMode === 'day') {
         // Templates and places may have changed over in the Plan tab.
+        refreshLinkedBlocks();
         renderDayTray();
         dayRenderedSig = null;
         drawDay();
@@ -4321,11 +4436,15 @@
 
     // ── Init
     function init() {
+      loadDay();
+      dayLoaded = true;
       const saved = loadLast();
       if (saved && Array.isArray(saved.steps)) {
         state.eventName = saved.eventName || '';
         state.target = saved.target || toHHMM(nextRoundHalfHour());
         state.day = saved.day || 'today';
+        state.linked = typeof saved.linked === 'string' && loadTemplates().some(t => t.name === saved.linked)
+          ? saved.linked : null;
         state.steps = saved.steps.map(normalizeStep);
       } else {
         state.eventName = '';
@@ -4343,6 +4462,7 @@
       $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
       renderSteps();
       renderChips();
+      renderLinkBanner();
       renderPlaceChips();
       renderQuickAdds();
       renderStarters();
@@ -4360,7 +4480,6 @@
       $viewEdit.addEventListener('click', () => setViewMode('edit'));
       $viewOverview.addEventListener('click', () => setViewMode('overview'));
 
-      loadDay();
       syncDayDateButtons();
       let savedMode = 'plan';
       try { savedMode = localStorage.getItem(KEY_MODE) || 'plan'; } catch {}
