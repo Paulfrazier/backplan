@@ -25,8 +25,17 @@ no-backend / client-only solutions where possible.
   places route through the same BRouter cache (tap a leg to cycle drive/bike/walk).
   Gaps show free time or "over by N min". Saved Plan templates appear in the tray
   as one block of their total length. Web only so far; `backplan:day` +
-  `backplan:mode` in localStorage. Open: iOS port, on-device touch-drag QA,
-  expanding a template block back into its steps.
+  `backplan:mode` in localStorage.
+  - **Plan → Day ("plan-blocks").** Plan's "→ Add to Day" drops the whole plan in
+    as one block that keeps its steps, pinned **done by** the plan's target (pins
+    can be "starts" or "done by"). Saved templates in the tray do the same,
+    unpinned. Expand to see each step's clock time.
+  - **Bridging.** A plan-block's first travel leg leaves from wherever the day
+    has you (Climb at the gym → pick-up bikes gym → school, re-routed), not the
+    plan's own start; one tap flips it back to "from Home". Its last destination
+    becomes the origin for the next block.
+  - Open: iOS port, on-device touch-drag QA, editing a plan-block's steps in
+    place (today it's a snapshot — re-add from Plan to update).
 - [x] **Travel steps / map support** (was item #2 below) — a step can carry a
   drive/bike/walk leg with a From and To, and Backplan fills in the real routed
   duration. Web + iOS, no backend and no API keys.

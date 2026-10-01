@@ -1400,6 +1400,46 @@
     .dslack.over { color: #9a2a16; background: var(--coral-tint); }
     .dslack.over::before { border-left-color: var(--coral); }
 
+    /* Plan-blocks: a plan dropped into the day, steps folded inside. */
+    .dblock.comp .d-name { font-weight: 700; }
+    .d-expand, .d-bridge {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border: var(--line-hair);
+      border-radius: 8px;
+      background: #fff6e0;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .d-expand .chev { display: inline-block; color: var(--muted); transition: transform 0.15s ease; }
+    .d-expand[aria-expanded="true"] .chev { transform: rotate(180deg); }
+    .d-bridge { background: #fff; color: var(--muted); max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+    .d-bridge.on { background: var(--lime-tint); border-color: var(--lime); color: var(--lime-ink); }
+    .d-bridge[hidden] { display: none; }
+    .d-expand:focus-visible, .d-bridge:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 1px; }
+    .d-meta .d-edge { border: var(--line-hair); border-radius: 8px; }
+    .d-steps { padding: 0 var(--s3) var(--s2) 50px; display: flex; flex-direction: column; }
+    .dblock.anchor + .d-steps { background: #f8f4fd; box-shadow: inset 4px 0 0 var(--purple); }
+    .d-steps[hidden] { display: none; }
+    .d-step {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 5px 0;
+      border-top: 1px dashed var(--rule);
+      font-size: 13.5px;
+    }
+    .d-step:first-child { border-top: 0; }
+    .d-step-time { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--lime-ink); font-variant-numeric: tabular-nums; }
+    .d-step-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .d-step-dur { color: var(--muted); font-family: "Space Grotesk", sans-serif; font-variant-numeric: tabular-nums; }
+    .d-step.error { cursor: pointer; }
+    .d-step.error .d-step-dur { color: var(--coral); font-weight: 700; }
+
     .d-hint { font-size: 13px; color: var(--muted); margin: var(--s2) 0 0; }
     .d-hint[hidden] { display: none; }
     .d-line {
@@ -1609,6 +1649,7 @@
       <div class="add-row" id="add-row">
         <button class="btn primary" id="add-step" type="button">+ Add step</button>
         <button class="btn" id="add-travel" type="button">+ Travel step</button>
+        <button class="btn" id="send-to-day" type="button" title="Add this plan to your Day as one block, done by the target time">→ Add to Day</button>
         <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
       </div>
       <hr class="panel-divider" id="quick-add-divider" />
@@ -3268,6 +3309,9 @@
         $chips.appendChild(chip);
       });
     }
+    function travelSnapshot(t) {
+      return t ? { mode: t.mode, from: t.from, to: t.to, manual: t.manual } : undefined;
+    }
     document.getElementById('save-template').addEventListener('click', () => {
       const suggested = (state.eventName || '').trim();
       const name = (prompt('Name this template:', suggested) || '').trim();
@@ -3284,7 +3328,7 @@
           unit: s.unit || 'min',
           // Carry the travel leg so a saved routine re-routes on load instead of
           // freezing yesterday's number.
-          travel: s.travel ? { mode: s.travel.mode, from: s.travel.from, to: s.travel.to, manual: s.travel.manual } : undefined,
+          travel: travelSnapshot(s.travel),
         })),
       };
       // replace if a template with that name already exists
@@ -3506,7 +3550,67 @@
         at: typeof b.at === 'string' && /^\d{2}:\d{2}$/.test(b.at) ? b.at : null,
         placeId: b.placeId || null,
         via: travelMode(b.via).id,
+        // A pin fixes either when the block starts or when it must be done by.
+        // A plan arrives pinned at its end — its target is a "be ready by".
+        edge: b.edge === 'end' ? 'end' : 'start',
+        // A block made from a plan carries the plan's steps. Its length is
+        // derived from them, travel legs re-routed for where the day has you.
+        steps: Array.isArray(b.steps) ? b.steps.map(st => ({
+          name: st.name || '',
+          duration: st.duration ?? 0,
+          unit: st.unit === 'hr' ? 'hr' : 'min',
+          travel: st.travel ? {
+            mode: travelMode(st.travel.mode).id,
+            from: validPlace(st.travel.from),
+            to: validPlace(st.travel.to),
+            manual: !!st.travel.manual,
+          } : undefined,
+        })) : undefined,
+        // Bridge: the plan's first travel step leaves from wherever the day
+        // left you, not the plan's own start. Off = the plan's start (usually home).
+        bridge: b.bridge !== false,
       };
+    }
+
+    // Lay a plan-block's steps out against the day. `here` is where the day has
+    // you when the block begins. Mirrors resolveOrigin's chain rule (explicit
+    // from → previous leg's to → home), except the first leg may be bridged.
+    function layoutComposite(b, here, homeRef) {
+      let at = null;
+      let first = true;
+      let bridge = null;
+      let mins = 0;
+      const rows = b.steps.map(st => {
+        let m = stepMinutes(st);
+        let leg = null;
+        const t = st.travel;
+        if (t && t.to) {
+          const natural = t.from || at || homeRef;
+          let origin = natural;
+          if (first) {
+            first = false;
+            if (here && (!natural || distanceM(here, natural) > 75)) {
+              bridge = { here, natural, on: b.bridge };
+              if (b.bridge) origin = here;
+            }
+          }
+          if (origin && distanceM(origin, t.to) <= 75) {
+            m = 0;   // already there
+            leg = { from: origin, to: t.to, mode: t.mode, status: 'there' };
+          } else if (origin) {
+            // A hand-typed duration stays the user's call; otherwise route it.
+            // Until a route lands, the plan's own number stands in.
+            const info = t.manual ? { status: 'ok', mins: m } : dayLegInfo(t.mode, origin, t.to);
+            if (info.status === 'ok') m = info.mins;
+            leg = { from: origin, to: t.to, mode: t.mode, status: info.status, key: info.key, error: info.error };
+          }
+          at = t.to;
+        }
+        const row = { name: (st.name || '').trim() || (leg ? 'Travel' : 'Step'), mins: m, leg, offset: mins };
+        mins += m;
+        return row;
+      });
+      return { mins, rows, endPlace: at, bridge };
     }
     function persistDay() {
       try { localStorage.setItem(KEY_DAY, JSON.stringify(dayState)); } catch {}
@@ -3569,8 +3673,18 @@
 
       // Where you are before each block: the last place set, else home.
       const legs = new Array(n).fill(null);
-      let here = home ? asRef(home) : null;
+      const comps = new Array(n).fill(null);
+      const D = new Array(n);
+      const homeRef = home ? asRef(home) : null;
+      let here = homeRef;
       for (let i = 0; i < n; i++) {
+        if (blocks[i].steps) {
+          comps[i] = layoutComposite(blocks[i], here, homeRef);
+          D[i] = comps[i].mins;
+          if (comps[i].endPlace) here = comps[i].endPlace;
+          continue;
+        }
+        D[i] = stepMinutes(blocks[i]);
         const pl = places.find(p => p.id === blocks[i].placeId);
         if (!pl) continue;
         const there = asRef(pl);
@@ -3580,7 +3694,6 @@
         here = there;
       }
 
-      const D = blocks.map(stepMinutes);
       const L = legs.map(l => (l ? l.mins : 0));
       const S = new Array(n);
       const over = new Array(n).fill(false);
@@ -3609,7 +3722,10 @@
         // Nothing pinned: no target to plan back from, so run forwards from now.
         fwd(dayState.date === 'today' ? round5(new Date(), true) : dayClock('09:00'), 0);
       } else {
-        anchors.forEach(a => { S[a] = dayClock(blocks[a].at); });
+        anchors.forEach(a => {
+          const t = dayClock(blocks[a].at);
+          S[a] = blocks[a].edge === 'end' ? addMin(t, -D[a]) : t;
+        });
         back(anchors[0], -1);
         for (let k = 0; k < anchors.length - 1; k++) {
           const p = anchors[k], q = anchors[k + 1];
@@ -3630,11 +3746,12 @@
         mins: D[i],
         over: over[i],
         leg: legs[i] ? { ...legs[i], start: addMin(S[i], -L[i]) } : null,
+        comp: comps[i],
       }));
       const gapAt = new Map(gaps.map(g => [g.p + 1, g]));
       // Anything that changes which rows exist forces a rebuild; everything else
       // is patched in place so typing never loses focus.
-      const sig = dayState.date + '#' + blocks.map((b, i) => b.id + (b.at ? '@' : '') + (legs[i] ? '>' : '')).join('|');
+      const sig = dayState.date + '#' + blocks.map((b, i) => b.id + (b.at ? '@' : '') + (legs[i] ? '>' : '') + (b.steps ? '+' + b.steps.length : '')).join('|');
       return { items, gaps, gapAt, sig, anchored: anchors.length > 0 };
     }
 
@@ -3667,16 +3784,31 @@
         const pin = b.at
           ? `<span class="d-at-wrap">
                <button type="button" class="d-pin on" data-action="pin" aria-pressed="true" title="Unpin — let this block float" aria-label="Unpin time">📌</button>
-               <input type="time" class="d-at" value="${b.at}" aria-label="Fixed start time"/>
+               <select class="d-edge" aria-label="Pinned edge">
+                 <option value="start"${b.edge !== 'end' ? ' selected' : ''}>starts</option>
+                 <option value="end"${b.edge === 'end' ? ' selected' : ''}>done by</option>
+               </select>
+               <input type="time" class="d-at" value="${b.at}" aria-label="Pinned time"/>
              </span>`
           : `<button type="button" class="d-pin" data-action="pin" aria-pressed="false" title="Fix this block to a clock time">📌 Pin time</button>`;
-        html += `<div class="dblock${b.at ? ' anchor' : ''}">
+        html += `<div class="dblock${b.at ? ' anchor' : ''}${b.steps ? ' comp' : ''}">
           <button class="d-handle" type="button" aria-label="Move block — drag, or focus and press up/down arrows" title="Drag to move">⠿</button>
           <input type="text" class="d-name" aria-label="Block name" autocomplete="off"
                  placeholder="${b.at ? 'What’s fixed? e.g. Pick-up' : 'What’s this block?'}" value="${escapeAttr(b.name)}"/>
           <div class="d-start" data-start></div>
           <button class="d-remove" type="button" data-action="remove" aria-label="Remove block">×</button>
           <div class="d-meta">
+            ${b.steps ? `
+            <button type="button" class="d-expand" data-action="expand" aria-expanded="${dayExpanded.has(b.id)}" title="Show the plan's steps">
+              <span class="d-comp-sum"></span> <span class="chev" aria-hidden="true">▾</span>
+            </button>
+            ${pin}
+            <button type="button" class="d-bridge" data-action="bridge" hidden></button>
+          </div>
+        </div>
+        <div class="d-steps" data-steps${dayExpanded.has(b.id) ? '' : ' hidden'}>
+          ${b.steps.map(() => '<div class="d-step"><span class="d-step-time"></span><span class="d-step-name"></span><span class="d-step-dur"></span></div>').join('')}
+        </div>` : `
             <div class="d-dur">
               <input type="number" class="d-duration" min="0" step="any" inputmode="decimal" aria-label="Duration" value="${escapeAttr(String(b.duration ?? ''))}"/>
               <select class="d-unit" aria-label="Duration unit">
@@ -3687,16 +3819,60 @@
             ${pin}
             <select class="d-place" aria-label="Where it happens"${places.length ? '' : ' disabled'}>${placeOpts}</select>
           </div>
-        </div>`;
+        </div>`}`;
         g.innerHTML = html;
         $dList.appendChild(g);
       });
       $dEmpty.hidden = m.items.length > 0;
-      $dHint.hidden = !m.items.length || dayState.blocks.some(b => b.placeId);
+      $dHint.hidden = !m.items.length ||
+        dayState.blocks.some(b => b.placeId || (b.steps && b.steps.some(st => st.travel && st.travel.to)));
       $dHint.textContent = places.length
         ? 'Tip: give a block a place and the travel time from the previous place (or home) fills itself in.'
         : 'Tip: save home and a few spots under Plan → Places, then give blocks a place — travel time between them fills itself in.';
       dayRenderedSig = m.sig;
+    }
+
+    // Which plan-blocks have their steps showing. Not persisted, like travelOpen.
+    const dayExpanded = new Set();
+
+    function patchComposite(g, it) {
+      const c = it.comp;
+      const n = it.b.steps.length;
+      g.querySelector('.d-comp-sum').textContent = `📋 ${n} step${n === 1 ? '' : 's'} · ${fmtDuration(c.mins)}`;
+      const br = g.querySelector('.d-bridge');
+      br.hidden = !c.bridge;
+      if (c.bridge) {
+        const fallback = c.bridge.natural ? c.bridge.natural.label : 'the plan’s start';
+        br.classList.toggle('on', c.bridge.on);
+        br.setAttribute('aria-pressed', String(c.bridge.on));
+        br.textContent = c.bridge.on ? `↪ from ${c.bridge.here.label}` : `⌂ from ${fallback}`;
+        br.title = c.bridge.on
+          ? `Leaving from where your day has you. Tap to leave from ${fallback} instead.`
+          : `Leaving from the plan’s own start. Tap to leave from ${c.bridge.here.label}.`;
+      }
+      const rows = g.querySelectorAll('.d-step');
+      c.rows.forEach((r, k) => {
+        const el = rows[k];
+        if (!el) return;
+        el.querySelector('.d-step-time').textContent = fmtTime(addMin(it.start, r.offset));
+        const name = el.querySelector('.d-step-name');
+        if (r.leg) {
+          const mode = travelMode(r.leg.mode);
+          name.textContent = r.leg.status === 'there'
+            ? `${mode.glyph} already at ${r.leg.to.label}`
+            : `${mode.glyph} ${r.leg.from.label} → ${r.leg.to.label}`;
+        } else {
+          name.textContent = r.name;
+        }
+        const failed = !!(r.leg && r.leg.status === 'error');
+        el.classList.toggle('error', failed);
+        if (failed) { el.dataset.action = 'retry'; el.dataset.key = r.leg.key; el.title = 'Tap to try the route again'; }
+        else { delete el.dataset.action; delete el.dataset.key; el.removeAttribute('title'); }
+        el.querySelector('.d-step-dur').textContent =
+          r.leg && r.leg.status === 'loading' ? 'routing…'
+          : r.leg && r.leg.status === 'error' ? 'route failed ↻'
+          : fmtDuration(r.mins);
+      });
     }
 
     function patchDayRows(m) {
@@ -3711,6 +3887,8 @@
         pill.classList.toggle('over', it.over && !it.b.at);
         g.classList.toggle('done', it.mins > 0 && it.end <= now);
         g.classList.toggle('now', it.start <= now && now < it.end);
+
+        if (it.comp) patchComposite(g, it);
 
         const legEl = g.querySelector('[data-leg]');
         if (legEl && it.leg) {
@@ -3772,6 +3950,21 @@
         $dHeroLabel.textContent = cur ? 'Now' : 'Day';
         $dHeroTime.textContent = cur ? fmtTime(cur.end) : 'Done';
         $dHeroMeta.textContent = cur ? `${named(cur)} until then` : 'Nothing left on today’s plan.';
+      } else if (up.comp && up.comp.rows.find(r => r.mins > 0 && r.leg && r.leg.status !== 'there')) {
+        // A plan-block's departure is inside it: the first real travel step.
+        const r = up.comp.rows.find(r => r.mins > 0 && r.leg && r.leg.status !== 'there');
+        const leave = addMin(up.start, r.offset);
+        const mode = travelMode(r.leg.mode);
+        const mins = Math.max(1, Math.round((leave - now) / 60000));
+        if (r.offset === 0) {
+          $dHeroLabel.textContent = 'Leave by';
+          $dHeroTime.textContent = fmtTime(leave);
+          $dHeroMeta.textContent = `${mode.glyph} ${r.leg.from.label} → ${r.leg.to.label} for ${named(up)} · in ${fmtDuration(mins)}`;
+        } else {
+          $dHeroLabel.textContent = 'Start by';
+          $dHeroTime.textContent = fmtTime(up.start);
+          $dHeroMeta.textContent = `${named(up)}, then ${mode.glyph} leave ${r.leg.from.label} at ${fmtTime(leave)}`;
+        }
       } else if (up.leg) {
         const mode = travelMode(up.leg.mode);
         const late = up.leg.start < now;
@@ -3792,8 +3985,10 @@
       }
 
       const nextFixed = m.items.find(it => it.b.at && it.start > now);
-      $dHeroNext.textContent = nextFixed ? fmtTime(nextFixed.start) : '—';
-      $dHeroNextName.textContent = nextFixed ? named(nextFixed) : 'Nothing pinned';
+      // Show the time the user actually pinned — a "done by" pin is its end.
+      const byEnd = nextFixed && nextFixed.b.edge === 'end';
+      $dHeroNext.textContent = nextFixed ? fmtTime(byEnd ? nextFixed.end : nextFixed.start) : '—';
+      $dHeroNextName.textContent = nextFixed ? named(nextFixed) + (byEnd ? ' · done by' : '') : 'Nothing pinned';
 
       const bad = m.gaps.find(g => g.slack < 0);
       $dHeroWarn.hidden = !bad;
@@ -3811,11 +4006,11 @@
         { kind: 'anchor', glyph: '📌', label: 'Fixed time', block: { name: '', duration: 30, unit: 'min' }, pin: true, focus: true },
       ];
       DAY_PRESETS.forEach(p => items.push({ kind: 'preset', glyph: p.glyph, label: p.name, dur: durLabel(p), block: p }));
-      // Saved Plan templates come in as one block of their total length —
-      // "Pick-up routine" stops being a plan and becomes a thing in your day.
+      // Saved Plan templates come in as one plan-block — "Pick-up routine"
+      // becomes a thing in your day, steps and travel legs intact.
       loadTemplates().forEach(t => {
         const total = (t.steps || []).map(normalizeStep).reduce((a, s) => a + stepMinutes(s), 0);
-        items.push({ kind: 'tpl', glyph: '📋', label: t.name, dur: fmtDuration(total), block: { name: t.name, duration: total, unit: 'min' } });
+        items.push({ kind: 'tpl', glyph: '📋', label: t.name, dur: fmtDuration(total), block: { name: t.name, steps: t.steps || [] } });
       });
       return items;
     }
@@ -3875,6 +4070,7 @@
       const hit = blockFromEvent(e);
       if (!hit) return;
       if (e.target.classList.contains('d-unit')) hit.b.unit = e.target.value;
+      else if (e.target.classList.contains('d-edge')) hit.b.edge = e.target.value;
       else if (e.target.classList.contains('d-place')) hit.b.placeId = e.target.value || null;
       else return;
       persistDay();
@@ -3890,7 +4086,19 @@
         dayState.blocks.splice(i, 1);
       } else if (action === 'pin') {
         if (b.at) b.at = null;
-        else b.at = toHHMM(round5(computeDay().items[i].start, false));
+        else {
+          const it = computeDay().items[i];
+          b.at = toHHMM(round5(b.edge === 'end' ? it.end : it.start, false));
+        }
+      } else if (action === 'bridge') {
+        b.bridge = !b.bridge;
+      } else if (action === 'expand') {
+        // Pure view state: flip it in place, no redraw.
+        const open = !dayExpanded.has(b.id);
+        if (open) dayExpanded.add(b.id); else dayExpanded.delete(b.id);
+        btn.setAttribute('aria-expanded', String(open));
+        hit.g.querySelector('[data-steps]').hidden = !open;
+        return;
       } else if (action === 'mode') {
         const ids = TRAVEL_MODES.map(m => m.id);
         b.via = ids[(ids.indexOf(b.via) + 1) % ids.length];
@@ -4053,13 +4261,41 @@
       if (item) insertBlock(item, dayState.blocks.length, true);
     });
 
-    function setDayDate(date) {
-      dayState.date = date === 'tomorrow' ? 'tomorrow' : 'today';
+    function syncDayDateButtons() {
       $dDateToday.setAttribute('aria-pressed', String(dayState.date === 'today'));
       $dDateTomorrow.setAttribute('aria-pressed', String(dayState.date === 'tomorrow'));
+    }
+    function setDayDate(date) {
+      dayState.date = date === 'tomorrow' ? 'tomorrow' : 'today';
+      syncDayDateButtons();
       persistDay();
       drawDay();
     }
+
+    // Plan → Day: the whole plan becomes one block, pinned "done by" its
+    // target, slotted in where it falls chronologically.
+    document.getElementById('send-to-day').addEventListener('click', () => {
+      if (!state.steps.length) return;
+      const block = normalizeBlock({
+        name: (state.eventName || '').trim() || 'Plan',
+        steps: state.steps.map(st => ({ name: st.name, duration: st.duration, unit: st.unit, travel: travelSnapshot(st.travel) })),
+        at: state.target,
+        edge: 'end',
+      });
+      // An empty day adopts the plan's day; otherwise the day keeps its own.
+      if (!dayState.blocks.length) { dayState.date = state.day; syncDayDateButtons(); }
+      const due = dayClock(state.target);
+      const idx = computeDay().items.findIndex(it => it.start >= due);
+      dayState.blocks.splice(idx < 0 ? dayState.blocks.length : idx, 0, block);
+      persistDay();
+      setAppMode('day');
+      const g = $dList.querySelector(`.dgroup[data-id="${CSS.escape(block.id)}"]`);
+      if (g) {
+        g.classList.add('d-new');
+        setTimeout(() => g.classList.remove('d-new'), 1500);
+        g.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
     $dDateToday.addEventListener('click', () => setDayDate('today'));
     $dDateTomorrow.addEventListener('click', () => setDayDate('tomorrow'));
 
@@ -4125,8 +4361,7 @@
       $viewOverview.addEventListener('click', () => setViewMode('overview'));
 
       loadDay();
-      $dDateToday.setAttribute('aria-pressed', String(dayState.date === 'today'));
-      $dDateTomorrow.setAttribute('aria-pressed', String(dayState.date === 'tomorrow'));
+      syncDayDateButtons();
       let savedMode = 'plan';
       try { savedMode = localStorage.getItem(KEY_MODE) || 'plan'; } catch {}
       setAppMode(savedMode);
