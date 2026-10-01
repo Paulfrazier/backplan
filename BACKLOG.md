@@ -17,6 +17,16 @@ no-backend / client-only solutions where possible.
 - [x] **Starter plans (prebuilt templates)** — one-tap full routines (School
   drop-off, Out the door, Catch a flight, Dinner reservation, Bedtime). Replace the
   current step list; keep target/event. Shown above saved templates. Web + iOS.
+- [x] **Day view (prototype, `day-view` branch)** — a second tab for planning a
+  whole day instead of one target. Pin the blocks that can't move (pick-up at 3:00),
+  drag flexible blocks (Climb 1h) in from a bottom tray; flex blocks between two
+  pinned ones stack *backwards* from the later one, so slack collects at the front
+  and the hero answers "leave by". Blocks can carry a saved place; legs between
+  places route through the same BRouter cache (tap a leg to cycle drive/bike/walk).
+  Gaps show free time or "over by N min". Saved Plan templates appear in the tray
+  as one block of their total length. Web only so far; `backplan:day` +
+  `backplan:mode` in localStorage. Open: iOS port, on-device touch-drag QA,
+  expanding a template block back into its steps.
 - [x] **Travel steps / map support** (was item #2 below) — a step can carry a
   drive/bike/walk leg with a From and To, and Backplan fills in the real routed
   duration. Web + iOS, no backend and no API keys.
