@@ -12,11 +12,16 @@ struct PlanLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PlanActivityAttributes.self) { context in
             lockScreen(context)
-                // Backplan's palette is a deliberately light "paper" look with no
-                // dark variants. Left to the system tint, the card would adopt
-                // the wallpaper's material and put ink text on near-black.
-                .activityBackgroundTint(.bpPaper)
-                .activitySystemActionForegroundColor(.bpPurple)
+                // A dark card, not Backplan's paper. The first build tinted the
+                // card `bpPaper` with plum ink on it, but the system does not keep
+                // that tint opaque — it blends it toward the wallpaper and dims it
+                // with the Lock Screen, so plum #4A154B landed on near-black and
+                // the countdown was unreadable. A dark ground reads on any
+                // wallpaper, matches the Dynamic Island, and lets the card share
+                // its lifted accents. The tint is backed by an opaque fill inside
+                // `lockScreen` so the blend cannot wash it out.
+                .activityBackgroundTint(Self.cardGround)
+                .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -77,17 +82,16 @@ struct PlanLiveActivity: Widget {
             HStack(alignment: .firstTextBaseline) {
                 Text(context.attributes.eventName.isEmpty ? "Backplan" : context.attributes.eventName)
                     .font(.footnote.weight(.bold))
-                    .foregroundStyle(.bpPurple)
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text(context.state.phaseWord.uppercased())
-                    .font(.caption2.weight(.bold))
+                    .font(.caption2.weight(.heavy))
                     .kerning(0.6)
-                    .foregroundStyle(ink(context.state.phase))
+                    .foregroundStyle(.bpInk)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(tint(context.state.phase)))
-                    .overlay(Capsule().strokeBorder(.bpInk, lineWidth: 1.5))
+                    .background(Capsule().fill(islandAccent(context.state.phase)))
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 12) {
@@ -95,32 +99,39 @@ struct PlanLiveActivity: Widget {
                     Text(context.state.label.uppercased())
                         .font(.caption2.weight(.bold))
                         .kerning(0.7)
-                        .foregroundStyle(.bpMuted)
+                        .foregroundStyle(Self.cardMuted)
                     timer(context.state)
                         .font(.system(size: 34, weight: .bold))
                         .monospacedDigit()
-                        .foregroundStyle(accent(context.state.phase))
+                        .foregroundStyle(islandAccent(context.state.phase))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.state.detail)
                         .font(.footnote.weight(.bold))
-                        .foregroundStyle(.bpInk)
+                        .foregroundStyle(.white)
                         .lineLimit(1)
                     if !context.state.next.isEmpty {
                         Text("Next: \(context.state.next)")
                             .font(.caption2)
-                            .foregroundStyle(.bpMuted)
+                            .foregroundStyle(Self.cardMuted)
                             .lineLimit(1)
                     }
                 }
                 Spacer(minLength: 0)
             }
 
-            progress(context, accent: accent(context.state.phase))
+            progress(context, accent: islandAccent(context.state.phase))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .background(Self.cardGround)
     }
+
+    /// Backplan's ink, used as the Lock Screen card's ground.
+    private static let cardGround = Color.bpInk
+    /// Secondary text on `cardGround`. `bpMuted` #696969 is tuned for paper and
+    /// sinks into the dark card; this stays well above 4.5:1 on it.
+    private static let cardMuted = Color.white.opacity(0.68)
 
     /// The whole plan's span, not the current step's — it is the only bar that
     /// answers "how much of tonight is left", which is the question the card is
@@ -164,18 +175,9 @@ struct PlanLiveActivity: Widget {
         }
     }
 
-    /// For the Lock Screen card, which we tint to Backplan's paper.
-    private func accent(_ phase: PlanActivityAttributes.Phase) -> Color {
-        switch phase {
-        case .future: return .bpPurple
-        case .active: return .bpLimeInk
-        case .past: return .bpCoral
-        }
-    }
-
-    /// The Dynamic Island's ground is always black and cannot be tinted. The
-    /// paper palette's inks — `bpPurple` #4A154B, `bpLimeInk` #3F6212 — are
-    /// near-invisible on it: the first build shipped them and the island opened
+    /// Accents for a dark ground — the Dynamic Island, which is always black, and
+    /// the Lock Screen card, which is dark to match. The paper palette's inks —
+    /// `bpPurple` #4A154B, `bpLimeInk` #3F6212 — are near-invisible on it: the first build shipped them and the island opened
     /// to its wider Live Activity shape with nothing legible inside it. These are
     /// the same three hues lifted for a dark ground.
     private func islandAccent(_ phase: PlanActivityAttributes.Phase) -> Color {
@@ -183,22 +185,6 @@ struct PlanLiveActivity: Widget {
         case .future: return Color(hex: 0xC4B5FD)  // purple-electric, lightened
         case .active: return .bpLime
         case .past: return .bpCoral
-        }
-    }
-
-    private func tint(_ phase: PlanActivityAttributes.Phase) -> Color {
-        switch phase {
-        case .future: return Color(hex: 0xF3EEFC)
-        case .active: return .bpLimeTint
-        case .past: return .bpCoralTint
-        }
-    }
-
-    private func ink(_ phase: PlanActivityAttributes.Phase) -> Color {
-        switch phase {
-        case .future: return .bpPurple
-        case .active: return .bpLimeInk
-        case .past: return Color(hex: 0x9A2A16)
         }
     }
 }
