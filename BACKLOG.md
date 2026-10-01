@@ -17,6 +17,32 @@ no-backend / client-only solutions where possible.
 - [x] **Starter plans (prebuilt templates)** — one-tap full routines (School
   drop-off, Out the door, Catch a flight, Dinner reservation, Bedtime). Replace the
   current step list; keep target/event. Shown above saved templates. Web + iOS.
+- [x] **Day view (prototype, `day-view` branch)** — a second tab for planning a
+  whole day instead of one target. Pin the blocks that can't move (pick-up at 3:00),
+  drag flexible blocks (Climb 1h) in from a bottom tray; flex blocks between two
+  pinned ones stack *backwards* from the later one, so slack collects at the front
+  and the hero answers "leave by". Blocks can carry a saved place; legs between
+  places route through the same BRouter cache (tap a leg to cycle drive/bike/walk).
+  Gaps show free time or "over by N min". Saved Plan templates appear in the tray
+  as one block of their total length. Web only so far; `backplan:day` +
+  `backplan:mode` in localStorage.
+  - **Plan → Day ("plan-blocks").** Plan's "→ Add to Day" drops the whole plan in
+    as one block that keeps its steps, pinned **done by** the plan's target (pins
+    can be "starts" or "done by"). Saved templates in the tray do the same,
+    unpinned. Expand to see each step's clock time.
+  - **Bridging.** A plan-block's first travel leg leaves from wherever the day
+    has you (Climb at the gym → pick-up bikes gym → school, re-routed), not the
+    plan's own start; one tap flips it back to "from Home". Its last destination
+    becomes the origin for the next block.
+  - **Linked.** Add to Day saves the plan as a template and links the block;
+    while the Plan shows "Linked to your Day", edits write through to the
+    template and every block made from it. "Edit plan" on a block reopens it
+    linked. Pins stay per block.
+  - **iOS:** ported — Plan | Day tabs, `DayPlanner` (pure port of
+    `computeDay`), tray above the tab bar (tap, or long-press-drag into the
+    List via `onInsert`), linking via template id.
+  - Open: on-device touch-drag QA (web + iOS — the simulator can't inject
+    touches), arming notifications for a whole day.
 - [x] **Travel steps / map support** (was item #2 below) — a step can carry a
   drive/bike/walk leg with a From and To, and Backplan fills in the real routed
   duration. Web + iOS, no backend and no API keys.

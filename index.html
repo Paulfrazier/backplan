@@ -1551,6 +1551,386 @@
     .place-chip.is-home .home-btn { border-color: var(--ink); background: var(--lime); color: var(--ink); }
     .place-chip .home-btn:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
 
+    /* ── Mode tabs (Plan / Day) ── */
+    .mode-tabs {
+      display: flex;
+      border: var(--line-strong);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      background: #fff;
+      margin: 0 0 var(--s4);
+    }
+    .mode-tabs button {
+      flex: 1 1 0;
+      appearance: none;
+      border: 0;
+      background: #fff;
+      padding: 9px 14px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--ink);
+      cursor: pointer;
+      line-height: 1.25;
+    }
+    .mode-tabs button + button { border-left: var(--line-strong); }
+    .mode-tabs button[aria-selected="true"] { background: var(--purple-electric); color: #fff; }
+    .mode-tabs button:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: -5px; }
+    .mode-tabs .tab-sub { display: block; font-weight: 500; font-size: 12px; opacity: 0.8; }
+
+    /* ── Day view ──
+       A day is an ordered list of blocks. Pinned blocks ("anchors") sit at a
+       clock time; everything between two anchors stacks backwards from the
+       later one, so the slack collects at the *front* of each gap — which is
+       exactly the "when do I leave" answer. Each block is one .dgroup: an
+       optional slack row, an optional travel leg, then the block itself. The
+       group is the unit you drag, so a leg always travels with its block. */
+    .d-warn {
+      margin: var(--s3) 0 0;
+      padding: 8px 12px;
+      border: 2px solid var(--coral);
+      border-radius: 10px;
+      background: var(--coral-tint);
+      color: #9a2a16;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .d-warn[hidden] { display: none; }
+    .hero .start-time.late { color: var(--coral); }
+
+    .d-list-wrap { position: relative; }
+    .d-list { display: flex; flex-direction: column; margin: 0 calc(-1 * var(--s3)); }
+    .dgroup { border-top: var(--line-hair); transition: opacity 0.15s ease; }
+    .dgroup:first-child { border-top: 0; }
+    .dgroup.lifting { opacity: 0.3; }
+    .dgroup.done { opacity: 0.5; }
+    .dgroup.now .dblock { background: var(--lime-tint); }
+    .dgroup.d-new .dblock { animation: d-pop 1.4s ease-out; }
+    @keyframes d-pop { from { background: #e3f5c4; } }
+
+    .dblock {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto 28px;
+      grid-template-areas:
+        "handle name start x"
+        "handle meta meta  meta";
+      gap: 8px 10px;
+      align-items: center;
+      padding: var(--s2) var(--s3);
+    }
+    .dblock.anchor { box-shadow: inset 4px 0 0 var(--purple); background: #f8f4fd; }
+    .d-handle {
+      grid-area: handle;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #8f8c99;
+      font-size: 17px;
+      line-height: 1;
+      cursor: grab;
+      touch-action: none;
+      border-radius: 6px;
+    }
+    .d-handle:hover { color: var(--ink); background: #f3f3f3; }
+    .d-handle:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 1px; color: var(--ink); }
+    .dblock .d-name {
+      grid-area: name;
+      min-width: 0;
+      width: 100%;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 7px 10px;
+      box-shadow: none;
+      border: var(--line-hair);
+      border-radius: 8px;
+    }
+    .dblock.anchor .d-name { color: var(--purple); }
+    .d-start {
+      grid-area: start;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--lime-ink);
+      background: var(--lime-tint);
+      border: 1.5px solid var(--lime);
+      border-radius: 999px;
+      padding: 4px 11px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .d-start.fixed { color: #fff; background: var(--purple); border-color: var(--purple); }
+    .d-start.over { color: #b91c1c; background: var(--coral-tint); border-color: var(--coral); }
+    .d-remove {
+      grid-area: x;
+      appearance: none;
+      border: var(--line-hair);
+      background: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .d-remove:hover { color: var(--coral); border-color: var(--coral); }
+    .d-meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .d-dur {
+      display: inline-flex;
+      border: var(--line-hair);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .d-dur:focus-within { border-color: var(--purple-electric); }
+    .d-dur input[type="number"] {
+      width: 52px;
+      font-size: 14px;
+      padding: 6px 6px;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      text-align: right;
+      background: transparent;
+      -moz-appearance: textfield;
+    }
+    .d-dur input[type="number"]:focus { outline: none; }
+    .d-dur input::-webkit-outer-spin-button,
+    .d-dur input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .d-meta select {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 6px 6px;
+      border: 0;
+      background: #fafafa;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .d-dur select { border-left: var(--line-hair); }
+    .d-meta select:focus { outline: none; }
+    .d-meta .d-place {
+      border: var(--line-hair);
+      border-radius: 8px;
+      max-width: 170px;
+    }
+    .d-meta .d-place:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 1px; }
+    .d-pin {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border: var(--line-hair);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .d-pin:hover { border-color: var(--ink); color: var(--ink); }
+    .d-pin.on { background: var(--purple); border-color: var(--purple); color: #fff; padding: 6px 8px; }
+    .d-pin:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 1px; }
+    .d-at-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .dblock input.d-at {
+      font-size: 14px;
+      padding: 5px 8px;
+      border: 2px solid var(--purple);
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    /* Leg and slack rows hang off the block's spine, indented past the handle. */
+    .dleg, .dslack {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 6px var(--s3) 6px 50px;
+      font-size: 13.5px;
+      color: var(--muted);
+      position: relative;
+    }
+    .dleg::before, .dslack::before {
+      content: "";
+      position: absolute;
+      left: 27px;
+      top: 0;
+      bottom: 0;
+      border-left: 2px dotted #b9b4c6;
+    }
+    .dleg { background: #faf9fc; }
+    .d-mode {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .d-mode:hover { background: var(--lime-tint); }
+    .d-mode:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 2px; }
+    .d-leg-route { font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 120px; }
+    .d-leg-time { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .dleg.over .d-leg-time { color: var(--coral); }
+    .dleg.error .d-leg-time { color: var(--coral); }
+    .d-retry {
+      margin-left: 6px;
+      width: 22px; height: 22px; padding: 0;
+      border: var(--line-hair); border-radius: 7px;
+      background: #fff; color: var(--muted); cursor: pointer;
+    }
+    .dslack {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--lime-ink);
+    }
+    .dslack.tight { color: #8a6100; }
+    .dslack.over { color: #9a2a16; background: var(--coral-tint); }
+    .dslack.over::before { border-left-color: var(--coral); }
+
+    /* Plan-blocks: a plan dropped into the day, steps folded inside. */
+    .dblock.comp .d-name { font-weight: 700; }
+    .d-expand, .d-bridge {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+      border: var(--line-hair);
+      border-radius: 8px;
+      background: #fff6e0;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .d-expand .chev { display: inline-block; color: var(--muted); transition: transform 0.15s ease; }
+    .d-expand[aria-expanded="true"] .chev { transform: rotate(180deg); }
+    .d-bridge { background: #fff; color: var(--muted); max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+    .d-bridge.on { background: var(--lime-tint); border-color: var(--lime); color: var(--lime-ink); }
+    .d-bridge[hidden] { display: none; }
+    .d-expand:focus-visible, .d-bridge:focus-visible { outline: 2px solid var(--purple-electric); outline-offset: 1px; }
+    .d-meta .d-edge { border: var(--line-hair); border-radius: 8px; }
+    .d-steps { padding: 0 var(--s3) var(--s2) 50px; display: flex; flex-direction: column; }
+    .dblock.anchor + .d-steps { background: #f8f4fd; box-shadow: inset 4px 0 0 var(--purple); }
+    .d-steps[hidden] { display: none; }
+    .d-step {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 5px 0;
+      border-top: 1px dashed var(--rule);
+      font-size: 13.5px;
+    }
+    .d-step:first-child { border-top: 0; }
+    .d-step-time { font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--lime-ink); font-variant-numeric: tabular-nums; }
+    .d-step-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .d-step-dur { color: var(--muted); font-family: "Space Grotesk", sans-serif; font-variant-numeric: tabular-nums; }
+    .d-step.error { cursor: pointer; }
+    .d-step.error .d-step-dur { color: var(--coral); font-weight: 700; }
+
+    .d-edit {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px; font-weight: 700;
+      padding: 6px 10px;
+      border: var(--line-hair); border-radius: 8px;
+      background: #fff; color: var(--purple-electric);
+      cursor: pointer; white-space: nowrap;
+    }
+    .d-edit:hover { border-color: var(--purple-electric); }
+    .d-edit[hidden] { display: none; }
+    .link-banner {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: var(--s3);
+      padding: 10px 12px;
+      border: 2px solid var(--purple-electric);
+      border-radius: 12px;
+      background: #f3eefc;
+      font-size: 14px;
+    }
+    .link-banner[hidden] { display: none; }
+    .link-banner .lb-text { flex: 1 1 220px; }
+    .link-banner b { color: var(--purple); }
+    .link-banner .btn { padding: 6px 12px; font-size: 13px; }
+
+    .d-hint { font-size: 13px; color: var(--muted); margin: var(--s2) 0 0; }
+    .d-hint[hidden] { display: none; }
+    .d-line {
+      position: absolute;
+      left: -6px;
+      right: -6px;
+      height: 4px;
+      margin-top: -2px;
+      border-radius: 2px;
+      background: var(--purple-electric);
+      box-shadow: 0 0 0 2px #fff;
+      pointer-events: none;
+      z-index: 6;
+    }
+    .d-line[hidden] { display: none; }
+    .d-ghost {
+      position: fixed;
+      z-index: 100;
+      pointer-events: none;
+      transform: translate(-50%, -120%) rotate(-2deg);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* The tray lives in the thumb zone: pinned to the bottom of the screen, so
+       blocks are dragged *up* into the day. Chips scroll sideways (pan-x) and a
+       vertical drag picks one up — the two gestures don't fight. */
+    .d-tray {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      margin: var(--s4) -20px 0;
+      padding: var(--s2) 20px calc(var(--s1) + env(safe-area-inset-bottom));
+      background: rgba(251, 250, 255, 0.96);
+      border-top: var(--line-strong);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+    .d-tray .sub-label { margin: 0 0 4px; }
+    .d-tray-chips {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 2px 10px;
+      scrollbar-width: thin;
+    }
+    .d-tray-chips .qa-chip {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      touch-action: pan-x;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .qa-chip.anchor-chip { background: #efe6fb; }
+    .qa-chip.tpl-chip { background: #fff6e0; }
+
+    @media (max-width: 540px) {
+      /* Once the two columns wrap, a right-aligned second row just looks lost. */
+      .d-hero .hero-target { text-align: left; }
+      .d-tray { margin-left: -20px; margin-right: -20px; }
+      .dleg, .dslack { padding-left: 46px; }
+      .dleg::before, .dslack::before { left: 25px; }
+    }
+
     @media (max-width: 540px) {
       h1 { font-size: 34px; }
       .hero { padding: var(--s3); }
@@ -1612,8 +1992,14 @@
 <body>
   <div class="wrap">
     <h1>Backplan</h1>
-    <p class="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
+    <p class="thesis" id="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
 
+    <div class="mode-tabs" role="tablist" aria-label="Planner mode">
+      <button type="button" role="tab" id="tab-plan" aria-selected="true" aria-controls="mode-plan">Plan<span class="tab-sub">one target</span></button>
+      <button type="button" role="tab" id="tab-day" aria-selected="false" aria-controls="mode-day">Day<span class="tab-sub">fixed times + blocks</span></button>
+    </div>
+
+    <div id="mode-plan" role="tabpanel" aria-labelledby="tab-plan">
     <!-- Only rendered when the night pair is on; a single plan is untouched. -->
     <div class="plan-tabs" id="plan-tabs" role="tablist" aria-label="Which plan you are editing" hidden>
       <button type="button" role="tab" data-plan="evening" class="active" aria-selected="true">
@@ -1788,6 +2174,11 @@
       </div>
     </section>
 
+    <div class="link-banner" id="link-banner" hidden>
+      <span class="lb-text">🔗 Linked to your Day as <b id="link-name"></b> — edits here update it.</span>
+      <button type="button" class="btn ghost" id="link-open-day">Open Day</button>
+      <button type="button" class="btn ghost" id="link-unlink">Unlink</button>
+    </div>
     <div class="card" id="target-card">
       <div class="target-row">
         <div class="field" style="flex:1 1 200px; min-width:0;">
@@ -1840,6 +2231,7 @@
       <div class="add-row" id="add-row">
         <button class="btn primary" id="add-step" type="button">+ Add step</button>
         <button class="btn" id="add-travel" type="button">+ Travel step</button>
+        <button class="btn" id="send-to-day" type="button" title="Add this plan to your Day as one block, done by the target time">→ Add to Day</button>
         <button class="btn ghost" id="clear-steps" type="button">Clear all</button>
       </div>
       <hr class="panel-divider" id="quick-add-divider" />
@@ -1877,6 +2269,43 @@
       <div class="chips" id="chips"></div>
       <p class="chips-empty" id="chips-empty">No saved templates yet. Save the current plan and it'll show up here.</p>
     </section>
+    </div>
+
+    <div id="mode-day" role="tabpanel" aria-labelledby="tab-day" hidden>
+      <section class="hero d-hero">
+        <div class="hero-times">
+          <div>
+            <p class="label" id="d-hero-label">Leave by</p>
+            <p class="start-time" id="d-hero-time">—</p>
+            <p class="meta" id="d-hero-meta"></p>
+          </div>
+          <div class="hero-target">
+            <p class="label">Next fixed</p>
+            <p class="start-time target-time" id="d-hero-next">—</p>
+            <p class="meta" id="d-hero-next-name"></p>
+          </div>
+        </div>
+        <p class="d-warn" id="d-hero-warn" aria-live="polite" hidden></p>
+      </section>
+
+      <h2>Your day<span class="view-toggle" role="group" aria-label="Which day">
+          <button type="button" id="d-date-today" aria-pressed="true">Today</button>
+          <button type="button" id="d-date-tomorrow" aria-pressed="false">Tomorrow</button>
+        </span></h2>
+      <section class="panel">
+        <div class="d-list-wrap" id="d-list-wrap">
+          <div class="d-list" id="d-list"></div>
+          <div class="d-line" id="d-line" hidden></div>
+        </div>
+        <p class="chips-empty" id="d-empty" hidden>Nothing planned yet. Drag a block up from the tray below, or tap one to add it.</p>
+        <p class="d-hint" id="d-hint" hidden>Tip: give a block a place and the travel time from the previous place (or home) fills itself in.</p>
+      </section>
+
+      <div class="d-tray" id="d-tray">
+        <p class="sub-label">Drag onto your day, or tap to add</p>
+        <div class="d-tray-chips" id="d-tray-chips"></div>
+      </div>
+    </div>
 
     <footer>
       <div class="fairpoint">More from <a href="https://fairpoint.website">Fairpoint →</a></div>
@@ -1971,11 +2400,13 @@
     //   switching tabs is a pointer swap plus a re-render. It is `let`, not
     //   `const`, for exactly that reason.
     const plans = {
-      evening: { eventName: '', target: '20:20', day: 'today', steps: [] },
-      morning: { eventName: '', target: '08:15', day: 'tomorrow', steps: [] },
+      evening: { eventName: '', target: '20:20', day: 'today', steps: [], linked: null },
+      morning: { eventName: '', target: '08:15', day: 'tomorrow', steps: [], linked: null },
     };
     let activePlanKey = 'evening';
     let state = plans.evening;
+    // Each plan carries `linked` — the name of the Day template it writes
+    // through to — so a link belongs to the half it was made from.
 
     // The edge. `sleepNeed` is a *minimum*, not a duration — the plan is wrong
     // when sleep falls under it, not when it merely differs from it.
@@ -3779,6 +4210,7 @@
       syncPlanInputs();
       persistLast();
       renderSteps();
+      renderLinkBanner();
       state.steps.forEach(st => {
         if (st.travel && st.travel.to && !st.travel.result) refreshTravel(st.id, false);
       });
@@ -3871,7 +4303,8 @@
       $eventDisplay.textContent = name;
       // The name now has its own line, so the target keeps its own label.
       $heroHead.hidden = !name;
-      document.title = name ? `${name} — Backplan` : 'Backplan';
+      // compute() runs on a 30s interval even while the Day tab is showing.
+      if (appMode === 'plan') document.title = name ? `${name} — Backplan` : 'Backplan';
 
       const rows = $stepsEl.querySelectorAll('.step');
 
@@ -4336,6 +4769,7 @@
         syncPlanInputs();
         persistLast();
         renderSteps();
+        renderLinkBanner();
       } else {
         syncPlanInputs();
         persistLast();
@@ -4487,29 +4921,23 @@
             const arr = loadTemplates();
             arr.splice(i, 1);
             saveTemplates(arr);
+            // Linked Day blocks keep their last snapshot; the plan just unlinks.
+            if (state.linked === t.name) { state.linked = null; persistLast(); }
             renderChips();
             return;
           }
-          // load template
-          state.eventName = t.eventName || '';
-          state.target = t.target || '18:00';
-          state.day = t.day || 'today';
-          state.steps = (t.steps || []).map(normalizeStep);
-          $eventInput.value = state.eventName;
-          $targetInput.value = state.target;
-          $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
-          persistLast();
-          renderSteps();
+          // Loading a template is a fresh copy, not an edit of it.
+          state.linked = null;
+          loadTemplateIntoPlan(t);
         });
         $chips.appendChild(chip);
       });
     }
-    document.getElementById('save-template').addEventListener('click', () => {
-      const suggested = (state.eventName || '').trim();
-      const name = (prompt('Name this template:', suggested) || '').trim();
-      if (!name) return;
-      const arr = loadTemplates();
-      const snapshot = {
+    function travelSnapshot(t) {
+      return t ? { mode: t.mode, from: t.from, to: t.to, manual: t.manual } : undefined;
+    }
+    function planSnapshot(name) {
+      return {
         name,
         eventName: state.eventName,
         target: state.target,
@@ -4520,14 +4948,73 @@
           unit: s.unit || 'min',
           // Carry the travel leg so a saved routine re-routes on load instead of
           // freezing yesterday's number.
-          travel: s.travel ? { mode: s.travel.mode, from: s.travel.from, to: s.travel.to, manual: s.travel.manual } : undefined,
+          travel: travelSnapshot(s.travel),
         })),
       };
+    }
+    function loadTemplateIntoPlan(t) {
+      state.eventName = t.eventName || '';
+      state.target = t.target || '18:00';
+      state.day = t.day || 'today';
+      state.steps = (t.steps || []).map(normalizeStep);
+      travelOpen.clear();
+      $eventInput.value = state.eventName;
+      $targetInput.value = state.target;
+      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      persistLast();
+      renderSteps();
+      renderLinkBanner();
+      state.steps.forEach(s => { if (s.travel && s.travel.to && !s.travel.result) refreshTravel(s.id, false); });
+    }
+
+    // ── Plan ↔ Day link. Saved templates are the identity a Day block links to.
+    // While the Plan is linked, every edit is written through to that template
+    // and to every Day block made from it — so changing the pick-up plan here
+    // changes the pick-up block in your day. Pins stay per block.
+    function syncLinked() {
+      if (!state.linked) return;
+      const arr = loadTemplates();
+      const i = arr.findIndex(t => t.name === state.linked);
+      if (i < 0) { state.linked = null; renderLinkBanner(); return; }
+      arr[i] = planSnapshot(state.linked);
+      saveTemplates(arr);
+      refreshLinkedBlocks(arr);
+    }
+    function refreshLinkedBlocks(templates) {
+      if (!dayLoaded) return;
+      const byName = new Map((templates || loadTemplates()).map(t => [t.name, t]));
+      let changed = false;
+      dayState.blocks.forEach((b, i) => {
+        const t = b.link && byName.get(b.link);
+        if (!t) return;
+        dayState.blocks[i] = normalizeBlock({ ...b, steps: t.steps || [] });
+        changed = true;
+      });
+      if (changed) persistDay();
+    }
+    const $linkBanner = document.getElementById('link-banner');
+    function renderLinkBanner() {
+      $linkBanner.hidden = !state.linked;
+      if (state.linked) document.getElementById('link-name').textContent = state.linked;
+    }
+    document.getElementById('link-unlink').addEventListener('click', () => {
+      state.linked = null;
+      persistLast();
+      renderLinkBanner();
+    });
+    document.getElementById('link-open-day').addEventListener('click', () => setAppMode('day'));
+    document.getElementById('save-template').addEventListener('click', () => {
+      const suggested = (state.eventName || '').trim();
+      const name = (prompt('Name this template:', suggested) || '').trim();
+      if (!name) return;
+      const arr = loadTemplates();
+      const snapshot = planSnapshot(name);
       // replace if a template with that name already exists
       const existingIdx = arr.findIndex(t => t.name === name);
       if (existingIdx >= 0) arr[existingIdx] = snapshot;
       else arr.push(snapshot);
       saveTemplates(arr);
+      refreshLinkedBlocks(arr);
       renderChips();
     });
 
@@ -4661,9 +5148,11 @@
     function loadStarter(st) {
       const hasContent = state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
       if (hasContent && !confirm(`Replace your current steps with the "${st.name}" starter?`)) return;
+      state.linked = null;
       state.steps = st.steps.map(normalizeStep);
       persistLast();
       renderSteps();
+      renderLinkBanner();
     }
 
     // ── Persist last
@@ -4673,6 +5162,7 @@
         target: plan.target,
         day: plan.day,
         steps: plan.steps,
+        linked: plan.linked || null,
       };
     }
     function persistLast() {
@@ -4697,6 +5187,7 @@
         },
       };
       localStorage.setItem(KEY_LAST, JSON.stringify(snap));
+      syncLinked();
     }
     function loadLast() {
       try {
@@ -4706,14 +5197,879 @@
       } catch { return null; }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Day view: pin the fixed times, drop flexible blocks into the gaps.
+    //
+    // Model: an ordered list of blocks. A block with `at` is an anchor (fixed
+    // start). Flex blocks between two anchors stack backwards from the later
+    // one — a gap's slack collects at its front, so the first departure is as
+    // late as it can be. Flex blocks before the first anchor stack backwards
+    // too (that's "when do I leave"); after the last anchor they run forwards.
+    // A block with a place gets a travel leg from the previous place (or home),
+    // routed through the same BRouter + cache the Plan view uses.
+    // ═══════════════════════════════════════════════════════════════════════
+    const KEY_DAY = 'backplan:day';
+    const KEY_MODE = 'backplan:mode';
+    const DAY_PRESETS = [
+      { glyph: '🧗', name: 'Climb', duration: 1, unit: 'hr' },
+      { glyph: '🏋️', name: 'Gym', duration: 1, unit: 'hr' },
+      { glyph: '💻', name: 'Focus work', duration: 90, unit: 'min' },
+      { glyph: '🥪', name: 'Lunch', duration: 30, unit: 'min' },
+      { glyph: '☕', name: 'Coffee', duration: 20, unit: 'min' },
+      { glyph: '🛒', name: 'Errand', duration: 30, unit: 'min' },
+      { glyph: '🚿', name: 'Shower', duration: 15, unit: 'min' },
+      { glyph: '⏳', name: 'Buffer', duration: 10, unit: 'min' },
+    ];
+    const THESIS = {
+      plan: 'Work backwards from when you need to be there. Add the steps, see when to start.',
+      day: 'Pin the times that can’t move, drop in everything else, see when to leave.',
+    };
+
+    let appMode = 'plan';
+    const dayState = { date: 'today', blocks: [] };
+    let dayLoaded = false;   // persistLast can fire during init; don't sync into an unloaded day
+
+    const $modePlan = document.getElementById('mode-plan');
+    const $modeDay = document.getElementById('mode-day');
+    const $tabPlan = document.getElementById('tab-plan');
+    const $tabDay = document.getElementById('tab-day');
+    const $thesis = document.getElementById('thesis');
+    const $dList = document.getElementById('d-list');
+    const $dListWrap = document.getElementById('d-list-wrap');
+    const $dLine = document.getElementById('d-line');
+    const $dEmpty = document.getElementById('d-empty');
+    const $dHint = document.getElementById('d-hint');
+    const $dTray = document.getElementById('d-tray');
+    const $dTrayChips = document.getElementById('d-tray-chips');
+    const $dHeroLabel = document.getElementById('d-hero-label');
+    const $dHeroTime = document.getElementById('d-hero-time');
+    const $dHeroMeta = document.getElementById('d-hero-meta');
+    const $dHeroNext = document.getElementById('d-hero-next');
+    const $dHeroNextName = document.getElementById('d-hero-next-name');
+    const $dHeroWarn = document.getElementById('d-hero-warn');
+    const $dDateToday = document.getElementById('d-date-today');
+    const $dDateTomorrow = document.getElementById('d-date-tomorrow');
+
+    function normalizeBlock(b) {
+      return {
+        id: b.id || newId(),
+        name: b.name || '',
+        duration: b.duration ?? 30,
+        unit: b.unit === 'hr' ? 'hr' : 'min',
+        at: typeof b.at === 'string' && /^\d{2}:\d{2}$/.test(b.at) ? b.at : null,
+        placeId: b.placeId || null,
+        via: travelMode(b.via).id,
+        // A pin fixes either when the block starts or when it must be done by.
+        // A plan arrives pinned at its end — its target is a "be ready by".
+        edge: b.edge === 'end' ? 'end' : 'start',
+        // A block made from a plan carries the plan's steps. Its length is
+        // derived from them, travel legs re-routed for where the day has you.
+        steps: Array.isArray(b.steps) ? b.steps.map(st => ({
+          name: st.name || '',
+          duration: st.duration ?? 0,
+          unit: st.unit === 'hr' ? 'hr' : 'min',
+          travel: st.travel ? {
+            mode: travelMode(st.travel.mode).id,
+            from: validPlace(st.travel.from),
+            to: validPlace(st.travel.to),
+            manual: !!st.travel.manual,
+          } : undefined,
+        })) : undefined,
+        // Bridge: the plan's first travel step leaves from wherever the day
+        // left you, not the plan's own start. Off = the plan's start (usually home).
+        bridge: b.bridge !== false,
+        // Name of the saved template this block follows. Its steps are kept in
+        // sync by refreshLinkedBlocks; if the template goes, the snapshot stays.
+        link: typeof b.link === 'string' && b.link ? b.link : null,
+      };
+    }
+
+    // Lay a plan-block's steps out against the day. `here` is where the day has
+    // you when the block begins. Mirrors resolveOrigin's chain rule (explicit
+    // from → previous leg's to → home), except the first leg may be bridged.
+    function layoutComposite(b, here, homeRef) {
+      let at = null;
+      let first = true;
+      let bridge = null;
+      let mins = 0;
+      const rows = b.steps.map(st => {
+        let m = stepMinutes(st);
+        let leg = null;
+        const t = st.travel;
+        if (t && t.to) {
+          const natural = t.from || at || homeRef;
+          let origin = natural;
+          if (first) {
+            first = false;
+            if (here && (!natural || distanceM(here, natural) > 75)) {
+              bridge = { here, natural, on: b.bridge };
+              if (b.bridge) origin = here;
+            }
+          }
+          if (origin && distanceM(origin, t.to) <= 75) {
+            m = 0;   // already there
+            leg = { from: origin, to: t.to, mode: t.mode, status: 'there' };
+          } else if (origin) {
+            // A hand-typed duration stays the user's call; otherwise route it.
+            // Until a route lands, the plan's own number stands in.
+            const info = t.manual ? { status: 'ok', mins: m } : dayLegInfo(t.mode, origin, t.to);
+            if (info.status === 'ok') m = info.mins;
+            leg = { from: origin, to: t.to, mode: t.mode, status: info.status, key: info.key, error: info.error };
+          }
+          at = t.to;
+        }
+        const row = { name: (st.name || '').trim() || (leg ? 'Travel' : 'Step'), mins: m, leg, offset: mins };
+        mins += m;
+        return row;
+      });
+      return { mins, rows, endPlace: at, bridge };
+    }
+    function persistDay() {
+      try { localStorage.setItem(KEY_DAY, JSON.stringify(dayState)); } catch {}
+    }
+    function loadDay() {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(KEY_DAY) || 'null'); } catch {}
+      if (saved && Array.isArray(saved.blocks)) {
+        dayState.date = saved.date === 'tomorrow' ? 'tomorrow' : 'today';
+        dayState.blocks = saved.blocks.map(normalizeBlock);
+        return;
+      }
+      // First visit: the exact question this view exists to answer.
+      dayState.blocks = [
+        normalizeBlock({ name: 'Climb', duration: 1, unit: 'hr' }),
+        normalizeBlock({ name: 'Pick-up routine', duration: 30, unit: 'min', at: '15:00' }),
+      ];
+    }
+
+    function addMin(d, m) { return new Date(d.getTime() + m * 60000); }
+    function dayClock(hhmm) {
+      const { h, m } = parseHHMM(hhmm);
+      const d = new Date();
+      if (dayState.date === 'tomorrow') d.setDate(d.getDate() + 1);
+      d.setHours(h, m, 0, 0);
+      return d;
+    }
+    function round5(d, up) {
+      const x = new Date(d);
+      x.setSeconds(0, 0);
+      const f = up ? Math.ceil : Math.round;
+      x.setMinutes(f(x.getMinutes() / 5) * 5);
+      return x;
+    }
+
+    // ── Legs: synchronous read of the shared route cache; a miss kicks off one
+    // fetch per key and redraws when it lands.
+    const dayLegPending = new Set();
+    const dayLegErrors = new Map();
+    function dayLegInfo(mode, from, to) {
+      const key = routeCacheKey(mode, from, to);
+      const hit = routeCache.get(key);
+      if (hit) return { key, status: 'ok', mins: hit.minutes };
+      if (dayLegErrors.has(key)) return { key, status: 'error', error: dayLegErrors.get(key), mins: 0 };
+      if (!dayLegPending.has(key)) {
+        dayLegPending.add(key);
+        routeLeg(mode, from, to)
+          .catch(err => { dayLegErrors.set(key, (err && err.code) || 'network'); })
+          .finally(() => { dayLegPending.delete(key); if (appMode === 'day') drawDay(); });
+      }
+      return { key, status: 'loading', mins: 0 };
+    }
+
+    function computeDay() {
+      const blocks = dayState.blocks;
+      const n = blocks.length;
+      const places = loadPlaces();
+      const asRef = p => ({ label: p.name, sub: p.label, lat: p.lat, lng: p.lng });
+      const home = places.find(p => p.isHome);
+
+      // Where you are before each block: the last place set, else home.
+      const legs = new Array(n).fill(null);
+      const comps = new Array(n).fill(null);
+      const D = new Array(n);
+      const homeRef = home ? asRef(home) : null;
+      let here = homeRef;
+      for (let i = 0; i < n; i++) {
+        if (blocks[i].steps) {
+          comps[i] = layoutComposite(blocks[i], here, homeRef);
+          D[i] = comps[i].mins;
+          if (comps[i].endPlace) here = comps[i].endPlace;
+          continue;
+        }
+        D[i] = stepMinutes(blocks[i]);
+        const pl = places.find(p => p.id === blocks[i].placeId);
+        if (!pl) continue;
+        const there = asRef(pl);
+        if (here && distanceM(here, there) > 75) {
+          legs[i] = { from: here, to: there, mode: blocks[i].via, ...dayLegInfo(blocks[i].via, here, there) };
+        }
+        here = there;
+      }
+
+      const L = legs.map(l => (l ? l.mins : 0));
+      const S = new Array(n);
+      const over = new Array(n).fill(false);
+      const anchors = [];
+      blocks.forEach((b, i) => { if (b.at) anchors.push(i); });
+      const gaps = [];
+
+      // Stack blocks (stop, q) backwards from anchor q; returns the departure.
+      const back = (q, stop) => {
+        let cursor = addMin(S[q], -L[q]);
+        for (let i = q - 1; i > stop; i--) {
+          S[i] = addMin(cursor, -D[i]);
+          cursor = addMin(S[i], -L[i]);
+        }
+        return cursor;
+      };
+      const fwd = (from, startIdx) => {
+        let cursor = from;
+        for (let i = startIdx; i < n; i++) {
+          S[i] = addMin(cursor, L[i]);
+          cursor = addMin(S[i], D[i]);
+        }
+      };
+
+      if (anchors.length === 0) {
+        // Nothing pinned: no target to plan back from, so run forwards from now.
+        fwd(dayState.date === 'today' ? round5(new Date(), true) : dayClock('09:00'), 0);
+      } else {
+        anchors.forEach(a => {
+          const t = dayClock(blocks[a].at);
+          S[a] = blocks[a].edge === 'end' ? addMin(t, -D[a]) : t;
+        });
+        back(anchors[0], -1);
+        for (let k = 0; k < anchors.length - 1; k++) {
+          const p = anchors[k], q = anchors[k + 1];
+          const depart = back(q, p);
+          const freeFrom = addMin(S[p], D[p]);
+          const slack = Math.round((depart - freeFrom) / 60000);
+          gaps.push({ p, q, slack, freeFrom, depart });
+          if (slack < 0) for (let i = p + 1; i <= q; i++) over[i] = true;
+        }
+        const last = anchors[anchors.length - 1];
+        fwd(addMin(S[last], D[last]), last + 1);
+      }
+
+      const items = blocks.map((b, i) => ({
+        b, i,
+        start: S[i],
+        end: addMin(S[i], D[i]),
+        mins: D[i],
+        over: over[i],
+        leg: legs[i] ? { ...legs[i], start: addMin(S[i], -L[i]) } : null,
+        comp: comps[i],
+      }));
+      const gapAt = new Map(gaps.map(g => [g.p + 1, g]));
+      // Anything that changes which rows exist forces a rebuild; everything else
+      // is patched in place so typing never loses focus.
+      const sig = dayState.date + '#' + blocks.map((b, i) => b.id + (b.at ? '@' : '') + (legs[i] ? '>' : '') + (b.steps ? '+' + b.steps.length : '')).join('|');
+      return { items, gaps, gapAt, sig, anchored: anchors.length > 0 };
+    }
+
+    let dayRenderedSig = null;
+    function drawDay() {
+      const m = computeDay();
+      if (m.sig !== dayRenderedSig) buildDayRows(m);
+      patchDayRows(m);
+      renderDayHero(m);
+    }
+
+    function buildDayRows(m) {
+      const places = loadPlaces();
+      $dList.innerHTML = '';
+      m.items.forEach(({ b, i, leg }) => {
+        const g = document.createElement('div');
+        g.className = 'dgroup';
+        g.dataset.id = b.id;
+        let html = '';
+        if (m.gapAt.has(i)) html += '<div class="dslack" data-slack></div>';
+        if (leg) {
+          html += `<div class="dleg" data-leg>
+            <button type="button" class="d-mode" data-action="mode" title="Change how you get there"></button>
+            <span class="d-leg-route"></span>
+            <span class="d-leg-time"></span>
+          </div>`;
+        }
+        const placeOpts = `<option value="">${places.length ? '📍 No place' : '📍 No saved places'}</option>` +
+          places.map(p => `<option value="${escapeAttr(p.id)}"${p.id === b.placeId ? ' selected' : ''}>📍 ${escapeAttr(p.name)}</option>`).join('');
+        const pin = b.at
+          ? `<span class="d-at-wrap">
+               <button type="button" class="d-pin on" data-action="pin" aria-pressed="true" title="Unpin — let this block float" aria-label="Unpin time">📌</button>
+               <select class="d-edge" aria-label="Pinned edge">
+                 <option value="start"${b.edge !== 'end' ? ' selected' : ''}>starts</option>
+                 <option value="end"${b.edge === 'end' ? ' selected' : ''}>done by</option>
+               </select>
+               <input type="time" class="d-at" value="${b.at}" aria-label="Pinned time"/>
+             </span>`
+          : `<button type="button" class="d-pin" data-action="pin" aria-pressed="false" title="Fix this block to a clock time">📌 Pin time</button>`;
+        html += `<div class="dblock${b.at ? ' anchor' : ''}${b.steps ? ' comp' : ''}">
+          <button class="d-handle" type="button" aria-label="Move block — drag, or focus and press up/down arrows" title="Drag to move">⠿</button>
+          <input type="text" class="d-name" aria-label="Block name" autocomplete="off"
+                 placeholder="${b.at ? 'What’s fixed? e.g. Pick-up' : 'What’s this block?'}" value="${escapeAttr(b.name)}"/>
+          <div class="d-start" data-start></div>
+          <button class="d-remove" type="button" data-action="remove" aria-label="Remove block">×</button>
+          <div class="d-meta">
+            ${b.steps ? `
+            <button type="button" class="d-expand" data-action="expand" aria-expanded="${dayExpanded.has(b.id)}" title="Show the plan's steps">
+              <span class="d-comp-sum"></span> <span class="chev" aria-hidden="true">▾</span>
+            </button>
+            ${pin}
+            <button type="button" class="d-bridge" data-action="bridge" hidden></button>
+            <button type="button" class="d-edit" data-action="edit" hidden title="Open this plan — edits update this block">✎ Edit plan</button>
+          </div>
+        </div>
+        <div class="d-steps" data-steps${dayExpanded.has(b.id) ? '' : ' hidden'}>
+          ${b.steps.map(() => '<div class="d-step"><span class="d-step-time"></span><span class="d-step-name"></span><span class="d-step-dur"></span></div>').join('')}
+        </div>` : `
+            <div class="d-dur">
+              <input type="number" class="d-duration" min="0" step="any" inputmode="decimal" aria-label="Duration" value="${escapeAttr(String(b.duration ?? ''))}"/>
+              <select class="d-unit" aria-label="Duration unit">
+                <option value="min"${b.unit !== 'hr' ? ' selected' : ''}>min</option>
+                <option value="hr"${b.unit === 'hr' ? ' selected' : ''}>hr</option>
+              </select>
+            </div>
+            ${pin}
+            <select class="d-place" aria-label="Where it happens"${places.length ? '' : ' disabled'}>${placeOpts}</select>
+          </div>
+        </div>`}`;
+        g.innerHTML = html;
+        $dList.appendChild(g);
+      });
+      $dEmpty.hidden = m.items.length > 0;
+      $dHint.hidden = !m.items.length ||
+        dayState.blocks.some(b => b.placeId || (b.steps && b.steps.some(st => st.travel && st.travel.to)));
+      $dHint.textContent = places.length
+        ? 'Tip: give a block a place and the travel time from the previous place (or home) fills itself in.'
+        : 'Tip: save home and a few spots under Plan → Places, then give blocks a place — travel time between them fills itself in.';
+      dayRenderedSig = m.sig;
+    }
+
+    // Which plan-blocks have their steps showing. Not persisted, like travelOpen.
+    const dayExpanded = new Set();
+
+    function patchComposite(g, it) {
+      const c = it.comp;
+      const n = it.b.steps.length;
+      const linked = !!it.b.link && dayTemplateNames.has(it.b.link);
+      g.querySelector('.d-comp-sum').textContent = `${linked ? '🔗' : '📋'} ${n} step${n === 1 ? '' : 's'} · ${fmtDuration(c.mins)}`;
+      g.querySelector('.d-edit').hidden = !linked;
+      const br = g.querySelector('.d-bridge');
+      br.hidden = !c.bridge;
+      if (c.bridge) {
+        const fallback = c.bridge.natural ? c.bridge.natural.label : 'the plan’s start';
+        br.classList.toggle('on', c.bridge.on);
+        br.setAttribute('aria-pressed', String(c.bridge.on));
+        br.textContent = c.bridge.on ? `↪ from ${c.bridge.here.label}` : `⌂ from ${fallback}`;
+        br.title = c.bridge.on
+          ? `Leaving from where your day has you. Tap to leave from ${fallback} instead.`
+          : `Leaving from the plan’s own start. Tap to leave from ${c.bridge.here.label}.`;
+      }
+      const rows = g.querySelectorAll('.d-step');
+      c.rows.forEach((r, k) => {
+        const el = rows[k];
+        if (!el) return;
+        el.querySelector('.d-step-time').textContent = fmtTime(addMin(it.start, r.offset));
+        const name = el.querySelector('.d-step-name');
+        if (r.leg) {
+          const mode = travelMode(r.leg.mode);
+          name.textContent = r.leg.status === 'there'
+            ? `${mode.glyph} already at ${r.leg.to.label}`
+            : `${mode.glyph} ${r.leg.from.label} → ${r.leg.to.label}`;
+        } else {
+          name.textContent = r.name;
+        }
+        const failed = !!(r.leg && r.leg.status === 'error');
+        el.classList.toggle('error', failed);
+        if (failed) { el.dataset.action = 'retry'; el.dataset.key = r.leg.key; el.title = 'Tap to try the route again'; }
+        else { delete el.dataset.action; delete el.dataset.key; el.removeAttribute('title'); }
+        el.querySelector('.d-step-dur').textContent =
+          r.leg && r.leg.status === 'loading' ? 'routing…'
+          : r.leg && r.leg.status === 'error' ? 'route failed ↻'
+          : fmtDuration(r.mins);
+      });
+    }
+
+    let dayTemplateNames = new Set();
+    function patchDayRows(m) {
+      dayTemplateNames = new Set(loadTemplates().map(t => t.name));
+      const now = new Date();
+      m.items.forEach(it => {
+        const g = $dList.querySelector(`.dgroup[data-id="${CSS.escape(it.b.id)}"]`);
+        if (!g) return;
+        const pill = g.querySelector('[data-start]');
+        pill.textContent = fmtTime(it.start);
+        pill.title = it.mins ? `${fmtTime(it.start)} → ${fmtTime(it.end)}` : '';
+        pill.classList.toggle('fixed', !!it.b.at);
+        pill.classList.toggle('over', it.over && !it.b.at);
+        g.classList.toggle('done', it.mins > 0 && it.end <= now);
+        g.classList.toggle('now', it.start <= now && now < it.end);
+
+        if (it.comp) patchComposite(g, it);
+
+        const legEl = g.querySelector('[data-leg]');
+        if (legEl && it.leg) {
+          const mode = travelMode(it.leg.mode);
+          legEl.querySelector('.d-mode').textContent = `${mode.glyph} ${mode.label}`;
+          legEl.querySelector('.d-leg-route').textContent = `${it.leg.from.label} → ${it.leg.to.label}`;
+          legEl.classList.toggle('over', it.over);
+          legEl.classList.toggle('error', it.leg.status === 'error');
+          const t = legEl.querySelector('.d-leg-time');
+          if (it.leg.status === 'loading') {
+            t.textContent = 'routing…';
+          } else if (it.leg.status === 'error') {
+            t.textContent = it.leg.error === 'no_route' ? 'no route found' : 'routing offline';
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'd-retry';
+            retry.dataset.action = 'retry';
+            retry.dataset.key = it.leg.key;
+            retry.title = 'Try the route again';
+            retry.setAttribute('aria-label', 'Try the route again');
+            retry.textContent = '↻';
+            t.appendChild(retry);
+          } else {
+            t.textContent = `${fmtDuration(it.leg.mins)} · leave ${fmtTime(it.leg.start)}`;
+          }
+        }
+
+        const slackEl = g.querySelector('[data-slack]');
+        const gap = m.gapAt.get(it.i);
+        if (slackEl && gap) {
+          const qName = (dayState.blocks[gap.q].name || '').trim() || 'the next fixed time';
+          slackEl.classList.remove('tight', 'over');
+          if (gap.slack < 0) {
+            slackEl.classList.add('over');
+            slackEl.textContent = `Over by ${fmtDuration(-gap.slack)} — won’t make ${qName}`;
+          } else if (gap.slack < 5) {
+            slackEl.classList.add('tight');
+            slackEl.textContent = gap.slack === 0 ? 'No slack — back to back' : `Tight · ${gap.slack} min spare`;
+          } else {
+            slackEl.textContent = `Free · ${fmtDuration(gap.slack)} (${fmtTime(gap.freeFrom)}–${fmtTime(gap.depart)})`;
+          }
+        }
+      });
+    }
+
+    function renderDayHero(m) {
+      const now = new Date();
+      const named = it => (it.b.name || '').trim() || (it.b.at ? 'fixed block' : 'next block');
+      $dHeroTime.classList.remove('late', 'overflow');
+
+      // The next block that hasn't started is what you're getting ready for.
+      const up = m.items.find(it => it.start > now);
+      const cur = m.items.find(it => it.start <= now && now < it.end);
+      if (!m.items.length) {
+        $dHeroLabel.textContent = 'Leave by';
+        $dHeroTime.textContent = '—';
+        $dHeroMeta.textContent = 'Pin a fixed time, then drop blocks in before it.';
+      } else if (!up) {
+        $dHeroLabel.textContent = cur ? 'Now' : 'Day';
+        $dHeroTime.textContent = cur ? fmtTime(cur.end) : 'Done';
+        $dHeroMeta.textContent = cur ? `${named(cur)} until then` : 'Nothing left on today’s plan.';
+      } else if (up.comp && up.comp.rows.find(r => r.mins > 0 && r.leg && r.leg.status !== 'there')) {
+        // A plan-block's departure is inside it: the first real travel step.
+        const r = up.comp.rows.find(r => r.mins > 0 && r.leg && r.leg.status !== 'there');
+        const leave = addMin(up.start, r.offset);
+        const mode = travelMode(r.leg.mode);
+        const mins = Math.max(1, Math.round((leave - now) / 60000));
+        if (r.offset === 0) {
+          $dHeroLabel.textContent = 'Leave by';
+          $dHeroTime.textContent = fmtTime(leave);
+          $dHeroMeta.textContent = `${mode.glyph} ${r.leg.from.label} → ${r.leg.to.label} for ${named(up)} · in ${fmtDuration(mins)}`;
+        } else {
+          $dHeroLabel.textContent = 'Start by';
+          $dHeroTime.textContent = fmtTime(up.start);
+          $dHeroMeta.textContent = `${named(up)}, then ${mode.glyph} leave ${r.leg.from.label} at ${fmtTime(leave)}`;
+        }
+      } else if (up.leg) {
+        const mode = travelMode(up.leg.mode);
+        const late = up.leg.start < now;
+        $dHeroLabel.textContent = late ? 'Should have left' : 'Leave by';
+        $dHeroTime.textContent = fmtTime(up.leg.start);
+        $dHeroTime.classList.toggle('late', late);
+        const mins = Math.max(1, Math.round(Math.abs(up.leg.start - now) / 60000));
+        $dHeroMeta.textContent = `${mode.glyph} to ${up.leg.to.label} for ${named(up)} · ` +
+          (late ? `${fmtDuration(mins)} ago` : `in ${fmtDuration(mins)}`);
+      } else {
+        $dHeroLabel.textContent = 'Start by';
+        $dHeroTime.textContent = fmtTime(up.start);
+        const mins = Math.max(1, Math.round((up.start - now) / 60000));
+        $dHeroMeta.textContent = `${named(up)} · in ${fmtDuration(mins)}`;
+      }
+      if (m.items.length && !m.anchored) {
+        $dHeroMeta.textContent += ' · nothing pinned, so this runs forward from now';
+      }
+
+      const nextFixed = m.items.find(it => it.b.at && it.start > now);
+      // Show the time the user actually pinned — a "done by" pin is its end.
+      const byEnd = nextFixed && nextFixed.b.edge === 'end';
+      $dHeroNext.textContent = nextFixed ? fmtTime(byEnd ? nextFixed.end : nextFixed.start) : '—';
+      $dHeroNextName.textContent = nextFixed ? named(nextFixed) + (byEnd ? ' · done by' : '') : 'Nothing pinned';
+
+      const bad = m.gaps.find(g => g.slack < 0);
+      $dHeroWarn.hidden = !bad;
+      if (bad) {
+        const q = m.items[bad.q];
+        $dHeroWarn.textContent = `${fmtDuration(-bad.slack)} too much before ${named(q)} at ${fmtTime(q.start)}. Shorten a block or move one out.`;
+      }
+      if (appMode === 'day') document.title = 'Your day — Backplan';
+    }
+
+    // ── Tray
+    function trayItems() {
+      const items = [
+        { kind: 'flex', glyph: '+', label: 'Block', block: { name: '', duration: 30, unit: 'min' }, focus: true },
+        { kind: 'anchor', glyph: '📌', label: 'Fixed time', block: { name: '', duration: 30, unit: 'min' }, pin: true, focus: true },
+      ];
+      DAY_PRESETS.forEach(p => items.push({ kind: 'preset', glyph: p.glyph, label: p.name, dur: durLabel(p), block: p }));
+      // Saved Plan templates come in as one plan-block — "Pick-up routine"
+      // becomes a thing in your day, steps and travel legs intact.
+      loadTemplates().forEach(t => {
+        const total = (t.steps || []).map(normalizeStep).reduce((a, s) => a + stepMinutes(s), 0);
+        items.push({ kind: 'tpl', glyph: '📋', label: t.name, dur: fmtDuration(total), block: { name: t.name, steps: t.steps || [], link: t.name } });
+      });
+      return items;
+    }
+    let trayCache = [];
+    function renderDayTray() {
+      trayCache = trayItems();
+      $dTrayChips.innerHTML = '';
+      trayCache.forEach((it, idx) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'qa-chip' + (it.kind === 'anchor' ? ' anchor-chip' : it.kind === 'tpl' ? ' tpl-chip' : '');
+        chip.dataset.tray = String(idx);
+        chip.innerHTML = `<span class="plus">${it.glyph}</span><span>${escapeAttr(it.label)}</span>` +
+          (it.dur ? `<span class="dur">${escapeAttr(it.dur)}</span>` : '');
+        $dTrayChips.appendChild(chip);
+      });
+    }
+
+    function insertBlock(trayItem, idx, fromTap) {
+      const block = normalizeBlock({ ...trayItem.block, id: undefined, at: null });
+      const at = Math.max(0, Math.min(idx, dayState.blocks.length));
+      dayState.blocks.splice(at, 0, block);
+      if (trayItem.pin) {
+        // Pin it where it landed, so dropping a fixed time doesn't reshuffle the day.
+        const start = computeDay().items[at].start;
+        block.at = toHHMM(round5(start, false));
+      }
+      persistDay();
+      drawDay();
+      const g = $dList.querySelector(`.dgroup[data-id="${CSS.escape(block.id)}"]`);
+      if (!g) return;
+      g.classList.add('d-new');
+      setTimeout(() => g.classList.remove('d-new'), 1500);
+      if (fromTap) g.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (trayItem.focus) g.querySelector('.d-name').focus({ preventScroll: true });
+    }
+
+    // ── Editing (delegated)
+    function blockFromEvent(e) {
+      const g = e.target.closest('.dgroup');
+      if (!g) return null;
+      const i = dayState.blocks.findIndex(b => b.id === g.dataset.id);
+      return i < 0 ? null : { g, i, b: dayState.blocks[i] };
+    }
+    $dList.addEventListener('input', (e) => {
+      const hit = blockFromEvent(e);
+      if (!hit) return;
+      const { b } = hit;
+      if (e.target.classList.contains('d-name')) b.name = e.target.value;
+      else if (e.target.classList.contains('d-duration')) b.duration = e.target.value === '' ? '' : Number(e.target.value);
+      else if (e.target.classList.contains('d-at')) { if (e.target.value) b.at = e.target.value; }
+      else return;
+      persistDay();
+      drawDay();
+    });
+    $dList.addEventListener('change', (e) => {
+      const hit = blockFromEvent(e);
+      if (!hit) return;
+      if (e.target.classList.contains('d-unit')) hit.b.unit = e.target.value;
+      else if (e.target.classList.contains('d-edge')) hit.b.edge = e.target.value;
+      else if (e.target.classList.contains('d-place')) hit.b.placeId = e.target.value || null;
+      else return;
+      persistDay();
+      drawDay();
+    });
+    $dList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      const hit = btn && blockFromEvent(e);
+      if (!hit) return;
+      const { b, i } = hit;
+      const action = btn.dataset.action;
+      if (action === 'remove') {
+        dayState.blocks.splice(i, 1);
+      } else if (action === 'pin') {
+        if (b.at) b.at = null;
+        else {
+          const it = computeDay().items[i];
+          b.at = toHHMM(round5(b.edge === 'end' ? it.end : it.start, false));
+        }
+      } else if (action === 'edit') {
+        const t = loadTemplates().find(t => t.name === b.link);
+        if (!t) return;
+        const busy = state.linked !== t.name &&
+          state.steps.some(s => (s.name && s.name.trim()) || stepMinutes(s) > 0);
+        if (busy && !confirm(`Open “${t.name}” in Plan? It replaces the plan you have open there.`)) return;
+        state.linked = t.name;
+        loadTemplateIntoPlan(t);
+        setAppMode('plan');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      } else if (action === 'bridge') {
+        b.bridge = !b.bridge;
+      } else if (action === 'expand') {
+        // Pure view state: flip it in place, no redraw.
+        const open = !dayExpanded.has(b.id);
+        if (open) dayExpanded.add(b.id); else dayExpanded.delete(b.id);
+        btn.setAttribute('aria-expanded', String(open));
+        hit.g.querySelector('[data-steps]').hidden = !open;
+        return;
+      } else if (action === 'mode') {
+        const ids = TRAVEL_MODES.map(m => m.id);
+        b.via = ids[(ids.indexOf(b.via) + 1) % ids.length];
+      } else if (action === 'retry') {
+        dayLegErrors.delete(btn.dataset.key);
+      } else return;
+      persistDay();
+      drawDay();
+      if (action === 'pin' && b.at) {
+        const input = $dList.querySelector(`.dgroup[data-id="${CSS.escape(b.id)}"] .d-at`);
+        if (input) input.focus();
+      }
+    });
+    function moveBlock(from, to) {
+      if (from === to || to < 0 || to >= dayState.blocks.length) return false;
+      const [b] = dayState.blocks.splice(from, 1);
+      dayState.blocks.splice(to, 0, b);
+      persistDay();
+      return true;
+    }
+    function focusBlockHandle(id) {
+      const h = $dList.querySelector(`.dgroup[data-id="${CSS.escape(id)}"] .d-handle`);
+      if (h) h.focus();
+    }
+    $dList.addEventListener('keydown', (e) => {
+      if (!e.target.classList.contains('d-handle')) return;
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const hit = blockFromEvent(e);
+      if (!hit) return;
+      if (moveBlock(hit.i, hit.i + (e.key === 'ArrowUp' ? -1 : 1))) {
+        drawDay();
+        focusBlockHandle(hit.b.id);
+      }
+    });
+
+    // ── Drag and drop. One gesture for both "pick up a tray chip" and "move a
+    // block": a ghost follows the pointer, an insertion line shows where it
+    // lands. Pointer Events, so mouse and touch share the code path.
+    let dd = null;
+    let suppressTrayClickUntil = 0;
+
+    function ddStart(e, payload, label, sourceGroup) {
+      if (dd || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      dd = {
+        payload, label, sourceGroup,
+        pointerId: e.pointerId,
+        x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY,
+        active: false, index: -1, ghost: null, raf: 0,
+      };
+    }
+    $dTrayChips.addEventListener('pointerdown', (e) => {
+      const chip = e.target.closest('[data-tray]');
+      if (!chip) return;
+      const item = trayCache[Number(chip.dataset.tray)];
+      if (item) ddStart(e, { kind: 'new', item }, chip.textContent.trim(), null);
+    });
+    $dList.addEventListener('pointerdown', (e) => {
+      const handle = e.target.closest('.d-handle');
+      if (!handle) return;
+      e.preventDefault();
+      const hit = blockFromEvent(e);
+      if (!hit) return;
+      ddStart(e, { kind: 'move', id: hit.b.id }, (hit.b.name || '').trim() || 'Block', hit.g);
+    });
+
+    function ddActivate() {
+      dd.active = true;
+      const ghost = document.createElement('div');
+      ghost.className = 'qa-chip d-ghost';
+      ghost.textContent = dd.label;
+      document.body.appendChild(ghost);
+      dd.ghost = ghost;
+      if (dd.sourceGroup) dd.sourceGroup.classList.add('lifting');
+      document.body.classList.add('dragging-active');
+      const loop = () => {
+        if (!dd || !dd.active) return;
+        // Edge auto-scroll. The bottom band sits just above the tray, so a chip
+        // picked up *in* the tray doesn't immediately scroll the page — and a
+        // band only engages once the pointer has travelled toward it, or a
+        // block whose handle starts near an edge would scroll on pickup.
+        const trayTop = $dTray.getBoundingClientRect().top;
+        let v = 0;
+        if (dd.y < 80 && dd.y < dd.y0 - 20) v = -Math.ceil((80 - dd.y) / 6);
+        else if (dd.y > trayTop - 60 && dd.y < trayTop && dd.y > dd.y0 + 20) v = Math.ceil((dd.y - (trayTop - 60)) / 6);
+        if (v) { window.scrollBy(0, v); ddUpdate(); }
+        dd.raf = requestAnimationFrame(loop);
+      };
+      dd.raf = requestAnimationFrame(loop);
+    }
+
+    function ddUpdate() {
+      dd.ghost.style.left = dd.x + 'px';
+      dd.ghost.style.top = dd.y + 'px';
+      const trayTop = $dTray.getBoundingClientRect().top;
+      // A new chip still hovering over the tray is "not dropped yet".
+      if (dd.payload.kind === 'new' && dd.y > trayTop) {
+        dd.index = -1;
+        $dLine.hidden = true;
+        return;
+      }
+      const groups = [...$dList.children].filter(g => g !== dd.sourceGroup);
+      const rects = groups.map(g => g.getBoundingClientRect());
+      const idx = rects.filter(r => r.top + r.height / 2 < dd.y).length;
+      const wrapTop = $dListWrap.getBoundingClientRect().top;
+      let y;
+      if (!rects.length) y = 0;
+      else if (idx < rects.length) y = rects[idx].top - wrapTop;
+      else y = rects[rects.length - 1].bottom - wrapTop;
+      dd.index = idx;
+      $dLine.style.top = y + 'px';
+      $dLine.hidden = false;
+    }
+
+    function ddEnd(commit) {
+      if (!dd) return;
+      const d = dd;
+      dd = null;
+      cancelAnimationFrame(d.raf);
+      if (!d.active) return;   // a tap — the chip's click handler takes it
+      suppressTrayClickUntil = performance.now() + 400;
+      d.ghost.remove();
+      $dLine.hidden = true;
+      if (d.sourceGroup) d.sourceGroup.classList.remove('lifting');
+      document.body.classList.remove('dragging-active');
+      if (!commit || d.index < 0) return;
+      if (d.payload.kind === 'new') {
+        insertBlock(d.payload.item, d.index, false);
+      } else {
+        const from = dayState.blocks.findIndex(b => b.id === d.payload.id);
+        // `index` counts groups with the dragged one removed, which is exactly
+        // the splice-out-then-insert position.
+        if (from >= 0 && moveBlock(from, d.index)) drawDay();
+        focusBlockHandle(d.payload.id);
+      }
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      if (!dd || e.pointerId !== dd.pointerId) return;
+      dd.x = e.clientX;
+      dd.y = e.clientY;
+      if (!dd.active) {
+        if (Math.hypot(dd.x - dd.x0, dd.y - dd.y0) < 6) return;
+        ddActivate();
+      }
+      e.preventDefault();
+      ddUpdate();
+    }, { passive: false });
+    window.addEventListener('pointerup', (e) => { if (dd && e.pointerId === dd.pointerId) ddEnd(true); });
+    // A sideways swipe on the tray becomes a scroll; the browser cancels the
+    // pointer and the pickup is abandoned.
+    window.addEventListener('pointercancel', (e) => { if (dd && e.pointerId === dd.pointerId) ddEnd(false); });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dd) ddEnd(false); });
+
+    // Tap (or Enter) on a chip appends it to the end of the day.
+    $dTrayChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-tray]');
+      if (!chip || performance.now() < suppressTrayClickUntil) return;
+      const item = trayCache[Number(chip.dataset.tray)];
+      if (item) insertBlock(item, dayState.blocks.length, true);
+    });
+
+    function syncDayDateButtons() {
+      $dDateToday.setAttribute('aria-pressed', String(dayState.date === 'today'));
+      $dDateTomorrow.setAttribute('aria-pressed', String(dayState.date === 'tomorrow'));
+    }
+    function setDayDate(date) {
+      dayState.date = date === 'tomorrow' ? 'tomorrow' : 'today';
+      syncDayDateButtons();
+      persistDay();
+      drawDay();
+    }
+
+    // Plan → Day: the whole plan becomes one block, pinned "done by" its
+    // target, slotted in where it falls chronologically.
+    document.getElementById('send-to-day').addEventListener('click', () => {
+      if (!state.steps.length) return;
+      // The block links through a saved template, so the plan needs a name.
+      let name = state.linked || (state.eventName || '').trim();
+      if (!name) name = (prompt('Name this plan — your Day block stays linked to it:', '') || '').trim();
+      if (!name) return;
+      const arr = loadTemplates();
+      const existing = arr.findIndex(t => t.name === name);
+      if (existing >= 0 && state.linked !== name &&
+          !confirm(`You already have a template called “${name}”. Update it with this plan and link it to your Day?`)) return;
+      const snap = planSnapshot(name);
+      if (existing >= 0) arr[existing] = snap; else arr.push(snap);
+      saveTemplates(arr);
+      renderChips();
+      state.linked = name;
+      persistLast();
+      renderLinkBanner();
+      const block = normalizeBlock({ name, steps: snap.steps, at: state.target, edge: 'end', link: name });
+      // An empty day adopts the plan's day; otherwise the day keeps its own.
+      if (!dayState.blocks.length) { dayState.date = state.day; syncDayDateButtons(); }
+      const due = dayClock(state.target);
+      const idx = computeDay().items.findIndex(it => it.start >= due);
+      dayState.blocks.splice(idx < 0 ? dayState.blocks.length : idx, 0, block);
+      persistDay();
+      setAppMode('day');
+      const g = $dList.querySelector(`.dgroup[data-id="${CSS.escape(block.id)}"]`);
+      if (g) {
+        g.classList.add('d-new');
+        setTimeout(() => g.classList.remove('d-new'), 1500);
+        g.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
+    $dDateToday.addEventListener('click', () => setDayDate('today'));
+    $dDateTomorrow.addEventListener('click', () => setDayDate('tomorrow'));
+
+    function setAppMode(mode) {
+      appMode = mode === 'day' ? 'day' : 'plan';
+      $modePlan.hidden = appMode !== 'plan';
+      $modeDay.hidden = appMode !== 'day';
+      $tabPlan.setAttribute('aria-selected', String(appMode === 'plan'));
+      $tabDay.setAttribute('aria-selected', String(appMode === 'day'));
+      $thesis.textContent = THESIS[appMode];
+      try { localStorage.setItem(KEY_MODE, appMode); } catch {}
+      if (appMode === 'day') {
+        // Templates and places may have changed over in the Plan tab.
+        refreshLinkedBlocks();
+        renderDayTray();
+        dayRenderedSig = null;
+        drawDay();
+      } else {
+        compute();
+      }
+    }
+    $tabPlan.addEventListener('click', () => setAppMode('plan'));
+    $tabDay.addEventListener('click', () => setAppMode('day'));
+
     // ── Init
     function init() {
+      loadDay();
+      dayLoaded = true;
       const saved = loadLast();
       function hydrate(plan, src, fallbackTarget) {
         plan.eventName = (src && src.eventName) || '';
         plan.target = (src && src.target) || fallbackTarget;
         plan.day = (src && src.day) || plan.day;
         plan.steps = (src && Array.isArray(src.steps) ? src.steps : []).map(normalizeStep);
+        plan.linked = src && typeof src.linked === 'string' && loadTemplates().some(t => t.name === src.linked)
+          ? src.linked : null;
       }
 
       if (saved && saved.plans) {
@@ -4761,6 +6117,7 @@
       syncPlanInputs();
       renderSteps();
       renderChips();
+      renderLinkBanner();
       renderPlaceChips();
       renderQuickAdds();
       renderStarters();
@@ -4783,8 +6140,13 @@
       $viewEdit.addEventListener('click', () => setViewMode('edit'));
       $viewOverview.addEventListener('click', () => setViewMode('overview'));
 
+      syncDayDateButtons();
+      let savedMode = 'plan';
+      try { savedMode = localStorage.getItem(KEY_MODE) || 'plan'; } catch {}
+      setAppMode(savedMode);
+
       // keep the "now" marker fresh
-      setInterval(compute, 30000);
+      setInterval(() => { if (appMode === 'day') drawDay(); else compute(); }, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
       setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); }, 1000);
     }
