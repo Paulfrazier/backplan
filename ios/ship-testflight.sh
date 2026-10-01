@@ -107,12 +107,24 @@ PLIST
 
 echo "▸ Export (destination=$DEST)…"
 rm -rf "$OUT/$DEST"
+# Capture, don't just filter: the grep used to swallow a failed export and the
+# script went on to print "✅ uploaded" anyway (first upload failed for want of
+# an App Store Connect app record, and said it succeeded).
+EXPORT_LOG="$OUT/export.log"
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$OUT/$DEST" \
   -exportOptionsPlist "$OUT/ExportOptions.plist" \
-  "${AUTH[@]}" \
-  | grep -E 'error:|Upload succeeded|Uploaded |EXPORT (SUCCEEDED|FAILED)' || true
+  "${AUTH[@]}" > "$EXPORT_LOG" 2>&1 || true
+grep -E -A2 'error:|Upload succeeded|Uploaded |EXPORT (SUCCEEDED|FAILED)' "$EXPORT_LOG" || true
+if ! grep -q 'EXPORT SUCCEEDED' "$EXPORT_LOG"; then
+  echo "✗ Export/upload failed — full log: ios/$EXPORT_LOG"
+  if grep -q 'App record with bundle identifier' "$EXPORT_LOG"; then
+    echo "  No App Store Connect app yet: create one at appstoreconnect.apple.com → Apps → +"
+    echo "  (bundle id website.fairpoint.backplan), then re-run with --no-bump."
+  fi
+  exit 1
+fi
 
 echo ""
 if [ "$UPLOAD" -eq 1 ]; then
