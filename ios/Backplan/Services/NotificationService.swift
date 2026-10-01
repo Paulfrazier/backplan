@@ -27,9 +27,11 @@ final class NotificationService: Sendable {
     /// Schedule one local notification per future step boundary plus the target.
     /// Boundaries already in the past are skipped. Returns the count scheduled.
     @discardableResult
-    func arm(plan: Plan, result: PlanResult, now: Date = Date()) async -> Int {
+    /// `finalAlert` overrides the target alert's title/body — a Day has no
+    /// single event to announce, only the end of its last block.
+    func arm(name: String, result: PlanResult, finalAlert: (title: String, body: String)? = nil,
+             now: Date = Date()) async -> Int {
         cancelAll()
-        let name = plan.eventName.trimmingCharacters(in: .whitespaces)
 
         var requests: [UNNotificationRequest] = []
         for (i, seg) in result.segments.enumerated() {
@@ -45,8 +47,8 @@ final class NotificationService: Sendable {
 
         if result.target > now {
             let content = UNMutableNotificationContent()
-            content.title = name.isEmpty ? "It's time." : "Time for \(name)."
-            content.body = "Your target has arrived."
+            content.title = finalAlert?.title ?? (name.isEmpty ? "It's time." : "Time for \(name).")
+            content.body = finalAlert?.body ?? "Your target has arrived."
             content.sound = .default
             requests.append(makeRequest(id: "\(idPrefix)target", fireAt: result.target, content: content, now: now))
         }

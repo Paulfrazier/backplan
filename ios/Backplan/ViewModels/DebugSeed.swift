@@ -7,6 +7,7 @@ import Foundation
 ///   -BPAddToDay  then run "Add to Day" and edit the plan (exercises the link)
 ///   -BPExpand    show every plan-block's steps
 ///   -BPTab day   open on a tab
+///   -BPArmDay    start the Day countdown (BackplanApp)
 @MainActor
 enum DebugSeed {
     static let home = SavedPlace(id: UUID(uuidString: "00000000-0000-0000-0000-00000000A001")!,

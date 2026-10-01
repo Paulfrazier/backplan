@@ -30,7 +30,7 @@ enum LiveActivityService {
         }
     }
 
-    static func start(plan: Plan, result: PlanResult, armedAt: Date, now: Date = Date()) async {
+    static func start(name: String, result: PlanResult, armedAt: Date, now: Date = Date()) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         guard let first = result.segments.first,
               let content = makeContent(result: result, armedAt: armedAt, now: now) else { return }
@@ -39,7 +39,7 @@ enum LiveActivityService {
         await end()
 
         let attributes = PlanActivityAttributes(
-            eventName: plan.eventName.trimmingCharacters(in: .whitespaces),
+            eventName: name,
             chainStart: first.start,
             target: result.target
         )

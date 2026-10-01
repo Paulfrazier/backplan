@@ -8,8 +8,31 @@ import SwiftUI
 /// copy comes from the same place (`PlanStatus` / `PlanCountdown`) rather than
 /// being written twice.
 struct ArmBar: View {
+    /// What this bar arms. There is still only one countdown: a bar whose
+    /// source isn't the armed one shows that countdown and offers to swap.
+    enum Source { case plan, day }
+    var source: Source = .plan
+
     @Environment(PlanStore.self) private var store
     @Environment(TimerController.self) private var timer
+
+    /// Is the running countdown the one this bar would start?
+    private var armedHere: Bool { timer.armed && timer.armedIsDay == (source == .day) }
+
+    /// The chain this bar would arm right now.
+    private func candidate() -> PlanResult {
+        switch source {
+        case .plan: return store.result()
+        case .day: return DayPlanner.armable(store.dayResult())
+        }
+    }
+
+    private func armHere() async {
+        switch source {
+        case .plan: await timer.arm(key: store.activeKey, plan: store.plan)
+        case .day: await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
+        }
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -93,8 +116,13 @@ struct ArmBar: View {
 
     private func metaLine(_ countdown: PlanCountdown) -> String {
         var parts: [String] = []
-        // Only worth naming which half is armed when there are two of them.
-        if store.link.enabled { parts.append(timer.armedKey.label) }
+        if timer.armedIsDay {
+            parts.append(TimerController.dayName)
+        } else if store.link.enabled || source == .day {
+            // Only worth naming which half is armed when there are two of them —
+            // or when this bar is on the Day tab and the plan is what's running.
+            parts.append(store.link.enabled ? timer.armedKey.label : (timer.armedPlan.map(planName) ?? "Plan"))
+        }
         parts.append("\(countdown.stepCount) step\(countdown.stepCount == 1 ? "" : "s")")
         parts.append("\(timer.scheduledCount) alert\(timer.scheduledCount == 1 ? "" : "s")")
         return parts.joined(separator: " · ")
@@ -129,19 +157,34 @@ struct ArmBar: View {
     @ViewBuilder
     private var actionButton: some View {
         if timer.armed {
-            Button {
-                timer.disarm()
-            } label: {
-                Text("Stop countdown")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .neoPill(fill: .bpCoralTint)
-                    .foregroundStyle(.bpInk)
-                    .font(.headline)
+            HStack(spacing: 10) {
+                Button {
+                    timer.disarm()
+                } label: {
+                    Text("Stop countdown")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .neoPill(fill: .bpCoralTint)
+                        .foregroundStyle(.bpInk)
+                        .font(.headline)
+                }
+                .buttonStyle(.plain)
+                if !armedHere && blockedReason(candidate()) == nil {
+                    Button {
+                        Task { await armHere() }
+                    } label: {
+                        Text(source == .day ? "Count down the day" : "Count down this plan")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .neoPill(fill: .bpLime)
+                            .foregroundStyle(.bpInk)
+                            .font(.headline)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
         } else {
-            let result = store.result()
+            let result = candidate()
             let blocked = blockedReason(result)
             VStack(spacing: 6) {
                 if let blocked {
@@ -150,9 +193,9 @@ struct ArmBar: View {
                         .foregroundStyle(.bpCoral)
                 }
                 Button {
-                    Task { await timer.arm(key: store.activeKey, plan: store.plan) }
+                    Task { await armHere() }
                 } label: {
-                    Label("Start countdown", systemImage: "bell.fill")
+                    Label(source == .day ? "Start day countdown" : "Start countdown", systemImage: "bell.fill")
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .neoPill(fill: .bpLime)
@@ -168,9 +211,20 @@ struct ArmBar: View {
 
     /// Mirrors the web arm note. `nil` means the plan can be armed.
     private func blockedReason(_ result: PlanResult) -> String? {
-        if result.segments.isEmpty { return "Add a step with a duration first." }
-        if result.isPast { return "Target time has passed — pick a later time." }
+        switch source {
+        case .plan:
+            if result.segments.isEmpty { return "Add a step with a duration first." }
+            if result.isPast { return "Target time has passed — pick a later time." }
+        case .day:
+            if result.segments.isEmpty { return "Add a block with a duration first." }
+            if result.isPast { return "Everything on this day is already over." }
+        }
         return nil
+    }
+
+    private func planName(_ plan: Plan) -> String {
+        let n = plan.eventName.trimmingCharacters(in: .whitespaces)
+        return n.isEmpty ? "Plan" : n
     }
 
     // MARK: - Stale
@@ -180,7 +234,9 @@ struct ArmBar: View {
     /// stale until the user re-arms. Compared against the armed *half*, not the
     /// one being edited: switching tabs is not a change to the armed plan.
     private var planChanged: Bool {
-        guard timer.armed, let armedPlan = timer.armedPlan else { return false }
+        guard timer.armed else { return false }
+        if let armedDay = timer.armedDay { return store.day != armedDay }
+        guard let armedPlan = timer.armedPlan else { return false }
         return store.pair[timer.armedKey] != armedPlan
     }
 
@@ -188,13 +244,20 @@ struct ArmBar: View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.triangle.2.circlepath")
                 .font(.caption)
-            Text("Plan changed since you started the countdown.")
+            Text(timer.armedIsDay ? "Day changed since you started the countdown."
+                                  : "Plan changed since you started the countdown.")
                 .font(.caption)
             Spacer(minLength: 8)
             // Nothing to re-arm onto if the armed half is itself unarmable.
             if canRearm {
                 Button {
-                    Task { await timer.arm(key: timer.armedKey, plan: store.pair[timer.armedKey]) }
+                    Task {
+                        if timer.armedIsDay {
+                            await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
+                        } else {
+                            await timer.arm(key: timer.armedKey, plan: store.pair[timer.armedKey])
+                        }
+                    }
                 } label: {
                     Text("Re-arm")
                         .font(.caption.weight(.bold))
@@ -211,7 +274,8 @@ struct ArmBar: View {
     }
 
     private var canRearm: Bool {
-        let result = store.result(for: timer.armedKey)
+        let result = timer.armedIsDay ? DayPlanner.armable(store.dayResult())
+                                      : store.result(for: timer.armedKey)
         return !result.isPast && !result.segments.isEmpty
     }
 }

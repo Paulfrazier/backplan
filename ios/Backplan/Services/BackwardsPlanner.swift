@@ -206,6 +206,19 @@ struct PlanStatus {
             )
         }
 
+        // In a real gap — only an armed Day has them: name what comes next.
+        if let up = result.segments.first(where: { $0.start > date }) {
+            let ahead = span(up.start.timeIntervalSince(date))
+            return PlanStatus(
+                phase: .active,
+                key: "Free",
+                now: "\(up.name) in \(ahead)",
+                headline: "Free · \(up.name) in \(ahead)",
+                // `now` already names it; repeating it under "Next" reads as a bug.
+                next: ""
+            )
+        }
+
         // Inside the window but between segments (only reachable with zero-length gaps).
         return PlanStatus(
             phase: .active,
@@ -289,12 +302,33 @@ struct PlanCountdown {
             let isLast = status.index == segments.count - 1
             return PlanCountdown(
                 phase: .active,
-                label: isLast ? "Target in" : "Next step in",
+                // Ending into a gap (an armed Day), the next step isn't next.
+                label: isLast ? "Target in"
+                    : segments[status.index + 1].start > cur.end ? "Ends in" : "Next step in",
                 boundary: cur.end,
                 windowStart: cur.start,
                 phaseWord: "Step \(status.index + 1) of \(segments.count)",
                 detail: cur.name,
                 stepNumber: status.index + 1,
+                stepCount: segments.count,
+                status: status
+            )
+        }
+
+        // A real gap between segments — an armed Day's free time. Count to the
+        // next thing rather than to the end of the day, which could be hours off
+        // and says nothing about when you next have to move.
+        if let upIdx = segments.firstIndex(where: { $0.start > now }) {
+            let up = segments[upIdx]
+            let prevEnd = segments[..<upIdx].map(\.end).max() ?? first.start
+            return PlanCountdown(
+                phase: .active,
+                label: "Next up in",
+                boundary: up.start,
+                windowStart: min(prevEnd, now),
+                phaseWord: up.start.timeIntervalSince(now) <= 60 ? "Start now" : "Free time",
+                detail: "\(up.name) at \(Fmt.time(up.start))",
+                stepNumber: upIdx,
                 stepCount: segments.count,
                 status: status
             )
@@ -323,6 +357,13 @@ struct PlanCountdown {
         // with no boundary behind it, so it has to be listed explicitly.
         if let first = result.segments.first {
             marks.append(first.start.addingTimeInterval(-60))
+        }
+        // An armed Day has gaps: the copy flips when a segment ends into one, and
+        // again a minute before the segment after it ("Start now"). A plan's
+        // segments are contiguous, so for it this adds nothing.
+        for (prev, seg) in zip(result.segments, result.segments.dropFirst()) where seg.start > prev.end {
+            marks.append(prev.end)
+            marks.append(seg.start.addingTimeInterval(-60))
         }
         return marks.filter { $0 > now }.min()
     }

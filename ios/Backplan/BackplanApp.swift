@@ -32,6 +32,14 @@ struct BackplanApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { timer.syncLiveActivity() }
                 }
+                #if DEBUG
+                .task {
+                    // -BPArmDay: arm the Day at launch, for screenshots.
+                    if ProcessInfo.processInfo.arguments.contains("-BPArmDay") {
+                        await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
+                    }
+                }
+                #endif
         }
     }
 }

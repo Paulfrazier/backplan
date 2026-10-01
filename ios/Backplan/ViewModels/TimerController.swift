@@ -22,6 +22,11 @@ final class TimerController {
     /// Which half of the night pair was armed. The editor can be pointed at the
     /// other one, so "has the plan changed" has to be asked of this one.
     private(set) var armedKey: PlanKey = .evening
+    /// The Day as it was when it was armed; non-nil exactly when the countdown
+    /// is running the Day rather than a plan. Kept so "has the day changed" can
+    /// be asked of the blocks, not of a result that drifts with the clock.
+    private(set) var armedDay: DayPlan?
+    var armedIsDay: Bool { armedDay != nil }
     private(set) var armedAt = Date()
     private(set) var scheduledCount = 0
 
@@ -57,17 +62,43 @@ final class TimerController {
         // silent no-op. The UI also disables the button in both cases; this is
         // the belt-and-suspenders guard. KEEP IN SYNC with the web `canArmPlan`.
         guard !result.isPast, !result.segments.isEmpty else { return }
-        let count = await NotificationService.shared.arm(plan: plan, result: result)
+        let name = plan.eventName.trimmingCharacters(in: .whitespaces)
+        let count = await NotificationService.shared.arm(name: name, result: result)
         armedPlan = plan
+        armedDay = nil
         armedResult = result
         armedKey = key
         armedAt = Date()
         scheduledCount = count
         armed = true
         persist()
-        await LiveActivityService.start(plan: plan, result: result, armedAt: armedAt)
+        await LiveActivityService.start(name: name, result: result, armedAt: armedAt)
         startSyncLoop()
     }
+
+    /// Arm the whole Day: `result` is `DayPlanner.armable(store.dayResult())`,
+    /// frozen here exactly like a plan's. Replaces whatever was armed — there is
+    /// one countdown and one Live Activity, never two.
+    func armDay(_ day: DayPlan, result: PlanResult) async {
+        await NotificationService.shared.requestAuthorization()
+        // Same guard as `arm`; KEEP IN SYNC with the web `canArmDay`.
+        guard !result.isPast, !result.segments.isEmpty else { return }
+        let count = await NotificationService.shared.arm(
+            name: Self.dayName, result: result,
+            finalAlert: ("That's the day.", "Your last block is done.")
+        )
+        armedPlan = nil
+        armedDay = day
+        armedResult = result
+        armedAt = Date()
+        scheduledCount = count
+        armed = true
+        persist()
+        await LiveActivityService.start(name: Self.dayName, result: result, armedAt: armedAt)
+        startSyncLoop()
+    }
+
+    static let dayName = "Your day"
 
     func disarm() {
         NotificationService.shared.cancelAll()
@@ -75,6 +106,7 @@ final class TimerController {
         syncTask = nil
         armed = false
         armedPlan = nil
+        armedDay = nil
         armedResult = nil
         scheduledCount = 0
         defaults.removeObject(forKey: storageKey)
@@ -106,8 +138,11 @@ final class TimerController {
                 guard let next = PlanCountdown.nextChange(result: result, now: Date()) else {
                     // Nothing left to say. Hand the card an expiry rather than
                     // leaving "running over" pinned for the system's 8-hour max.
+                    // A Day isn't "late" once its last block ends — it's over —
+                    // so its card goes almost at once.
+                    let grace: TimeInterval = self.armedIsDay ? 5 * 60 : 60 * 60
                     await LiveActivityService.finish(
-                        dismissAfter: result.target.addingTimeInterval(60 * 60)
+                        dismissAfter: result.target.addingTimeInterval(grace)
                     )
                     return
                 }
@@ -128,7 +163,10 @@ final class TimerController {
         var key: PlanKey
         var armedAt: Date
         var scheduledCount: Int
-        var plan: Plan
+        /// Exactly one of `plan` / `day` is set. Both optional so a v1 record
+        /// (plan only, written before Day arming) still decodes.
+        var plan: Plan?
+        var day: DayPlan?
         var result: PlanResult
     }
 
@@ -139,10 +177,10 @@ final class TimerController {
     private static let maxAge: TimeInterval = 6 * 60 * 60
 
     private func persist() {
-        guard let armedPlan, let armedResult else { return }
+        guard armedPlan != nil || armedDay != nil, let armedResult else { return }
         let snap = ArmedSnapshot(
             key: armedKey, armedAt: armedAt, scheduledCount: scheduledCount,
-            plan: armedPlan, result: armedResult
+            plan: armedPlan, day: armedDay, result: armedResult
         )
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: storageKey)
@@ -151,12 +189,14 @@ final class TimerController {
 
     private func restore() {
         guard let data = defaults.data(forKey: storageKey),
-              let snap = try? JSONDecoder().decode(ArmedSnapshot.self, from: data) else { return }
+              let snap = try? JSONDecoder().decode(ArmedSnapshot.self, from: data),
+              snap.plan != nil || snap.day != nil else { return }
         guard Date().timeIntervalSince(snap.result.target) < Self.maxAge else {
             defaults.removeObject(forKey: storageKey)
             return
         }
         armedPlan = snap.plan
+        armedDay = snap.day
         armedResult = snap.result
         armedKey = snap.key
         armedAt = snap.armedAt

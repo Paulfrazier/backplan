@@ -42,7 +42,10 @@ struct DayView: View {
                 .background(.bpPaper)
                 .scrollDismissesKeyboard(.interactively)
                 .safeAreaInset(edge: .bottom) {
-                    DayTrayView { id in scrollTarget = id }
+                    VStack(spacing: 0) {
+                        ArmBar(source: .day)
+                        DayTrayView { id in scrollTarget = id }
+                    }
                 }
                 .onChange(of: scrollTarget) { _, id in
                     guard let id else { return }

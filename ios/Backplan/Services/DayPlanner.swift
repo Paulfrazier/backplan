@@ -360,3 +360,54 @@ struct DayStatus {
         return s
     }
 }
+
+// MARK: - Arming a day
+
+extension DayPlanner {
+    /// The day as one armable chain: every leg, step and plain block that takes
+    /// time becomes a segment, and the idle stretches between them stay gaps.
+    ///
+    /// Arming a day is the same act as arming a plan — alerts at each boundary,
+    /// a frozen snapshot, one Live Activity — so rather than teach the timer a
+    /// second shape this flattens the day into the one it already speaks.
+    /// `PlanCountdown` knows what to say inside a gap ("Next up in").
+    static func armable(_ r: DayResult, now: Date = Date()) -> PlanResult {
+        func add(_ d: Date, _ m: Int) -> Date { d.addingTimeInterval(TimeInterval(m * 60)) }
+        func named(_ it: DayItem) -> String {
+            let t = it.block.name.trimmingCharacters(in: .whitespaces)
+            return t.isEmpty ? (it.block.isAnchor ? "Fixed block" : "Block") : t
+        }
+        var segs: [PlanSegment] = []
+        func push(_ name: String, _ start: Date, _ minutes: Int) {
+            guard minutes > 0 else { return }
+            segs.append(PlanSegment(id: UUID(), name: name, minutes: minutes,
+                                    start: start, end: add(start, minutes)))
+        }
+        for it in r.items {
+            if let leg = it.leg, leg.minutes > 0 {
+                push("\(leg.mode.label) to \(leg.to.label)", leg.start, leg.minutes)
+            }
+            if let c = it.comp {
+                for row in c.rows {
+                    let name = row.leg.map { "\($0.mode.label) to \($0.to.label)" } ?? row.name
+                    push(name, add(it.start, row.offset), row.minutes)
+                }
+            } else {
+                push(named(it), it.start, it.minutes)
+            }
+        }
+        // An over-full stretch can overlap its neighbours; the countdown walks
+        // segments in time order, so that is the order they have to be in.
+        segs.sort { $0.start < $1.start }
+        let target = segs.map(\.end).max() ?? now
+        return PlanResult(
+            target: target,
+            startTimes: segs.map(\.start),
+            overallStart: segs.first?.start,
+            overflowsPrevDay: false,
+            totalMinutes: segs.reduce(0) { $0 + $1.minutes },
+            segments: segs,
+            isPast: target <= now
+        )
+    }
+}
