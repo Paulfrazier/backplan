@@ -32,6 +32,11 @@ enum LiveActivityService {
 
     static func start(name: String, result: PlanResult, armedAt: Date, now: Date = Date()) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        #if DEBUG
+        // Requesting an activity raises the notification-permission alert on a
+        // fresh simulator, which nothing headless can dismiss.
+        if ProcessInfo.processInfo.arguments.contains("-BPNoAuth") { return }
+        #endif
         guard let first = result.segments.first,
               let content = makeContent(result: result, armedAt: armedAt, now: now) else { return }
 

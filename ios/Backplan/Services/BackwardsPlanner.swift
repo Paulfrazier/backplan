@@ -635,3 +635,144 @@ struct SleepTrack {
              + "Every minute here is a minute of sleep: trim the wind-down below, or take the loss."
     }
 }
+
+// MARK: - Adjusting an armed chain (Now skin: Done / Running late)
+
+/// Edits to a *frozen* result, organised by **run**: a maximal stretch of
+/// back-to-back segments (a plan is normally one run; a Day has one per
+/// stretch between gaps). Done and Running late only ever move segments inside
+/// the current run — never the target, never another run — so a slip shows up
+/// as being behind the next fixed thing rather than as a quietly later target.
+///
+/// KEEP IN SYNC with the web Now skin's Done / Running late / slack in index.html.
+extension PlanResult {
+    /// End of the chain as it now stands.
+    var chainEnd: Date? { segments.map(\.end).max() }
+
+    /// The segment running at `now`, if any.
+    func runningIndex(at now: Date) -> Int? {
+        segments.firstIndex { now >= $0.start && now < $0.end }
+    }
+
+    /// Segment indices grouped into runs. Back-to-back = within a second;
+    /// a gap or an overlap starts a new run.
+    var runs: [[Int]] {
+        var out: [[Int]] = []
+        for i in segments.indices {
+            if let last = out.last?.last,
+               abs(segments[i].start.timeIntervalSince(segments[last].end)) <= 1 {
+                out[out.count - 1].append(i)
+            } else {
+                out.append([i])
+            }
+        }
+        return out
+    }
+
+    /// Index into `runs` of the run holding the running segment, else the next
+    /// run to start. Nil once everything has started and nothing is running.
+    func currentRun(at now: Date) -> Int? {
+        let rs = runs
+        if let idx = runningIndex(at: now) { return rs.firstIndex { $0.contains(idx) } }
+        return rs.firstIndex { segments[$0[0]].start > now }
+    }
+
+    /// The honest "am I OK?": time between the end of the current run and the
+    /// next fixed thing (the next run's first start, or the target after the
+    /// last run), to the nearest whole minute — a Done tapped a few seconds into
+    /// a minute must not read as "1 min behind". `name` is what that fixed thing is called; nil for the
+    /// target, so callers can say "School" or "your target".
+    func slack(at now: Date) -> (minutes: Int, name: String?)? {
+        guard let r = currentRun(at: now) else { return nil }
+        let rs = runs
+        let runEnd = rs[r].map { segments[$0].end }.max()!
+        let fixed: Date
+        let name: String?
+        if rs.indices.contains(r + 1) {
+            let next = segments[rs[r + 1][0]]
+            fixed = next.start
+            name = next.name
+        } else {
+            fixed = target
+            name = nil
+        }
+        let s = fixed.timeIntervalSince(runEnd)
+        // Symmetric rounding (half away from zero), so +x and −x agree in size.
+        return (Int((s / 60).rounded()), name)
+    }
+
+    /// Done: the running step ends now and the rest of its run closes up behind
+    /// it — the next step can start immediately. Nil when nothing is running.
+    func finishingCurrent(at now: Date) -> (result: PlanResult, banked: Int)? {
+        guard let idx = runningIndex(at: now), let r = currentRun(at: now) else { return nil }
+        let seg = segments[idx]
+        let left = seg.end.timeIntervalSince(now)
+        guard left > 0 else { return nil }
+        // Whole minutes, rounded up (capped at the step's length), so the chain
+        // stays on the minute grid — "Done then +10" reads exactly "On time",
+        // not "1 min behind" from a sub-minute sliver.
+        let t = min((left / 60).rounded(.up) * 60, seg.end.timeIntervalSince(seg.start))
+        var segs = segments
+        segs[idx] = seg.with(start: seg.start, end: seg.end.addingTimeInterval(-t))
+        restack(&segs, after: idx, in: runs[r])
+        return (replacing(segments: segs), Int((t / 60).rounded()))
+    }
+
+    /// Running late by `minutes`. Running: the step stretches and the rest of
+    /// its run moves with it. Not started / in a gap: the whole next run moves.
+    /// Never cascades into the following run — the overlap that can create is
+    /// exactly what reads as "behind". Nil when there is nothing to move.
+    func slipping(minutes: Int, at now: Date) -> PlanResult? {
+        guard minutes > 0, let r = currentRun(at: now) else { return nil }
+        let d = TimeInterval(minutes * 60)
+        let run = runs[r]
+        var segs = segments
+        if let idx = runningIndex(at: now) {
+            segs[idx] = segs[idx].with(start: segs[idx].start, end: segs[idx].end.addingTimeInterval(d))
+            restack(&segs, after: idx, in: run)
+        } else {
+            for i in run {
+                segs[i] = segs[i].with(start: segs[i].start.addingTimeInterval(d),
+                                       end: segs[i].end.addingTimeInterval(d))
+            }
+        }
+        return replacing(segments: segs)
+    }
+
+    /// Re-chain the segments after `idx` in `run` so each starts exactly where
+    /// the previous one now ends, keeping its length. Exact (not shifted by a
+    /// float delta) so the run stays back-to-back to the nanosecond.
+    private func restack(_ segs: inout [PlanSegment], after idx: Int, in run: [Int]) {
+        guard let pos = run.firstIndex(of: idx) else { return }
+        var cursor = segs[idx].end
+        for i in run[(pos + 1)...] {
+            let len = segs[i].end.timeIntervalSince(segs[i].start)
+            segs[i] = segs[i].with(start: cursor, end: cursor.addingTimeInterval(len))
+            cursor = segs[i].end
+        }
+    }
+
+    /// `startTimes` is left as computed at arm time: it is index-aligned to the
+    /// plan's steps (zero-length ones included) and only the editor reads it.
+    private func replacing(segments segs: [PlanSegment]) -> PlanResult {
+        PlanResult(
+            target: target,
+            startTimes: startTimes,
+            overallStart: segs.map(\.start).min() ?? overallStart,
+            overflowsPrevDay: overflowsPrevDay,
+            totalMinutes: segs.reduce(0) { $0 + $1.minutes },
+            segments: segs,
+            isPast: isPast
+        )
+    }
+}
+
+extension PlanSegment {
+    /// Same step, new placement; `minutes` follows the new length so the
+    /// up-next list and the Live Activity describe what's actually scheduled.
+    func with(start: Date, end: Date) -> PlanSegment {
+        PlanSegment(id: id, name: name,
+                    minutes: max(0, Int((end.timeIntervalSince(start) / 60).rounded())),
+                    start: start, end: end)
+    }
+}

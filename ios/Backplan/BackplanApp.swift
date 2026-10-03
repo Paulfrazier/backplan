@@ -35,8 +35,28 @@ struct BackplanApp: App {
                 #if DEBUG
                 .task {
                     // -BPArmDay: arm the Day at launch, for screenshots.
-                    if ProcessInfo.processInfo.arguments.contains("-BPArmDay") {
+                    let args = ProcessInfo.processInfo.arguments
+                    if args.contains("-BPArmDay") {
                         await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
+                    }
+                    // Now skin: -BPArmPlan arms the open plan; -BPDone and
+                    // -BPLate N then drive Done / Running late, since the
+                    // simulator can't take injected taps. -BPNowDemo alone
+                    // means "preview": clear any countdown the timer restored.
+                    if args.contains("-BPArmPlan") {
+                        await timer.arm(key: store.activeKey, plan: store.plan)
+                    } else if args.contains("-BPNowDemo") && timer.armed {
+                        timer.disarm()
+                    }
+                    if args.contains("-BPDone") { await timer.finishCurrentStep() }
+                    if let i = args.firstIndex(of: "-BPLate"), args.indices.contains(i + 1),
+                       let n = Int(args[i + 1]) {
+                        await timer.slip(minutes: n)
+                    }
+                    if timer.armed, let r = timer.armedResult {
+                        let segs = r.segments.map { "\($0.name)@\(Fmt.time($0.start))-\(Fmt.time($0.end))" }
+                        print("BPDEBUG armed slack=\(String(describing: timer.armedResult?.slack(at: Date()))) adj=\(String(describing: timer.adjustments)) alerts=\(timer.scheduledCount) segs=\(segs)")
+                        fflush(stdout)
                     }
                 }
                 #endif

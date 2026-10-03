@@ -34,7 +34,15 @@ struct ArmBar: View {
         }
     }
 
+    /// The Now skin owns start/stop on its own screen; its Plan / Day tabs are
+    /// setup surfaces, so the bar steps aside there.
+    @Environment(\.nowSkin) private var nowSkin
+
     var body: some View {
+        if !nowSkin { bar }
+    }
+
+    private var bar: some View {
         VStack(spacing: 10) {
             if timer.armed {
                 TimelineView(.periodic(from: .now, by: 1)) { context in

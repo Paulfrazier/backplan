@@ -311,6 +311,45 @@ no-backend / client-only solutions where possible.
   needs fixing. Open/closed state is in-memory only (`travelOpen` / `userExpanded`),
   so reopening the app on a settled leg shows the tidy version.
 
+- [x] **Now skin (experiment, behind a toggle)** — a second layout where the
+  timer *is* the app, so the current version and the new idea can be lived with
+  side by side. Web + iOS.
+  - **A skin, not a fork.** Same data, same engine, same storage; Classic is
+    untouched apart from one quiet switch ("Try the Now layout" / a toolbar "Now").
+    Persisted as `backplan:skin` / `@AppStorage("backplan.skin")`, default classic;
+    web also honours `?skin=now|classic`. Flipping mid-countdown loses nothing.
+  - **Layout.** Tabs become Now | Plan | Day; Plan and Day are the Classic screens
+    reused as *setup*, with their arm strip hidden (start/stop lives on Now). Now
+    reads top to bottom: headline (the one next thing), the big clock + phase
+    pill, a slack line, Done / Running late +5 +10, Up next, a lights-out line when
+    the night pair is on (reuses `solveNight` / the bridge — no new sleep math),
+    Start/Stop. Unarmed it previews the **Day** if anything is armable today, else
+    the active Plan ("Start my day" / "Start countdown for …").
+  - **Web gained Day arming** (iOS had it): `dayArmable()` ports
+    `DayPlanner.armable`; the snapshot carries `kind: "day"`. Countdown wording
+    moved into a shared `armCountdown()` with iOS's gap words (Next up in / Free).
+  - **Done and Running late edit the frozen snapshot, never the plan** — it's the
+    thing the user is relying on. Optional `adj {origEnd, slipMin, bankedMin}`;
+    old snapshots decode as "no adjustments", and the stale check still compares
+    against the plan/day, so adjusting never raises "Plan changed".
+  - **The run model** (decided after a first cut gave wrong answers — Done mid-plan
+    read "on time", Done then +10 read "10 behind" beside an unused 20-min gap):
+    a *run* is a back-to-back stretch of segments (a Plan is one run; a Day has
+    one per stretch between gaps). **Done** ends the running step now and pulls
+    the rest of its run earlier — the next step can start immediately. **Late +N**
+    pushes the rest of the run later (or the whole next run when nothing's
+    running). Neither ever moves the target or another run: an overlap *is* what
+    "behind" means. **Slack** = next fixed start (or the target) − end of the
+    current run, rounded to the nearest minute: "N min to spare before X" /
+    "On time" / "N min behind for X"; a Day's own end reads "the end of your day".
+  - **Whole-minute Done.** Done credits `ceil` minutes so the chain stays on the
+    minute grid; crediting the exact 9m20s left "+10" a 40s sliver of "1 min behind".
+  - iOS: `NotificationService` rescheduling now awaits removal before re-adding —
+    ids are positional, so a fire-and-forget cancel could delete the new alerts.
+  - Open: the overlap case (a late block running into a pinned one) keeps counting
+    to the late block's end; live alert delivery and Live Activity updates after an
+    adjustment are untested headlessly; re-arming clears adjustments.
+
 ## Backlog
 
 ### 1. Timer integration — what's still missing
@@ -424,3 +463,18 @@ app imports and exports Backplan share-links instead of reimplementing the math.
 technical. Make disagreement cheap — propose/counter rather than assign; show
 slack (whose chain is loosest) rather than a fairness score; and never notify in
 a way that reads as nagging.
+
+### 7. Where the Now skin goes next
+The unifying idea: **a Day is blocks between anchors**. A Plan is a Day with one
+anchor; the night pair is the Day's tail (a sleep block with an elastic minimum,
+anchored by tomorrow's first pin); track-to-sleep is that tail with *now* as the
+near anchor; the timer is running the Day. Next, roughly by value per effort:
+- **Learned durations (local).** Done taps already timestamp the real end of each
+  step; after a few runs: "Get dressed usually takes 14, not 10 — update?"
+- **Calendar pins.** iOS EventKit read (web: paste .ics) → fixed blocks, then drag
+  flex blocks from the tray. A 30-second morning setup.
+- **Sleep block in the Day.** Lights-out as a computed pin at the end of the Day;
+  retires track-to-sleep as a separate mode and its open seams.
+- **Free-time finder.** In a gap, sort the tray by what fits.
+- **Flex absorption.** Late +N could shrink flex blocks before reporting "behind".
+- Decide Classic vs Now after living with both; promote what wins.

@@ -29,6 +29,9 @@ final class TimerController {
     var armedIsDay: Bool { armedDay != nil }
     private(set) var armedAt = Date()
     private(set) var scheduledCount = 0
+    /// Done / Running late edits made to the frozen result since arming (Now
+    /// skin). `nil` = untouched, which is every snapshot Classic ever writes.
+    private(set) var adjustments: ArmAdjustments?
 
     /// Wakes exactly at each boundary rather than polling — see `startSyncLoop`.
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -69,6 +72,7 @@ final class TimerController {
         armedResult = result
         armedKey = key
         armedAt = Date()
+        adjustments = nil
         scheduledCount = count
         armed = true
         persist()
@@ -91,6 +95,7 @@ final class TimerController {
         armedDay = day
         armedResult = result
         armedAt = Date()
+        adjustments = nil
         scheduledCount = count
         armed = true
         persist()
@@ -108,9 +113,65 @@ final class TimerController {
         armedPlan = nil
         armedDay = nil
         armedResult = nil
+        adjustments = nil
         scheduledCount = 0
         defaults.removeObject(forKey: storageKey)
         Task { await LiveActivityService.end() }
+    }
+
+    // MARK: - Done / Running late (Now skin)
+
+    /// Minutes of room between the current run's end and the next fixed thing
+    /// (positive = to spare, negative = behind). See `PlanResult.slack(at:)`.
+    func slackMinutes(now: Date = Date()) -> Int? {
+        armedResult?.slack(at: now)?.minutes
+    }
+
+    /// Finish the running step now; the rest of its run closes up behind it.
+    /// No-op outside a step.
+    func finishCurrentStep(now: Date = Date()) async {
+        guard armed, let armedResult,
+              let (result, banked) = armedResult.finishingCurrent(at: now) else { return }
+        var adj = adjustments ?? ArmAdjustments(origEnd: armedResult.chainEnd ?? armedResult.target)
+        adj.bankedMin += banked
+        await apply(result, adj, now: now)
+    }
+
+    /// Running late: stretch the running step (or move the next run) by
+    /// `minutes`. The target and every other run stay put.
+    func slip(minutes: Int, now: Date = Date()) async {
+        guard armed, let armedResult,
+              let result = armedResult.slipping(minutes: minutes, at: now) else { return }
+        var adj = adjustments ?? ArmAdjustments(origEnd: armedResult.chainEnd ?? armedResult.target)
+        adj.slipMin += minutes
+        await apply(result, adj, now: now)
+    }
+
+    /// Swap in the adjusted chain and bring every surface back into agreement
+    /// with it: notifications are rescheduled from scratch (anything already
+    /// past is skipped by `NotificationService.arm`, so a boundary that fired is
+    /// never refired, and one pushed later is rescheduled, not dropped), the
+    /// Live Activity is pushed, and the boundary loop re-aims. The plan/day
+    /// snapshot is untouched, so the stale banner stays quiet.
+    private func apply(_ result: PlanResult, _ adj: ArmAdjustments, now: Date) async {
+        armedResult = result
+        adjustments = adj
+        persist()
+        let name = armedIsDay ? Self.dayName
+            : (armedPlan?.eventName.trimmingCharacters(in: .whitespaces) ?? "")
+        scheduledCount = await NotificationService.shared.arm(
+            name: name, result: result,
+            finalAlert: armedIsDay ? ("That's the day.", "Your last block is done.") : nil,
+            now: now
+        )
+        // A disarm may have landed while we were awaiting the scheduler — don't
+        // leave its alerts behind it.
+        guard armed else { NotificationService.shared.cancelAll(); return }
+        guard armedResult == result else { return }
+        persist()
+        let at = armedAt
+        await LiveActivityService.sync(result: result, armedAt: at)
+        startSyncLoop()
     }
 
     /// Push the current state at whatever moment we happen to be running —
@@ -168,6 +229,9 @@ final class TimerController {
         var plan: Plan?
         var day: DayPlan?
         var result: PlanResult
+        /// Now skin's Done / Running late record. Optional, so every snapshot
+        /// written before it existed (or by Classic, which never sets it) decodes.
+        var adj: ArmAdjustments?
     }
 
     /// A snapshot whose target is this far behind us is debris from a session
@@ -180,7 +244,7 @@ final class TimerController {
         guard armedPlan != nil || armedDay != nil, let armedResult else { return }
         let snap = ArmedSnapshot(
             key: armedKey, armedAt: armedAt, scheduledCount: scheduledCount,
-            plan: armedPlan, day: armedDay, result: armedResult
+            plan: armedPlan, day: armedDay, result: armedResult, adj: adjustments
         )
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: storageKey)
@@ -200,11 +264,37 @@ final class TimerController {
         armedResult = snap.result
         armedKey = snap.key
         armedAt = snap.armedAt
+        adjustments = snap.adj
         scheduledCount = snap.scheduledCount
         armed = true
         // The card outlived the process. The sync loop finds it again through
         // `Activity.activities`, so nothing needs re-requesting — it just picks
         // up where it left off.
         startSyncLoop()
+    }
+}
+
+/// What Done / Running late have done to an armed chain. Web parity:
+/// `adj: { origEnd, slipMin, bankedMin }` on the armed snapshot.
+struct ArmAdjustments: Codable, Equatable, Sendable {
+    /// The chain's end at arm time (a plan's target, a day's last block end).
+    /// Kept for the record; slack is measured run-by-run, not against this.
+    var origEnd: Date
+    var slipMin: Int = 0
+    var bankedMin: Int = 0
+
+    init(origEnd: Date, slipMin: Int = 0, bankedMin: Int = 0) {
+        self.origEnd = origEnd
+        self.slipMin = slipMin
+        self.bankedMin = bankedMin
+    }
+
+    // A default value does NOT make a key optional to the synthesized decoder;
+    // only `origEnd` is load-bearing, so only it is required.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        origEnd = try c.decode(Date.self, forKey: .origEnd)
+        slipMin = try c.decodeIfPresent(Int.self, forKey: .slipMin) ?? 0
+        bankedMin = try c.decodeIfPresent(Int.self, forKey: .bankedMin) ?? 0
     }
 }

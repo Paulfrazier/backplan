@@ -1578,6 +1578,192 @@
     .mode-tabs button[aria-selected="true"] { background: var(--purple-electric); color: #fff; }
     .mode-tabs button:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: -5px; }
     .mode-tabs .tab-sub { display: block; font-weight: 500; font-size: 12px; opacity: 0.8; }
+    /* The Now tab exists only in the Now skin. A hidden first button still
+       makes Plan a `button + button`, so its divider has to be cancelled or
+       Classic would grow a stray left border. */
+    .mode-tabs button[hidden] { display: none; }
+    .mode-tabs button[hidden] + button { border-left: 0; }
+
+    /* ── Skin switch ──
+       Classic's only visible change: one quiet link on the title row. */
+    .skin-link {
+      float: right;
+      margin: 22px 0 0 var(--s3);
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--purple-electric);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .skin-link:hover { text-decoration: underline; }
+    .skin-link:focus-visible { outline: 3px solid var(--purple-electric); outline-offset: 2px; border-radius: 4px; }
+    /* Starting and stopping lives on the Now screen in that skin; Plan and Day
+       become setup screens. One countdown, one place to drive it from. */
+    body[data-skin="now"] #arm { display: none; }
+    /* Three tabs at 390px: the sub-labels would wrap to two lines. */
+    body[data-skin="now"] .mode-tabs .tab-sub { display: none; }
+
+    /* ── Now ──
+       The timer is the app: one sentence, one clock, one honest "am I OK?". */
+    #mode-now[hidden] { display: none; }
+    .now-card {
+      background: var(--card);
+      border: var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding: var(--s4) 20px;
+      margin-bottom: var(--s4);
+    }
+    .now-kicker {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 var(--s2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .now-headline {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 38px;
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .now-card[hidden], #now-list-title[hidden], .now-foot[hidden] { display: none; }
+    .now-card.past .now-headline { color: var(--coral); }
+    .now-card.free .now-clock { color: var(--purple); }
+    .now-card.done .now-headline { color: var(--purple); }
+    .now-sub {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--muted);
+      margin: var(--s1) 0 0;
+    }
+    .now-clock-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--s3);
+      flex-wrap: wrap;
+      margin-top: var(--s4);
+      padding-top: var(--s3);
+      border-top: var(--line-hair);
+    }
+    .now-clock-row .label {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 4px;
+    }
+    /* Space Grotesk with tabular figures: every digit the same width, so the
+       clock never jitters, without leaving the app's typeface. */
+    .now-clock {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      color: var(--lime-ink);
+      margin: 0;
+    }
+    .now-card.future .now-clock { color: var(--purple); }
+    .now-card.past .now-clock { color: var(--coral); }
+    .now-card.done .now-clock { color: var(--purple); }
+    .now-card .arm-phase { margin: 0 0 4px; }
+    .now-card.active .arm-phase { background: var(--lime-tint); color: var(--lime-ink); }
+    .now-card.past .arm-phase { background: var(--coral-tint); color: #9a2a16; }
+    .now-slack {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      margin: var(--s3) 0 0;
+      color: var(--ink);
+    }
+    .now-slack[hidden] { display: none; }
+    .now-slack.ahead { color: var(--lime-ink); }
+    .now-slack.behind { color: var(--coral); }
+    .now-actions {
+      display: flex;
+      gap: var(--s2);
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: var(--s3);
+    }
+    .now-actions[hidden] { display: none; }
+    .now-actions .btn[hidden], .now-late[hidden] { display: none; }
+    .now-done { background: var(--lime); }
+    .now-late {
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+      flex-wrap: nowrap;
+    }
+    .now-late-label {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      margin-right: 2px;
+    }
+    .now-late .btn { padding: 11px 14px; background: var(--coral-tint); }
+    .now-stale {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      flex-wrap: wrap;
+      margin: 0 0 var(--s4);
+      padding: var(--s2) var(--s3);
+      border: 2px solid var(--coral);
+      border-radius: 10px;
+      background: var(--coral-tint);
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .now-stale[hidden] { display: none; }
+    .now-stale .btn { padding: 6px 12px; font-size: 12.5px; }
+    .now-list-panel { padding: 0; overflow: hidden; margin-bottom: var(--s4); }
+    .now-list-panel[hidden] { display: none; }
+    .ov-row.gap .ov-name { color: var(--muted); font-weight: 500; font-style: italic; }
+    .ov-row.gap .ov-time { color: var(--muted); }
+    .ov-row.gap.now .ov-name::after { content: none; }
+    .ov-row.gap.now { background: #f3eefc; }
+    .now-night {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--purple);
+      margin: 0 0 var(--s4);
+      padding: var(--s2) var(--s3);
+      border: var(--line-hair);
+      border-radius: 10px;
+      background: #f3eefc;
+    }
+    .now-night[hidden] { display: none; }
+    .now-start { width: 100%; padding: 16px 18px; font-size: 17px; }
+    .now-start.go { background: var(--lime); color: var(--ink); }
+    .now-foot .arm-note { margin-top: var(--s2); }
+    .now-empty {
+      text-align: center;
+      padding: var(--s5) 20px;
+    }
+    .now-empty[hidden] { display: none; }
+    .now-empty p { margin: 0 0 var(--s3); }
+    .now-empty .now-empty-why { font-size: 14px; color: var(--muted); }
+    .now-empty .now-empty-actions { display: flex; gap: var(--s2); justify-content: center; flex-wrap: wrap; }
+    @media (max-width: 480px) {
+      .now-headline { font-size: 32px; }
+      .now-clock { font-size: 44px; }
+    }
 
     /* ── Day view ──
        A day is an ordered list of blocks. Pinned blocks ("anchors") sit at a
@@ -1991,10 +2177,12 @@
 </head>
 <body>
   <div class="wrap">
+    <a class="skin-link" id="skin-link" href="?skin=now">Try the Now layout</a>
     <h1>Backplan</h1>
     <p class="thesis" id="thesis">Work backwards from when you need to be there. Add the steps, see when to start.</p>
 
     <div class="mode-tabs" role="tablist" aria-label="Planner mode">
+      <button type="button" role="tab" id="tab-now" aria-selected="false" aria-controls="mode-now" hidden>Now<span class="tab-sub">what’s next</span></button>
       <button type="button" role="tab" id="tab-plan" aria-selected="true" aria-controls="mode-plan">Plan<span class="tab-sub">one target</span></button>
       <button type="button" role="tab" id="tab-day" aria-selected="false" aria-controls="mode-day">Day<span class="tab-sub">fixed times + blocks</span></button>
     </div>
@@ -2077,11 +2265,14 @@
         </div>
       </div>
       <div class="arm-stale" id="arm-stale" hidden>
-        <span>Plan changed since you started the countdown.</span>
+        <span id="arm-stale-text">Plan changed since you started the countdown.</span>
         <button class="btn arm-rearm" id="arm-rearm" type="button">Re-arm</button>
       </div>
       <div class="arm-actions">
         <button class="btn primary" id="arm-toggle" type="button">Start countdown</button>
+        <!-- Only when the running countdown isn't the one this tab would start:
+             there is one countdown, so this replaces it. -->
+        <button class="btn" id="arm-swap" type="button" hidden>Count down the day</button>
         <p class="arm-note" id="arm-note"></p>
       </div>
     </section>
@@ -2307,6 +2498,61 @@
       </div>
     </div>
 
+    <!-- The Now skin's home screen. Render-once / tick-often like the rest of
+         the file: renderNow() builds, tickNow() only writes text that moved.
+         The clock and sub line repaint every second and so sit OUTSIDE any
+         aria-live region; only the phase pill and the slack line are live, and
+         they change at boundaries or on a tap. -->
+    <div id="mode-now" role="tabpanel" aria-labelledby="tab-now" hidden>
+      <div class="now-stale" id="now-stale" hidden>
+        <span id="now-stale-text">Plan changed since you started the countdown.</span>
+        <button class="btn" id="now-rearm" type="button">Re-arm</button>
+      </div>
+
+      <section class="now-card" id="now-card">
+        <p class="now-kicker" id="now-kicker">Preview</p>
+        <p class="now-headline" id="now-headline">—</p>
+        <p class="now-sub" id="now-sub"></p>
+        <div class="now-clock-row">
+          <div>
+            <p class="label" id="now-clock-label">Starts in</p>
+            <p class="now-clock" id="now-clock">—</p>
+          </div>
+          <p class="arm-phase" id="now-phase" aria-live="polite">Not started</p>
+        </div>
+        <p class="now-slack" id="now-slack" aria-live="polite" hidden></p>
+        <div class="now-actions" id="now-actions" hidden>
+          <button class="btn now-done" id="now-done" type="button">Done</button>
+          <div class="now-late" id="now-late" role="group" aria-label="Running late">
+            <span class="now-late-label">Running late</span>
+            <button class="btn" type="button" data-late="5" aria-label="Running late, add 5 minutes">+5</button>
+            <button class="btn" type="button" data-late="10" aria-label="Running late, add 10 minutes">+10</button>
+          </div>
+        </div>
+      </section>
+
+      <h2 id="now-list-title">Up next</h2>
+      <section class="panel now-list-panel" id="now-list-panel">
+        <div class="overview" id="now-list"></div>
+      </section>
+
+      <p class="now-night" id="now-night" hidden></p>
+
+      <div class="now-foot" id="now-foot">
+        <button class="btn primary now-start" id="now-start" type="button">Start countdown</button>
+        <p class="arm-note" id="now-note"></p>
+      </div>
+
+      <section class="panel now-empty" id="now-empty" hidden>
+        <p class="now-headline">Nothing to count down.</p>
+        <p class="now-empty-why" id="now-empty-why"></p>
+        <div class="now-empty-actions">
+          <button class="btn" type="button" id="now-go-plan">Set up a plan</button>
+          <button class="btn" type="button" id="now-go-day">Plan your day</button>
+        </div>
+      </section>
+    </div>
+
     <footer>
       <div class="fairpoint">More from <a href="https://fairpoint.website">Fairpoint →</a></div>
       <div class="repo"><a href="https://github.com/Paulfrazier/backplan">source on GitHub</a></div>
@@ -2511,6 +2757,8 @@
     const $armRearm = document.getElementById('arm-rearm');
     const $armToggle = document.getElementById('arm-toggle');
     const $armNote = document.getElementById('arm-note');
+    const $armSwap = document.getElementById('arm-swap');
+    const $armStaleText = document.getElementById('arm-stale-text');
     const $hero = document.getElementById('hero');
     const $targetCard = document.getElementById('target-card');
     const $stepsTitle = document.getElementById('steps-title');
@@ -3321,6 +3569,18 @@
           next: nxt ? `${nxt.name} at ${fmtTime(nxt.start)}` : `Done at ${fmtTime(chainEnd)}`,
         };
       }
+      // In a real gap — an armed Day, or after Done: name what comes next.
+      // Mirrors iOS PlanStatus's "Free" case.
+      const up = segments.find(s => s.start > now);
+      if (up) {
+        const ahead = span(up.start - now);
+        return {
+          phase: 'active', key: 'Free', index: -1,
+          now: `${up.name} in ${ahead}`, headline: `Free · ${up.name} in ${ahead}`,
+          // `now` already names it; repeating it under "Next" reads as a bug.
+          next: '',
+        };
+      }
       // Inside the window but between segments — only reachable with zero-length gaps.
       return {
         phase: 'active', key: 'Now', index: -1,
@@ -3710,14 +3970,21 @@
         title: `Time to start: ${s.name}`,
         body: `Next up${forWhat}.`,
       }));
+      // A Day has no single event to announce, only the end of its last block —
+      // the same final alert iOS's `armDay` schedules.
+      const isDay = armed.kind === 'day';
       list.push({
         id: 'target',
         at: armed.target,
-        title: armed.eventName ? `Time for ${armed.eventName}.` : 'It’s time.',
-        body: 'Your target has arrived.',
+        title: isDay ? 'That’s the day.' : armed.eventName ? `Time for ${armed.eventName}.` : 'It’s time.',
+        body: isDay ? 'Your last block is done.' : 'Your target has arrived.',
       });
       return list;
     }
+    // Boundary ids are positional ('s0', 's1', …) and never change when Done or
+    // Running late moves a time, so a boundary that already rang stays rung, and
+    // one pushed later is simply not due yet. Neither path re-runs
+    // swallowPastBoundaries — only arming and restoring do.
 
     // A boundary that has already gone by was never going to ring. Mark it
     // silently — otherwise arming late, or reopening the tab after lunch, dumps
@@ -3752,35 +4019,112 @@
       ]);
     }
 
+    // The Day's counterpart: the blocks as arranged, not the times computeDay
+    // derives from them (those drift with the clock and as routes land).
+    // Like the plan's, it never looks at the snapshot's segments, so Done and
+    // Running late can't trip "changed since you started".
+    function daySignature() {
+      return JSON.stringify(['day', dayState.date, dayState.blocks]);
+    }
+
+    function planBlockedReason(plan) {
+      const { target, segments } = planSegments(plan);
+      if (!segments.length) return 'Add a step with a duration first.';
+      if (target <= new Date()) return 'Target time has passed — pick a later time.';
+      return '';
+    }
+
     // The two guards iOS also enforces: nothing to schedule against a target
     // that has passed, and nothing to count down through with no timed steps.
     function canArmPlan(plan) {
-      const { target, segments } = planSegments(plan);
-      return segments.length > 0 && target > new Date();
+      return !planBlockedReason(plan);
+    }
+
+    // ── Arming a Day. Port of iOS `DayPlanner.armable`: every leg, step and
+    // plain block that takes time becomes a segment; the idle stretches between
+    // them stay gaps (the countdown says "Free time" there). The target is the
+    // end of the last block. Same snapshot, same alerts — one countdown.
+    const DAY_NAME = 'Your day';
+    function dayArmable() {
+      const m = computeDay();
+      const segs = [];
+      const named = it => (it.b.name || '').trim() || (it.b.at ? 'Fixed block' : 'Block');
+      const legName = l => `${travelMode(l.mode).label} to ${l.to.label}`;
+      const push = (name, start, mins, go) => {
+        if (!(mins > 0) || !(start instanceof Date) || isNaN(start)) return;
+        const seg = { name, mins, start, end: addMin(start, mins) };
+        // `go` is where a travel segment is headed — the Now headline says
+        // "Leave for Pick-up" rather than "Start Drive to School".
+        if (go) seg.go = go;
+        segs.push(seg);
+      };
+      m.items.forEach(it => {
+        if (it.leg && it.leg.mins > 0) push(legName(it.leg), it.leg.start, it.leg.mins, named(it));
+        if (it.comp) {
+          it.comp.rows.forEach(r => push(r.leg ? legName(r.leg) : r.name,
+            addMin(it.start, r.offset), r.mins, r.leg ? r.leg.to.label : null));
+        } else {
+          push(named(it), it.start, it.mins);
+        }
+      });
+      // An over-full stretch can overlap its neighbours; the countdown walks
+      // segments in time order, so that is the order they have to be in.
+      segs.sort((a, b) => a.start - b.start);
+      const target = segs.length ? new Date(Math.max(...segs.map(s => s.end.getTime()))) : new Date();
+      return { target, segments: segs };
+    }
+    // KEEP IN SYNC with iOS ArmBar.blockedReason(.day).
+    function dayBlockedReason(c) {
+      if (!c.segments.length) return 'Add a block with a duration first.';
+      if (c.target <= new Date()) return 'Everything on this day is already over.';
+      return '';
+    }
+    function canArmDay() { return !dayBlockedReason(dayArmable()); }
+
+    // One snapshot for both sources. `kind` is only written for a Day, so a
+    // plan snapshot is byte-for-byte what it always was.
+    function armChain(c) {
+      // Has to ride the click that armed the plan — browsers drop a permission
+      // request with no user gesture behind it.
+      if (notifyPermission() === 'default') {
+        Notification.requestPermission().then(renderArm).catch(() => {});
+      }
+      armed = {
+        kind: c.kind,
+        key: c.key,
+        eventName: c.eventName,
+        target: c.target,
+        sig: c.sig,
+        segments: c.segments.map(s => {
+          const seg = { name: s.name, mins: s.mins, start: s.start, end: s.end };
+          if (s.go) seg.go = s.go;
+          return seg;
+        }),
+        adj: null,
+      };
+      armedFired = new Set();
+      swallowPastBoundaries(new Date());
+      persistArmed();
+      renderArm();
     }
 
     function armPlan(key) {
       const plan = plans[key];
       if (!canArmPlan(plan)) return;
       const { target, segments } = planSegments(plan);
+      armChain({
+        kind: 'plan', key, eventName: (plan.eventName || '').trim(),
+        target, sig: planSignature(plan), segments,
+      });
+    }
 
-      // Has to ride the click that armed the plan — browsers drop a permission
-      // request with no user gesture behind it.
-      if (notifyPermission() === 'default') {
-        Notification.requestPermission().then(renderArm).catch(() => {});
-      }
-
-      armed = {
-        key,
-        eventName: (plan.eventName || '').trim(),
-        target,
-        sig: planSignature(plan),
-        segments: segments.map(s => ({ name: s.name, mins: s.mins, start: s.start, end: s.end })),
-      };
-      armedFired = new Set();
-      swallowPastBoundaries(new Date());
-      persistArmed();
-      renderArm();
+    function armDay() {
+      const c = dayArmable();
+      if (dayBlockedReason(c)) return;
+      armChain({
+        kind: 'day', key: 'day', eventName: DAY_NAME,
+        target: c.target, sig: daySignature(), segments: c.segments,
+      });
     }
 
     function disarmPlan() {
@@ -3793,17 +4137,30 @@
     function persistArmed() {
       if (!armed) return;
       try {
-        localStorage.setItem(KEY_ARMED, JSON.stringify({
+        // Additive only: `kind` (Day), `adj` (Done / Running late) and a
+        // segment's `go` are written when present and ignored by older readers.
+        const rec = {
           v: 1,
           key: armed.key,
           eventName: armed.eventName,
           target: armed.target.getTime(),
           sig: armed.sig,
-          segments: armed.segments.map(s => ({
-            name: s.name, mins: s.mins, start: s.start.getTime(), end: s.end.getTime(),
-          })),
+          segments: armed.segments.map(s => {
+            const o = { name: s.name, mins: s.mins, start: s.start.getTime(), end: s.end.getTime() };
+            if (s.go) o.go = s.go;
+            return o;
+          }),
           fired: [...armedFired],
-        }));
+        };
+        if (armed.kind === 'day') rec.kind = 'day';
+        if (armed.adj) {
+          rec.adj = {
+            origEnd: armed.adj.origEnd.getTime(),
+            slipMin: armed.adj.slipMin,
+            bankedMin: armed.adj.bankedMin,
+          };
+        }
+        localStorage.setItem(KEY_ARMED, JSON.stringify(rec));
       } catch (e) { /* quota — the countdown still runs, it just won't survive reload */ }
     }
 
@@ -3812,42 +4169,189 @@
       try { snap = JSON.parse(localStorage.getItem(KEY_ARMED) || 'null'); }
       catch (e) { return; }
       if (!snap || !Array.isArray(snap.segments) || !snap.segments.length) return;
-      if (!plans[snap.key]) return;
+      const isDay = snap.kind === 'day';
+      if (!isDay && !plans[snap.key]) return;
       if (Date.now() - snap.target > ARMED_MAX_AGE_MS) {
         try { localStorage.removeItem(KEY_ARMED); } catch (e) {}
         return;
       }
+      const a = snap.adj;
       armed = {
-        key: snap.key,
+        kind: isDay ? 'day' : 'plan',
+        key: isDay ? 'day' : snap.key,
         eventName: snap.eventName || '',
         target: new Date(snap.target),
         sig: snap.sig || '',
-        segments: snap.segments.map(s => ({
-          name: s.name, mins: s.mins, start: new Date(s.start), end: new Date(s.end),
-        })),
+        segments: snap.segments.map(s => {
+          const seg = { name: s.name, mins: s.mins, start: new Date(s.start), end: new Date(s.end) };
+          if (typeof s.go === 'string' && s.go) seg.go = s.go;
+          return seg;
+        }),
+        // Missing or malformed = no adjustments, exactly as before they existed.
+        adj: a && Number.isFinite(a.origEnd) ? {
+          origEnd: new Date(a.origEnd),
+          slipMin: Number.isFinite(a.slipMin) ? a.slipMin : 0,
+          bankedMin: Number.isFinite(a.bankedMin) ? a.bankedMin : 0,
+        } : null,
       };
       armedFired = new Set(Array.isArray(snap.fired) ? snap.fired : []);
       swallowPastBoundaries(new Date());
     }
 
-    // Structure only — everything that moves is in tickArm().
+    // ── Done / Running late. Both edit the *frozen snapshot*, never the plan or
+    // the day: the snapshot is what the user is relying on, and the stale
+    // banner compares the plan/day against `sig`, which neither touches.
+    function runningIndex(segs, now) {
+      return segs.findIndex(s => now >= s.start && now < s.end);
+    }
+    function chainEndOf(segs) {
+      return new Date(Math.max(...segs.map(s => s.end.getTime())));
+    }
+    function ensureAdj() {
+      // The original end of the chain — for a plan that's the target, for a
+      // Day the end of the last block, which is what `target` already holds.
+      if (!armed.adj) armed.adj = { origEnd: new Date(armed.target), slipMin: 0, bankedMin: 0 };
+      return armed.adj;
+    }
+    // ── Runs. A run is a maximal stretch of back-to-back segments (end of one
+    // == start of the next, within 1s). A plan is normally one run; a Day has
+    // one per stretch between gaps. Done and Running late act inside a single
+    // run and never cascade into the next one — an overlap with the following
+    // run is allowed, and is exactly what reads as "behind".
+    // KEEP IN SYNC with iOS TimerController / NowView run logic.
+    function runsOf(segs) {
+      const runs = [];
+      segs.forEach((s, i) => {
+        const last = runs[runs.length - 1];
+        if (last && Math.abs(segs[i - 1].end - s.start) <= 1000) last.to = i;
+        else runs.push({ from: i, to: i });
+      });
+      return runs;
+    }
+    // The run holding the running segment; otherwise (before the start, or in
+    // a gap) the next run. Null once everything is behind us.
+    function currentRun(segs, now) {
+      const runs = runsOf(segs);
+      const i = runningIndex(segs, now);
+      if (i >= 0) return runs.find(r => i >= r.from && i <= r.to);
+      return runs.find(r => segs[r.from].start > now) || null;
+    }
+    // What the current run has to be done by: the first segment after it, or
+    // the target when it is the last run.
+    function nextFixed(segs, run, target, eventName) {
+      const after = segs[run.to + 1];
+      return after ? { at: after.start, name: after.name }
+        : { at: target, name: eventName || 'your target' };
+    }
+    // Nearest whole minute — a 28s overshoot is noise, not "1 min behind".
+    // A Day's last run is measured against the end of the day, not "Your day".
+    function chainSlack(segs, target, eventName, now, kind) {
+      const run = currentRun(segs, now);
+      if (!run) return null;
+      const nf = nextFixed(segs, run, target, kind === 'day' ? 'the end of your day' : eventName);
+      return { min: Math.round((nf.at - segs[run.to].end) / 60000), name: nf.name };
+    }
+
+    function shiftSeg(s, ms, startToo) {
+      if (startToo) s.start = new Date(s.start.getTime() + ms);
+      s.end = new Date(s.end.getTime() + ms);
+      s.mins = Math.max(0, Math.round((s.end - s.start) / 60000));
+    }
+    // Finish the running step now: the rest of its run slides earlier by the
+    // time saved, so the next step can start immediately. Other runs and the
+    // target don't move. A boundary pulled to <= now fires on the next tick
+    // (ids are positional, so one that already rang never rings again).
+    function finishCurrentStep() {
+      if (!armed) return;
+      const now = new Date();
+      const segs = armed.segments;
+      const i = runningIndex(segs, now);
+      if (i < 0) return;
+      const run = currentRun(segs, now);
+      const left = segs[i].end - now;
+      if (!(left > 0)) return;
+      // Whole minutes, rounded up, so the chain stays on the minute grid: the
+      // step ends at or just before now, and "+10" after a Done nets exactly
+      // against what was banked instead of leaving a 40s sliver of "behind".
+      const t = Math.min(Math.ceil(left / 60000) * 60000, segs[i].end - segs[i].start);
+      shiftSeg(segs[i], -t, false);
+      for (let k = i + 1; k <= run.to; k++) shiftSeg(segs[k], -t, true);
+      ensureAdj().bankedMin += Math.round(t / 60000);
+      persistArmed();
+      renderArm();
+    }
+    // Running late +N: a running step grows by N and the rest of its run
+    // follows; with nothing running, the whole next run moves. Never the target,
+    // never the run after — so the slip shows up as behind, which is the truth.
+    function slipArmed(minutes) {
+      if (!armed) return;
+      const now = new Date();
+      const segs = armed.segments;
+      const run = currentRun(segs, now);
+      if (!run) return;
+      const ms = minutes * 60000;
+      const i = runningIndex(segs, now);
+      if (i >= 0) {
+        shiftSeg(segs[i], ms, false);
+        for (let k = i + 1; k <= run.to; k++) shiftSeg(segs[k], ms, true);
+      } else {
+        for (let k = run.from; k <= run.to; k++) shiftSeg(segs[k], ms, true);
+      }
+      ensureAdj().slipMin += minutes;
+      persistArmed();
+      renderArm();
+    }
+
+    function armedStale() {
+      if (!armed) return false;
+      return (armed.kind === 'day' ? daySignature() : planSignature(plans[armed.key])) !== armed.sig;
+    }
+    // Nothing to re-arm onto if the live plan/day is itself unarmable — the
+    // same reason iOS hides its Re-arm button when the result is past.
+    function canRearm() {
+      if (!armed) return false;
+      return armed.kind === 'day' ? canArmDay() : canArmPlan(plans[armed.key]);
+    }
+    // Re-arms what was armed, not what is being edited — the banner is about
+    // that plan/day having moved underneath its own countdown.
+    function rearm() {
+      if (!armed) return;
+      if (armed.kind === 'day') armDay(); else armPlan(armed.key);
+    }
+
+    // Which chain the arm strip on the visible tab would start.
+    function armSource() { return appMode === 'day' ? 'day' : 'plan'; }
+    function sourceBlocked(src) {
+      return src === 'day' ? dayBlockedReason(dayArmable()) : planBlockedReason(state);
+    }
+    function armFromSource(src) {
+      if (src === 'day') armDay(); else armPlan(activePlanKey);
+    }
+
     function renderArm() {
+      renderArmStrip();
+      if (appMode === 'now') renderNow();
+    }
+
+    // Structure only — everything that moves is in tickArm().
+    function renderArmStrip() {
       const live = !!armed;
+      const src = armSource();
       $arm.classList.toggle('on', live);
       $armLive.hidden = !live;
 
       if (!live) {
         $arm.classList.remove('future', 'active', 'past');
         $armStale.hidden = true;
-        $armToggle.textContent = 'Start countdown';
+        $armSwap.hidden = true;
+        $armToggle.textContent = src === 'day' ? 'Start day countdown' : 'Start countdown';
         $armToggle.classList.add('primary');
         $armToggle.classList.remove('stop');
-        const { target, segments } = planSegments(state);
-        const blocked = !segments.length
-          ? 'Add a step with a duration first.'
-          : (target <= new Date() ? 'Target time has passed — pick a later time.' : '');
+        const blocked = sourceBlocked(src);
         $armToggle.disabled = !!blocked;
-        setText($armNote, blocked || 'Tracks this plan against the clock and alerts you at every step.');
+        setText($armNote, blocked || (src === 'day'
+          ? 'Tracks your day against the clock and alerts you at every block.'
+          : 'Tracks this plan against the clock and alerts you at every step.'));
         $armNote.classList.toggle('warn', !!blocked);
         return;
       }
@@ -3857,34 +4361,38 @@
       $armToggle.classList.add('stop');
       $armToggle.disabled = false;
 
-      const stale = planSignature(plans[armed.key]) !== armed.sig;
-      $armStale.hidden = !stale;
-      // Nothing to re-arm onto if the live plan is itself unarmable — the same
-      // reason iOS hides its Re-arm button when the result is past.
-      $armRearm.hidden = !canArmPlan(plans[armed.key]);
+      $armStale.hidden = !armedStale();
+      setText($armStaleText, armed.kind === 'day'
+        ? 'Day changed since you started the countdown.'
+        : 'Plan changed since you started the countdown.');
+      $armRearm.hidden = !canRearm();
 
-      const perm = notifyPermission();
-      setText($armNote,
-        perm === 'granted' ? 'Alerts fire at each step while this tab is open.'
-        : perm === 'denied' ? 'Notifications are blocked — the countdown still runs here.'
-        : perm === 'unsupported' ? 'This browser has no notifications — the countdown still runs here.'
-        : 'Allow notifications to be told when each step starts.');
+      // There is one countdown. On the tab that isn't the armed one, offer to
+      // swap it rather than pretend this tab has its own.
+      const here = (armed.kind === 'day') === (src === 'day');
+      $armSwap.hidden = here || !!sourceBlocked(src);
+      setText($armSwap, src === 'day' ? 'Count down the day' : 'Count down this plan');
+
+      setText($armNote, permissionNote());
       $armNote.classList.remove('warn');
       tickArm();
     }
 
-    // Position-and-text only, like tickTimeline: safe on a 1s interval.
-    function tickArm() {
-      if (!armed) return;
-      const now = new Date();
-      const segments = armed.segments;
-      const chainEnd = armed.target;
-      const st = planStatus(segments, chainEnd, now, true);
+    function permissionNote() {
+      const perm = notifyPermission();
+      return perm === 'granted' ? 'Alerts fire at each step while this tab is open.'
+        : perm === 'denied' ? 'Notifications are blocked — the countdown still runs here.'
+        : perm === 'unsupported' ? 'This browser has no notifications — the countdown still runs here.'
+        : 'Allow notifications to be told when each step starts.';
+    }
 
-      // The clock counts to the next moment the plan changes state: the chain
-      // start before it begins, the end of the running step while it does, the
-      // target once the last step is running. A clock to a moment that is not a
-      // boundary would run past zero and mean nothing.
+    // The clock counts to the next moment the plan changes state: the chain
+    // start before it begins, the end of the running step while it does, the
+    // target once the last step is running. A clock to a moment that is not a
+    // boundary would run past zero and mean nothing. Shared by the arm strip
+    // and the Now screen — port of iOS `PlanCountdown.make`.
+    function armCountdown(segments, chainEnd, now) {
+      const st = planStatus(segments, chainEnd, now, true);
       let clockLabel, clockMs, phase, detail;
       if (st.phase === 'future') {
         const toStart = segments[0].start - now;
@@ -3901,17 +4409,42 @@
         detail = `Target was ${fmtTime(chainEnd)}`;
       } else if (st.index >= 0) {
         const cur = segments[st.index];
-        const last = st.index === segments.length - 1;
-        clockLabel = last ? 'Target in' : 'Next step in';
+        const nxt = segments[st.index + 1];
+        // Ending into a gap (an armed Day, or after Done), the next step isn't
+        // next; a last step pushed past the target by a slip ends, it doesn't
+        // land on the target.
+        clockLabel = !nxt ? (cur.end.getTime() === chainEnd.getTime() ? 'Target in' : 'Ends in')
+          : nxt.start > cur.end ? 'Ends in' : 'Next step in';
         clockMs = cur.end - now;
         phase = `Step ${st.index + 1} of ${segments.length}`;
         detail = cur.name;
       } else {
-        clockLabel = 'Target in';
-        clockMs = chainEnd - now;
-        phase = 'In progress';
-        detail = 'Between steps';
+        // A real gap — an armed Day's free time, or what Done leaves behind.
+        // Count to the next thing rather than to the end of the chain.
+        const up = segments.find(s => s.start > now);
+        if (up) {
+          clockLabel = 'Next up in';
+          clockMs = up.start - now;
+          phase = clockMs <= 60000 ? 'Start now' : 'Free time';
+          detail = `${up.name} at ${fmtTime(up.start)}`;
+        } else {
+          // Every step finished before the target (Done on the last one).
+          clockLabel = 'Target in';
+          clockMs = chainEnd - now;
+          phase = 'Ready';
+          detail = 'All steps done';
+        }
       }
+      return { st, clockLabel, clockMs, phase, detail };
+    }
+
+    // Position-and-text only, like tickTimeline: safe on a 1s interval. Runs in
+    // either skin — it is also what fires the alerts.
+    function tickArm() {
+      if (!armed) return;
+      const now = new Date();
+      const segments = armed.segments;
+      const { st, clockLabel, clockMs, phase, detail } = armCountdown(segments, armed.target, now);
 
       $arm.classList.remove('future', 'active', 'past');
       $arm.classList.add(st.phase);
@@ -3928,7 +4461,8 @@
       $armNext.hidden = !nextLine;
 
       const pending = armBoundaries().filter(b => !armedFired.has(b.id)).length;
-      const half = link.enabled ? (armed.key === 'evening' ? 'Tonight' : 'Tomorrow AM') : '';
+      const half = armed.kind === 'day' ? DAY_NAME
+        : link.enabled ? (armed.key === 'evening' ? 'Tonight' : 'Tomorrow AM') : '';
       const parts = [];
       if (half) parts.push(half);
       parts.push(segments.length + ' ' + (segments.length === 1 ? 'step' : 'steps'));
@@ -3939,11 +4473,10 @@
     }
 
     $armToggle.addEventListener('click', () => {
-      if (armed) disarmPlan(); else armPlan(activePlanKey);
+      if (armed) disarmPlan(); else armFromSource(armSource());
     });
-    // Re-arms the half that was armed, not the one being edited — the banner is
-    // about that plan having moved underneath its own countdown.
-    $armRearm.addEventListener('click', () => { if (armed) armPlan(armed.key); });
+    $armSwap.addEventListener('click', () => armFromSource(armSource()));
+    $armRearm.addEventListener('click', rearm);
     // Track to sleep — the same night edge, anchored at now.
     //   The pair pins both ends (a lights-out you chose, a morning you can't
     //   move) and measures the gap. The tracker pins only the far end and lets
@@ -4274,11 +4807,14 @@
       for (let i = 0; i < plan.steps.length; i++) {
         const mins = stepMinutes(plan.steps[i]);
         if (mins <= 0) continue;
+        const t = plan.steps[i].travel;
         segments.push({
           name: (plan.steps[i].name || '').trim() || `Step ${i + 1}`,
           mins,
           start: startTimes[i],
           end: new Date(startTimes[i].getTime() + mins * 60000),
+          // Where a travel step is headed, for the Now headline ("Leave for …").
+          go: t && t.to && t.to.label ? t.to.label : undefined,
         });
       }
 
@@ -5223,6 +5759,7 @@
     const THESIS = {
       plan: 'Work backwards from when you need to be there. Add the steps, see when to start.',
       day: 'Pin the times that can’t move, drop in everything else, see when to leave.',
+      now: 'The next thing you have to do, and when.',
     };
 
     let appMode = 'plan';
@@ -5473,6 +6010,9 @@
       if (m.sig !== dayRenderedSig) buildDayRows(m);
       patchDayRows(m);
       renderDayHero(m);
+      // The arm strip rides along on this tab; its Start button's blocked
+      // reason depends on the blocks just drawn.
+      if (appMode === 'day') renderArm();
     }
 
     function buildDayRows(m) {
@@ -6037,20 +6577,363 @@
     $dDateToday.addEventListener('click', () => setDayDate('today'));
     $dDateTomorrow.addEventListener('click', () => setDayDate('tomorrow'));
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Now skin — "the timer is the app".
+    //   A second skin over the same data, engine and storage. Classic is the app
+    //   as it was; Now puts one screen first that answers "what do I do next,
+    //   when, and am I OK?". Plan and Day stay as setup screens. There is still
+    //   exactly one countdown: the armed snapshot above. Nothing here keeps its
+    //   own timer, its own alerts or its own copy of the chain once armed.
+    // ═══════════════════════════════════════════════════════════════════════
+    const KEY_SKIN = 'backplan:skin';
+    let skin = 'classic';
+
+    const $modeNow = document.getElementById('mode-now');
+    const $tabNow = document.getElementById('tab-now');
+    const $skinLink = document.getElementById('skin-link');
+    const $nowCard = document.getElementById('now-card');
+    const $nowKicker = document.getElementById('now-kicker');
+    const $nowHeadline = document.getElementById('now-headline');
+    const $nowSub = document.getElementById('now-sub');
+    const $nowClockLabel = document.getElementById('now-clock-label');
+    const $nowClock = document.getElementById('now-clock');
+    const $nowPhase = document.getElementById('now-phase');
+    const $nowSlack = document.getElementById('now-slack');
+    const $nowActions = document.getElementById('now-actions');
+    const $nowDone = document.getElementById('now-done');
+    const $nowLate = document.getElementById('now-late');
+    const $nowStale = document.getElementById('now-stale');
+    const $nowStaleText = document.getElementById('now-stale-text');
+    const $nowRearm = document.getElementById('now-rearm');
+    const $nowListTitle = document.getElementById('now-list-title');
+    const $nowListPanel = document.getElementById('now-list-panel');
+    const $nowList = document.getElementById('now-list');
+    const $nowNight = document.getElementById('now-night');
+    const $nowFoot = document.getElementById('now-foot');
+    const $nowStart = document.getElementById('now-start');
+    const $nowNote = document.getElementById('now-note');
+    const $nowEmpty = document.getElementById('now-empty');
+    const $nowEmptyWhy = document.getElementById('now-empty-why');
+
+    // What the Now screen is showing: the armed snapshot, or — when nothing is
+    // armed — the chain Start would arm, recomputed on every render (preview).
+    let nowChain = null;
+    let nowListSig = null;
+
+    // Preview candidate: the Day if it has anything armable, else the active
+    // plan. Same rule as iOS NowView.
+    function nowCandidate() {
+      const d = dayArmable();
+      const dayWhy = dayBlockedReason(d);
+      if (!dayWhy) return { kind: 'day', eventName: DAY_NAME, target: d.target, segments: d.segments };
+      const plan = plans[activePlanKey];
+      const planWhy = planBlockedReason(plan);
+      if (!planWhy) {
+        const { target, segments } = planSegments(plan);
+        return { kind: 'plan', key: activePlanKey, eventName: (plan.eventName || '').trim(), target, segments };
+      }
+      return { kind: 'none', dayWhy, planWhy };
+    }
+
+    function chainTitle(c) {
+      if (c.kind === 'day') return DAY_NAME;
+      if (c.eventName) return c.eventName;
+      if (link.enabled) return c.key === 'morning' ? 'Tomorrow AM' : 'Tonight';
+      return 'Your plan';
+    }
+
+    // Words for the screen. The clock and its pill come from armCountdown —
+    // the same source as the arm strip — and only the states that strip has
+    // no words for (free, ready, done) are layered on top.
+    function nowView(c, now) {
+      const segs = c.segments;
+      const target = c.target;
+      const isDay = c.kind === 'day';
+      const cd = armCountdown(segs, target, now);
+      const v = {
+        tone: cd.st.phase,
+        clockLabel: cd.clockLabel,
+        clock: fmtClock(cd.clockMs),
+        phase: cd.phase,
+        headline: '',
+        sub: '',
+      };
+      // Headline durations are minute-grain on purpose: the clock beneath
+      // carries the seconds, and a headline that changes every second reads
+      // as noise.
+      const mins = ms => fmtDuration(Math.max(1, Math.ceil(ms / 60000)));
+      const over = () => fmtDuration(Math.max(1, Math.round((now - target) / 60000)));
+      const runIdx = runningIndex(segs, now);
+      const up = segs.find(s => s.start > now);
+      const lastEnd = chainEndOf(segs);
+      const ends = isDay ? `day ends ${fmtTime(target)}` : `ready by ${fmtTime(target)}`;
+
+      if (now < segs[0].start) {
+        const s0 = segs[0];
+        v.headline = s0.go ? `Leave for ${s0.go} in ${mins(s0.start - now)}`
+          : `Start ${s0.name} in ${mins(s0.start - now)}`;
+        v.sub = (s0.go ? `${s0.name} at ${fmtTime(s0.start)}` : `At ${fmtTime(s0.start)}`) + ` · ${ends}`;
+      } else if (runIdx >= 0) {
+        const cur = segs[runIdx];
+        if (now > target) {
+          v.tone = 'past';
+          v.headline = `Running ${over()} over`;
+          v.sub = `${cur.name} · ${mins(cur.end - now)} left`;
+        } else {
+          v.headline = cur.name;
+          v.sub = `${mins(cur.end - now)} left · until ${fmtTime(cur.end)}`;
+        }
+      } else if (up) {
+        if (now > target) {
+          v.tone = 'past';
+          v.headline = `Running ${over()} over`;
+          v.sub = `Next: ${up.name} at ${fmtTime(up.start)}`;
+        } else {
+          v.tone = 'free';
+          v.headline = `Free for ${mins(up.start - now)}`;
+          v.sub = `Next: ${up.name} at ${fmtTime(up.start)}`;
+        }
+      } else if (isDay) {
+        v.tone = 'done';
+        v.headline = 'That’s the day.';
+        v.sub = `Last block ended at ${fmtTime(lastEnd)}`;
+        v.clockLabel = 'Finished at';
+        v.clock = fmtTime(lastEnd);
+        v.phase = 'Done';
+      } else if (now < target) {
+        // Done on the last step, before the target: nothing left but arriving.
+        v.tone = 'done';
+        v.headline = 'You’re ready.';
+        v.sub = `${c.eventName || 'Target'} at ${fmtTime(target)}`;
+        v.phase = 'Ready';
+      } else {
+        v.tone = 'done';
+        v.headline = 'You’re there.';
+        v.sub = (c.eventName ? `${c.eventName} · ` : '') + `target was ${fmtTime(target)}`;
+        v.clockLabel = 'Target was';
+        v.clock = fmtTime(target);
+        v.phase = 'Done';
+      }
+      return v;
+    }
+
+    // The schedule, readable at arm's length — Overview's rows, gaps included,
+    // ending on the target. Built only when the chain itself changes.
+    function buildNowList(c) {
+      $nowList.innerHTML = '';
+      const add = (cls, at, s, e, name, dur) => {
+        const row = document.createElement('div');
+        row.className = 'ov-row' + (cls ? ' ' + cls : '');
+        row.dataset.s = String(s.getTime());
+        row.dataset.e = String(e.getTime());
+        const t = document.createElement('span');
+        t.className = 'ov-time';
+        t.textContent = fmtTime(at);
+        const body = document.createElement('div');
+        body.className = 'ov-body';
+        const n = document.createElement('div');
+        n.className = 'ov-name';
+        n.textContent = name;
+        body.appendChild(n);
+        const d = document.createElement('span');
+        d.className = 'ov-dur';
+        d.textContent = dur;
+        row.append(t, body, d);
+        $nowList.appendChild(row);
+      };
+      let prevEnd = null;
+      c.segments.forEach(seg => {
+        if (prevEnd) {
+          const gap = Math.round((seg.start - prevEnd) / 60000);
+          if (gap >= 1) add('gap', prevEnd, prevEnd, seg.start, 'free', fmtDuration(gap));
+        }
+        add('', seg.start, seg.start, seg.end, seg.name, fmtDuration(seg.mins));
+        if (!prevEnd || seg.end > prevEnd) prevEnd = seg.end;
+      });
+      add('target', c.target, c.target, c.target,
+        c.kind === 'day' ? 'End of the day' : (c.eventName || 'Target'), '');
+    }
+
+    function nowSig(c) {
+      return JSON.stringify([c.kind, c.eventName, +c.target,
+        c.segments.map(s => [s.name, +s.start, +s.end])]);
+    }
+
+    // Structure: which state the screen is in, the list, the buttons. Runs on
+    // arm/disarm, on every adjustment, on entering the tab and every 30s.
+    function renderNow() {
+      if (appMode !== 'now') return;
+      const live = !!armed;
+      const c = live
+        ? { kind: armed.kind, key: armed.key, eventName: armed.eventName, target: armed.target, segments: armed.segments }
+        : nowCandidate();
+      nowChain = c;
+      document.title = 'Now — Backplan';
+
+      const empty = c.kind === 'none';
+      $nowEmpty.hidden = !empty;
+      $nowCard.hidden = empty;
+      $nowListTitle.hidden = empty;
+      $nowListPanel.hidden = empty;
+      $nowFoot.hidden = empty;
+      $nowStale.hidden = !(live && armedStale());
+      if (empty) {
+        $nowNight.hidden = true;
+        setText($nowEmptyWhy, `Day: ${c.dayWhy} Plan: ${c.planWhy}`);
+        nowListSig = null;
+        return;
+      }
+
+      setText($nowKicker, (live ? 'Counting down · ' : 'Preview · ') + chainTitle(c));
+
+      if (live) {
+        setText($nowStaleText, armed.kind === 'day'
+          ? 'Day changed since you started the countdown.'
+          : 'Plan changed since you started the countdown.');
+        $nowRearm.hidden = !canRearm();
+
+
+        $nowStart.textContent = 'Stop countdown';
+        $nowStart.classList.remove('primary', 'go');
+        $nowStart.classList.add('stop');
+        setText($nowNote, permissionNote());
+      } else {
+        $nowSlack.hidden = true;
+        $nowStart.textContent = c.kind === 'day' ? 'Start my day'
+          : c.eventName ? `Start countdown for ${c.eventName}` : 'Start countdown';
+        $nowStart.classList.remove('stop', 'primary');
+        $nowStart.classList.add('go');
+        setText($nowNote, 'Not started — this is a preview. Start tracks it against the clock and alerts you at every step.');
+      }
+
+      // Night line — the pair's own solve, not new sleep math.
+      const L = computeLink();
+      $nowNight.hidden = !L;
+      if (L) {
+        const wake = fmtTime(L.wake);
+        setText($nowNight, `Lights out by ${fmtTime(L.deadline)} for ${/^(8|11):/.test(wake) ? 'an' : 'a'} ${wake} wake`);
+      }
+
+      const sig = nowSig(c);
+      if (sig !== nowListSig) { buildNowList(c); nowListSig = sig; }
+      tickNow();
+    }
+
+    // Text and classes only — safe on the 1s interval. The headline and sub
+    // are minute-grain and change-guarded; the clock is the one thing that
+    // repaints every second, and it is not inside an aria-live region.
+    function tickNow() {
+      if (appMode !== 'now' || !nowChain || nowChain.kind === 'none' || !nowChain.segments.length) return;
+      const c = nowChain;
+      const now = new Date();
+      const v = nowView(c, now);
+
+      ['future', 'active', 'past', 'free', 'done'].forEach(t => $nowCard.classList.toggle(t, t === v.tone));
+      setText($nowHeadline, v.headline);
+      setText($nowSub, v.sub);
+      setText($nowClockLabel, v.clockLabel);
+      setText($nowClock, v.clock);
+      setText($nowPhase, v.phase);
+
+      // Slack against the current run's next fixed point. Changes on a tap or
+      // when a run ends; setText keeps the aria-live line quiet otherwise.
+      const sl = armed ? chainSlack(armed.segments, armed.target, armed.eventName, now, armed.kind) : null;
+      if ($nowSlack.hidden === !!sl) $nowSlack.hidden = !sl;
+      if (sl) {
+        setText($nowSlack, sl.min > 0 ? `${fmtDuration(sl.min)} to spare before ${sl.name}`
+          : sl.min < 0 ? `${fmtDuration(-sl.min)} behind for ${sl.name}` : 'On time');
+        $nowSlack.classList.toggle('ahead', sl.min > 0);
+        $nowSlack.classList.toggle('behind', sl.min < 0);
+      }
+
+      if (armed) {
+        const running = runningIndex(armed.segments, now) >= 0;
+        const ahead = armed.segments.some(s => s.end > now);
+        if ($nowDone.hidden === running) $nowDone.hidden = !running;
+        if ($nowLate.hidden === ahead) $nowLate.hidden = !ahead;
+        const any = running || ahead;
+        if ($nowActions.hidden === any) $nowActions.hidden = !any;
+      } else if (!$nowActions.hidden) {
+        $nowActions.hidden = true;
+      }
+
+      $nowList.querySelectorAll('.ov-row').forEach(row => {
+        if (row.classList.contains('target')) return;
+        const s = Number(row.dataset.s), e = Number(row.dataset.e);
+        const t = now.getTime();
+        row.classList.toggle('done', e <= t);
+        row.classList.toggle('now', s <= t && t < e);
+      });
+    }
+
+    $nowStart.addEventListener('click', () => {
+      if (armed) { disarmPlan(); return; }
+      // Re-derive at the click: the preview may be up to 30s old.
+      const c = nowCandidate();
+      if (c.kind === 'day') armDay();
+      else if (c.kind === 'plan') armPlan(c.key);
+      else renderNow();
+    });
+    $nowDone.addEventListener('click', finishCurrentStep);
+    $nowLate.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-late]');
+      if (b) slipArmed(Number(b.dataset.late));
+    });
+    $nowRearm.addEventListener('click', rearm);
+    document.getElementById('now-go-plan').addEventListener('click', () => setAppMode('plan'));
+    document.getElementById('now-go-day').addEventListener('click', () => setAppMode('day'));
+
+    function applySkin() {
+      document.body.dataset.skin = skin;
+      $tabNow.hidden = skin !== 'now';
+      $skinLink.textContent = skin === 'now' ? 'Classic layout' : 'Try the Now layout';
+      $skinLink.setAttribute('href', '?skin=' + (skin === 'now' ? 'classic' : 'now'));
+    }
+    function savedClassicMode() {
+      try { return localStorage.getItem(KEY_MODE) || 'plan'; } catch (e) { return 'plan'; }
+    }
+    function setSkin(next) {
+      skin = next === 'now' ? 'now' : 'classic';
+      try { localStorage.setItem(KEY_SKIN, skin); } catch (e) {}
+      applySkin();
+      // Keep a ?skin= already in the URL honest, so a reload lands where you are.
+      try {
+        const u = new URL(location.href);
+        if (u.searchParams.has('skin')) { u.searchParams.set('skin', skin); history.replaceState(null, '', u); }
+      } catch (e) {}
+      // Entering Now opens on Now; leaving it returns to the tab Classic last had.
+      setAppMode(skin === 'now' ? 'now' : savedClassicMode());
+    }
+    $skinLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      setSkin(skin === 'now' ? 'classic' : 'now');
+    });
+    $tabNow.addEventListener('click', () => setAppMode('now'));
+
     function setAppMode(mode) {
-      appMode = mode === 'day' ? 'day' : 'plan';
+      appMode = mode === 'day' ? 'day' : (mode === 'now' && skin === 'now') ? 'now' : 'plan';
       $modePlan.hidden = appMode !== 'plan';
       $modeDay.hidden = appMode !== 'day';
+      $modeNow.hidden = appMode !== 'now';
+      $tabNow.setAttribute('aria-selected', String(appMode === 'now'));
       $tabPlan.setAttribute('aria-selected', String(appMode === 'plan'));
       $tabDay.setAttribute('aria-selected', String(appMode === 'day'));
       $thesis.textContent = THESIS[appMode];
-      try { localStorage.setItem(KEY_MODE, appMode); } catch {}
+      // Now is a skin's home, not a Classic tab — don't hand it to Classic.
+      if (appMode !== 'now') { try { localStorage.setItem(KEY_MODE, appMode); } catch {} }
+      // The arm strip follows the tab, so the Day can start (and show) the
+      // one countdown too. The Now skin hides it on both via CSS.
+      if (appMode === 'day') $modeDay.querySelector('.d-hero').after($arm);
+      else if (appMode === 'plan') $hero.after($arm);
       if (appMode === 'day') {
         // Templates and places may have changed over in the Plan tab.
         refreshLinkedBlocks();
         renderDayTray();
         dayRenderedSig = null;
         drawDay();
+      } else if (appMode === 'now') {
+        refreshLinkedBlocks();
+        compute();   // renderArm → renderNow
       } else {
         compute();
       }
@@ -6143,12 +7026,23 @@
       syncDayDateButtons();
       let savedMode = 'plan';
       try { savedMode = localStorage.getItem(KEY_MODE) || 'plan'; } catch {}
-      setAppMode(savedMode);
+      // Skin: ?skin=now / ?skin=classic sets and persists it; otherwise the
+      // stored one; otherwise Classic.
+      let urlSkin = null;
+      try { urlSkin = new URLSearchParams(location.search).get('skin'); } catch (e) {}
+      if (urlSkin === 'now' || urlSkin === 'classic') {
+        skin = urlSkin;
+        try { localStorage.setItem(KEY_SKIN, skin); } catch (e) {}
+      } else {
+        try { skin = localStorage.getItem(KEY_SKIN) === 'now' ? 'now' : 'classic'; } catch (e) { skin = 'classic'; }
+      }
+      applySkin();
+      setAppMode(skin === 'now' ? 'now' : savedMode);
 
       // keep the "now" marker fresh
       setInterval(() => { if (appMode === 'day') drawDay(); else compute(); }, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
-      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); }, 1000);
+      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); tickNow(); }, 1000);
     }
     init();
   </script>

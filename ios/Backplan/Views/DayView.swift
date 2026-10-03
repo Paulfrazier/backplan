@@ -60,6 +60,7 @@ struct DayView: View {
                         .font(.display(22))
                         .foregroundStyle(.bpPurple)
                 }
+                ToolbarItem(placement: .topBarTrailing) { SkinSwitchButton() }
             }
         }
         .tint(.bpPurpleElectric)

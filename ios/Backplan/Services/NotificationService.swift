@@ -13,6 +13,11 @@ final class NotificationService: Sendable {
 
     @discardableResult
     func requestAuthorization() async -> Bool {
+        #if DEBUG
+        // Simulator screenshots: the permission alert can't be tapped away, and
+        // arming awaits it, so -BPNoAuth skips the ask (alerts just won't show).
+        if ProcessInfo.processInfo.arguments.contains("-BPNoAuth") { return false }
+        #endif
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
         } catch {
@@ -31,7 +36,14 @@ final class NotificationService: Sendable {
     /// single event to announce, only the end of its last block.
     func arm(name: String, result: PlanResult, finalAlert: (title: String, body: String)? = nil,
              now: Date = Date()) async -> Int {
-        cancelAll()
+        // Awaited, not the fire-and-forget `cancelAll()`: ids are positional
+        // ("backplan.step.2"), so a late-landing removal from the callback form
+        // could delete the very request we're about to add under the same id.
+        // Re-scheduling an adjusted chain (Now skin's Done / Running late) hits
+        // exactly that window.
+        let stale = await center.pendingNotificationRequests()
+            .map(\.identifier).filter { $0.hasPrefix(idPrefix) }
+        center.removePendingNotificationRequests(withIdentifiers: stale)
 
         var requests: [UNNotificationRequest] = []
         for (i, seg) in result.segments.enumerated() {

@@ -22,6 +22,44 @@ enum DebugSeed {
         if let i = args.firstIndex(of: "-BPTab"), args.indices.contains(i + 1) {
             defaults.set(args[i + 1], forKey: "backplan.mode")
         }
+        //   -BPSkin now|classic   pick the skin
+        if let i = args.firstIndex(of: "-BPSkin"), args.indices.contains(i + 1) {
+            defaults.set(args[i + 1], forKey: Skin.storageKey)
+        }
+        //   -BPNowDemo   a plan already under way (target now+40, 45 min of steps)
+        //                and an empty Day, so the Now preview picks the plan.
+        //   Pair with -BPArmPlan / -BPDone / -BPLate N (BackplanApp).
+        if args.contains("-BPNowDemo") {
+            let enc = JSONEncoder()
+            let target = Date().addingTimeInterval(40 * 60)
+            let c = Calendar.current.dateComponents([.hour, .minute], from: target)
+            let plan = Plan(eventName: "School", target: String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0),
+                            day: .today, steps: [
+                Step(name: "Pack bag", duration: 15, unit: .min),
+                Step(name: "Shoes on", duration: 5, unit: .min),
+                Step(name: "Bike to School", duration: 25, unit: .min),
+            ])
+            defaults.removeObject(forKey: "backplan.armed")
+            defaults.set(try? enc.encode(plan), forKey: "backplan.last")
+            defaults.set(try? enc.encode(DayPlan(date: .today, blocks: [])), forKey: "backplan.day")
+            return
+        }
+        //   -BPNowDayDemo   a Day with "Errands" running (pinned 10 min ago, 30 min)
+        //                   then a 35-min gap before "Climb". Pair with -BPArmDay.
+        if args.contains("-BPNowDayDemo") {
+            let cal = Calendar.current
+            func hhmm(_ d: Date) -> String {
+                let c = cal.dateComponents([.hour, .minute], from: d)
+                return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+            }
+            let start = Date().addingTimeInterval(-10 * 60)
+            defaults.removeObject(forKey: "backplan.armed")
+            defaults.set(try? JSONEncoder().encode(DayPlan(date: .today, blocks: [
+                DayBlock(name: "Errands", duration: 30, unit: .min, at: hhmm(start)),
+                DayBlock(name: "Climb", duration: 60, unit: .min, at: hhmm(start.addingTimeInterval(65 * 60))),
+            ])), forKey: "backplan.day")
+            return
+        }
         guard args.contains("-BPDemo") else { return }
         let enc = JSONEncoder()
         for key in ["backplan.templates", "backplan.linked", "backplan.day", "backplan.last"] {
