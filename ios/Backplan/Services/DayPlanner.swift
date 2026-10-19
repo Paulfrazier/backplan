@@ -113,8 +113,9 @@ enum DayPlanner {
 
     static let samePlaceMeters = 75.0
 
-    static func clock(_ hhmm: String, on day: TargetDay, now: Date) -> Date {
-        Plan(target: hhmm, day: day).targetDate(now: now)
+    /// "HH:mm" on the Day's own calendar date (its `baseDate` + Today/Tomorrow).
+    static func clock(_ hhmm: String, on day: DayPlan, now: Date) -> Date {
+        Plan.at(hhmm, on: day.effectiveDay(now: now))
     }
 
     static func round5(_ d: Date, up: Bool = false, calendar: Calendar = .current) -> Date {
@@ -205,10 +206,10 @@ enum DayPlanner {
         }
 
         if anchors.isEmpty {
-            fwd(from: day.date == .today ? round5(now, up: true) : clock("09:00", on: day.date, now: now), startIdx: 0)
+            fwd(from: day.isToday(now: now) ? round5(now, up: true) : clock("09:00", on: day, now: now), startIdx: 0)
         } else {
             for a in anchors {
-                let t = clock(blocks[a].at ?? "00:00", on: day.date, now: now)
+                let t = clock(blocks[a].at ?? "00:00", on: day, now: now)
                 S[a] = blocks[a].edge == .end ? add(t, -D[a]) : t
             }
             _ = back(anchors[0], stop: -1)

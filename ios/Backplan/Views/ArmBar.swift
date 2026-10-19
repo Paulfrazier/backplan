@@ -29,7 +29,7 @@ struct ArmBar: View {
 
     private func armHere() async {
         switch source {
-        case .plan: await timer.arm(key: store.activeKey, plan: store.plan)
+        case .plan: await timer.arm(key: store.activeKey, plan: store.resolved(store.activeKey))
         case .day: await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
         }
     }
@@ -222,7 +222,9 @@ struct ArmBar: View {
         switch source {
         case .plan:
             if result.segments.isEmpty { return "Add a step with a duration first." }
-            if result.isPast { return "Target time has passed — pick a later time." }
+            // KEEP IN SYNC with the web `PAST_TARGET`. The plan card above
+            // carries the "Plan for tomorrow" button.
+            if result.isPast { return "Target time has passed — pick a later time, or plan it for tomorrow." }
         case .day:
             if result.segments.isEmpty { return "Add a block with a duration first." }
             if result.isPast { return "Everything on this day is already over." }
@@ -237,16 +239,8 @@ struct ArmBar: View {
 
     // MARK: - Stale
 
-    /// True when the live plan no longer matches the snapshot that was armed —
-    /// the scheduled notifications, the countdown and the Live Activity are all
-    /// stale until the user re-arms. Compared against the armed *half*, not the
-    /// one being edited: switching tabs is not a change to the armed plan.
-    private var planChanged: Bool {
-        guard timer.armed else { return false }
-        if let armedDay = timer.armedDay { return store.day != armedDay }
-        guard let armedPlan = timer.armedPlan else { return false }
-        return store.pair[timer.armedKey] != armedPlan
-    }
+    /// See `TimerController.isStale` — absolute schedules, armed half only.
+    private var planChanged: Bool { timer.isStale(against: store) }
 
     private var staleBanner: some View {
         HStack(spacing: 8) {
@@ -263,7 +257,7 @@ struct ArmBar: View {
                         if timer.armedIsDay {
                             await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
                         } else {
-                            await timer.arm(key: timer.armedKey, plan: store.pair[timer.armedKey])
+                            await timer.arm(key: timer.armedKey, plan: store.resolved(timer.armedKey))
                         }
                     }
                 } label: {

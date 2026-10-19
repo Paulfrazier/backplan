@@ -118,11 +118,22 @@ extension PlanStore {
             linkedTemplateID = nil
             return
         }
-        if templates[idx].plan != plan { templates[idx].plan = plan }
-        refreshLinkedBlocks()
+        let next = plan.asTemplate
+        var moved: (link: UUID, from: String, to: String)?
+        if templates[idx].plan != next {
+            let was = templates[idx].plan.target
+            templates[idx].plan = next
+            if was != next.target { moved = (id, was, next.target) }
+        }
+        refreshLinkedBlocks(moved: moved)
     }
 
-    func refreshLinkedBlocks() {
+    /// Bring linked blocks up to date with their templates. `moved` carries a
+    /// target-time edit: a block still pinned "done by" the old target follows
+    /// it — that pin came from the plan, and the link banner promises edits
+    /// carry through. A block re-pinned by hand to some other time keeps it,
+    /// because pins belong to the day.
+    func refreshLinkedBlocks(moved: (link: UUID, from: String, to: String)? = nil) {
         let byID = Dictionary(uniqueKeysWithValues: templates.map { ($0.id, $0) })
         var blocks = day.blocks
         var changed = false
@@ -130,6 +141,10 @@ extension PlanStore {
             guard let link = blocks[i].link, let t = byID[link] else { continue }
             if blocks[i].steps != t.plan.steps {
                 blocks[i].steps = t.plan.steps
+                changed = true
+            }
+            if let moved, moved.link == link, blocks[i].edge == .end, blocks[i].at == moved.from {
+                blocks[i].at = moved.to
                 changed = true
             }
         }
@@ -149,26 +164,63 @@ extension PlanStore {
         return t.id != linkedTemplateID
     }
 
+    /// Where Add to Day would put the plan. The Day holds today or tomorrow,
+    /// one date at a time, so a plan for the other one moves the Day there
+    /// (blocks and all) only with a yes, and a plan for any other date is
+    /// refused. KEEP IN SYNC with the web `send-to-day` handler, wording too.
+    enum AddToDayDate: Equatable {
+        case fits
+        /// Ask: "This plan is for {plan}, and your Day is planning {day}…"
+        case move(plan: String, day: String)
+        case refused(String)
+    }
+
+    func addToDayDate(now: Date = Date()) -> AddToDayDate {
+        let planOff = LocalDay.days(from: now, to: resolved(activeKey, now: now).effectiveDay(now: now))
+        guard planOff == 0 || planOff == 1 else {
+            return .refused("Your Day plans today or tomorrow, and this plan is for "
+                + (planOff < 0 ? "a day that has passed." : "later than tomorrow."))
+        }
+        let dayOff = LocalDay.days(from: now, to: day.effectiveDay(now: now))
+        guard !day.blocks.isEmpty, dayOff != planOff else { return .fits }
+        func word(_ off: Int) -> String { off == 1 ? "tomorrow" : "today" }
+        return .move(plan: word(planOff), day: word(dayOff))
+    }
+
     /// Plan → Day: save the plan as a template, link to it, and drop it into
     /// the day as one block pinned "done by" the target, slotted in where it
-    /// falls chronologically.
+    /// falls chronologically. The block always lands on the plan's own date:
+    /// see `addToDayDate`; `moveDay` is the user's yes to `.move`. Without it
+    /// nothing is added, so a tomorrow plan never lands silently in today.
     @discardableResult
-    func addPlanToDay(name: String) -> UUID? {
+    func addPlanToDay(name: String, moveDay: Bool = false) -> UUID? {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !plan.steps.isEmpty else { return nil }
+        let now = Date()
+        switch addToDayDate(now: now) {
+        case .refused: return nil
+        case .move where !moveDay: return nil
+        default: break
+        }
         let templateID: UUID
         if let idx = templates.firstIndex(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
-            templates[idx].plan = plan
+            templates[idx].plan = plan.asTemplate
             templateID = templates[idx].id
         } else {
-            let t = Template(name: trimmed, plan: plan)
+            let t = Template(name: trimmed, plan: plan.asTemplate)
             templates.append(t)
             templateID = t.id
         }
         linkedTemplateID = templateID
-        // An empty day adopts the plan's day; otherwise the day keeps its own.
-        if day.blocks.isEmpty { day.date = plan.day }
-        let due = DayPlanner.clock(plan.target, on: day.date, now: Date())
+        let planOff = LocalDay.days(from: now, to: resolved(activeKey, now: now).effectiveDay(now: now))
+        if LocalDay.days(from: now, to: day.effectiveDay(now: now)) != planOff {
+            // One write, so `day.didSet` sees the date and its anchor together.
+            var d = day
+            d.date = planOff == 1 ? .tomorrow : .today
+            d.baseDate = LocalDay.key(now)
+            day = d
+        }
+        let due = DayPlanner.clock(plan.target, on: day, now: now)
         let idx = dayResult().items.firstIndex { $0.start >= due } ?? day.blocks.count
         let block = DayBlock(name: trimmed, at: plan.target, edge: .end, steps: plan.steps, link: templateID)
         day.blocks.insert(block, at: idx)

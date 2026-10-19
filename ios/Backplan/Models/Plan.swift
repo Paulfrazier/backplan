@@ -134,33 +134,148 @@ struct Plan: Codable, Equatable {
     var target: String = "18:20"
     var day: TargetDay = .today
     var steps: [Step] = []
+    /// The local calendar date `day` is relative to, as "YYYY-MM-DD". Without
+    /// it "tomorrow" was resolved against *now*, so a 9 PM plan for "8:05
+    /// tomorrow" quietly meant the day after once midnight passed. Optional so
+    /// records written before it decode (the synthesized decoder treats an
+    /// Optional key as optional); nil reads as today. Templates never carry
+    /// one — they stay relative. KEEP IN SYNC with the web `baseDate`.
+    var baseDate: String? = nil
 }
 
 extension Plan {
-    /// Resolve the target "HH:mm" + day into an absolute Date relative to `now`,
-    /// matching the web `targetDate()` (seconds/millis zeroed).
-    func targetDate(now: Date = Date(), calendar: Calendar = .current) -> Date {
-        targetDate(now: now, calendar: calendar, dayOffset: day == .tomorrow ? 1 : 0)
+    // Written out only to make `baseDate` lenient: a value of the wrong type
+    // must cost the date (it reads as today), never the whole saved plan. The
+    // other keys keep exactly the strictness the synthesized decoder had. In
+    // an extension, so the memberwise init survives.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        eventName = try c.decode(String.self, forKey: .eventName)
+        target = try c.decode(String.self, forKey: .target)
+        day = try c.decode(TargetDay.self, forKey: .day)
+        steps = try c.decode([Step].self, forKey: .steps)
+        baseDate = try? c.decodeIfPresent(String.self, forKey: .baseDate)
+    }
+}
+
+/// "YYYY-MM-DD" local calendar dates — the storage format of `baseDate`.
+/// Built from calendar components rather than a DateFormatter, so it is
+/// locale-proof and Sendable.
+enum LocalDay {
+    static func key(_ d: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: d)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
-    /// Explicit-offset form, matching the web `targetDateFor(plan)`. The night
-    /// pair spans midnight, which two-valued `TargetDay` cannot express on its
-    /// own: chained, the morning plan is always the day *after* the evening one,
-    /// so its offset is derived rather than chosen.
+    /// Start of that day, or nil for anything that isn't a well-formed date.
+    static func start(_ key: String, calendar: Calendar = .current) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
+    /// Whole calendar days from `a`'s day to `b`'s day.
+    static func days(from a: Date, to b: Date, calendar: Calendar = .current) -> Int {
+        calendar.dateComponents([.day], from: calendar.startOfDay(for: a), to: calendar.startOfDay(for: b)).day ?? 0
+    }
+
+    /// "today" / "tomorrow" / "Mon, Oct 20" — for sentences about a plan's date.
+    static func word(_ d: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        switch days(from: now, to: d, calendar: calendar) {
+        case 0: return "today"
+        case 1: return "tomorrow"
+        default: return d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        }
+    }
+}
+
+extension Plan {
+    /// Start of the calendar day the target lands on: `baseDate` plus one for
+    /// Tomorrow. A missing or malformed `baseDate` reads as today.
+    func effectiveDay(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let base = baseDate.flatMap { LocalDay.start($0, calendar: calendar) } ?? calendar.startOfDay(for: now)
+        return calendar.date(byAdding: .day, value: day == .tomorrow ? 1 : 0, to: base) ?? base
+    }
+
+    /// The target as an absolute Date, anchored to `baseDate` rather than to
+    /// `now`, so the same saved plan means the same moment whenever it is read.
+    /// Matches the web `targetDate()` (seconds/millis zeroed).
+    func targetDate(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        Plan.at(target, on: effectiveDay(now: now, calendar: calendar), calendar: calendar)
+    }
+
+    /// Explicit-offset form, relative to *today* and ignoring `baseDate`. Only
+    /// track mode wants this: its morning is "the next one that hasn't
+    /// happened yet", which is a question about now, not about a saved date.
     func targetDate(now: Date = Date(), calendar: Calendar = .current, dayOffset: Int) -> Date {
-        let parts = target.split(separator: ":")
+        let today = calendar.startOfDay(for: now)
+        let day = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+        return Plan.at(target, on: day, calendar: calendar)
+    }
+
+    /// "HH:mm" on a given day.
+    static func at(_ hhmm: String, on day: Date, calendar: Calendar = .current) -> Date {
+        let parts = hhmm.split(separator: ":")
         let h = parts.count > 0 ? Int(parts[0]) ?? 0 : 0
         let m = parts.count > 1 ? Int(parts[1]) ?? 0 : 0
-        var base = now
-        if dayOffset != 0 {
-            base = calendar.date(byAdding: .day, value: dayOffset, to: now) ?? now
-        }
         return calendar.date(
             bySettingHour: min(max(h, 0), 23),
             minute: min(max(m, 0), 59),
             second: 0,
-            of: base
-        ) ?? base
+            of: day
+        ) ?? day
+    }
+
+    /// Bring a plan saved on an earlier day up to today. KEEP IN SYNC with the
+    /// web `normalizePlanDate`.
+    ///
+    /// - No `baseDate` (a legacy record): adopt today. If its time has gone by,
+    ///   the past-target offer is what the user sees — nothing is guessed.
+    /// - Its date is still today or later: rewrite as Today / Tomorrow from
+    ///   today, keeping the *same absolute moment* (a 9 PM "tomorrow 8:05"
+    ///   reads "today 8:05" at 6:55 AM).
+    /// - Its date has gone by (a plan from days ago): roll to the next
+    ///   occurrence of the target clock time — today if still ahead, else
+    ///   tomorrow. That one *moves* the moment, so it waits while `hold` (the
+    ///   plan is the armed one, or a linked evening is still last night's).
+    ///
+    /// Returns true when anything changed.
+    @discardableResult
+    mutating func normalizeDate(now: Date = Date(), calendar: Calendar = .current, hold: Bool = false) -> Bool {
+        let today = calendar.startOfDay(for: now)
+        let todayKey = LocalDay.key(today, calendar: calendar)
+        guard let base = baseDate.flatMap({ LocalDay.start($0, calendar: calendar) }) else {
+            baseDate = todayKey
+            return true
+        }
+        guard base < today else { return false }
+        let effective = effectiveDay(now: now, calendar: calendar)
+        if effective >= today {
+            day = LocalDay.days(from: today, to: effective, calendar: calendar) >= 1 ? .tomorrow : .today
+        } else {
+            if hold { return false }
+            day = Plan.at(target, on: today, calendar: calendar) > now ? .today : .tomorrow
+        }
+        baseDate = todayKey
+        return true
+    }
+
+    /// The same plan with its date written out absolutely, for "is this the
+    /// same schedule?" checks. A date normalization changes `day` and
+    /// `baseDate` together without moving anything, so comparing raw plans
+    /// would call that an edit.
+    func anchored(now: Date = Date(), calendar: Calendar = .current) -> Plan {
+        var p = self
+        p.baseDate = LocalDay.key(effectiveDay(now: now, calendar: calendar), calendar: calendar)
+        p.day = .today
+        return p
+    }
+
+    /// What a template stores: everything but the date, which stays relative.
+    var asTemplate: Plan {
+        var p = self
+        p.baseDate = nil
+        return p
     }
 
     /// Total scheduled minutes, matching the web `planMinutes(plan)`.

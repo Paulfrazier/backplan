@@ -71,16 +71,39 @@ final class NotificationService: Sendable {
         return requests.count
     }
 
-    func cancelAll() {
-        center.getPendingNotificationRequests { reqs in
-            let ids = reqs.map(\.identifier).filter { $0.hasPrefix(self.idPrefix) }
-            self.center.removePendingNotificationRequests(withIdentifiers: ids)
-        }
+    /// Awaitable for the same reason `arm` awaits its own removal: a caller
+    /// that schedules next (Stop → Start) must be able to wait for this to land
+    /// first, or it deletes the new requests sharing the old ids.
+    func cancelAll() async {
+        let ids = await center.pendingNotificationRequests()
+            .map(\.identifier).filter { $0.hasPrefix(idPrefix) }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
+    /// Install the foreground presenter. Called once at launch, before any
+    /// alert can fire.
+    func installDelegate() {
+        center.delegate = NotificationPresenter.shared
     }
 
     private func makeRequest(id: String, fireAt: Date, content: UNNotificationContent, now: Date) -> UNNotificationRequest {
         let interval = max(1, fireAt.timeIntervalSince(now))
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
         return UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+    }
+}
+
+/// Without a delegate, iOS silently drops a local notification that fires
+/// while the app is in the foreground — so a step boundary went unannounced
+/// exactly when the user had Backplan open on the counter. Present it like a
+/// background alert instead.
+final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, Sendable {
+    static let shared = NotificationPresenter()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
     }
 }

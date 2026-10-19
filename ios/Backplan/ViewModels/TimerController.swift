@@ -35,6 +35,12 @@ final class TimerController {
 
     /// Wakes exactly at each boundary rather than polling — see `startSyncLoop`.
     @ObservationIgnored private var syncTask: Task<Void, Never>?
+    /// Stop's teardown (pending alerts + the Live Activity). Every arm awaits
+    /// it before scheduling: left fire-and-forget, a Stop → Start tapped in
+    /// quick succession let the old removal land *after* the new requests and
+    /// delete them — alert ids are positional, so old and new share names —
+    /// or end the card the new countdown had just started.
+    @ObservationIgnored private var teardown: Task<Void, Never>?
 
     private let storageKey = "backplan.armed"
     private let defaults: UserDefaults
@@ -56,9 +62,12 @@ final class TimerController {
         return PlanCountdown.make(result: armedResult, now: now, armedAt: armedAt)
     }
 
+    /// `plan` is the half as it will run — `PlanStore.resolved(key)` — so its
+    /// date is already absolute and a re-arm lands on the plan's own day.
     func arm(key: PlanKey, plan: Plan) async {
         // Ask for notification permission the first time the user arms a plan.
         await NotificationService.shared.requestAuthorization()
+        await settleTeardown()
         let result = BackwardsPlanner.compute(plan)
         // Never arm a plan whose target has already passed, or one with no timed
         // steps — there's nothing to schedule and a "0 alerts" armed state is a
@@ -85,6 +94,7 @@ final class TimerController {
     /// one countdown and one Live Activity, never two.
     func armDay(_ day: DayPlan, result: PlanResult) async {
         await NotificationService.shared.requestAuthorization()
+        await settleTeardown()
         // Same guard as `arm`; KEEP IN SYNC with the web `canArmDay`.
         guard !result.isPast, !result.segments.isEmpty else { return }
         let count = await NotificationService.shared.arm(
@@ -106,7 +116,12 @@ final class TimerController {
     static let dayName = "Your day"
 
     func disarm() {
-        NotificationService.shared.cancelAll()
+        let previous = teardown
+        teardown = Task {
+            await previous?.value
+            await NotificationService.shared.cancelAll()
+            await LiveActivityService.end()
+        }
         syncTask?.cancel()
         syncTask = nil
         armed = false
@@ -116,7 +131,35 @@ final class TimerController {
         adjustments = nil
         scheduledCount = 0
         defaults.removeObject(forKey: storageKey)
-        Task { await LiveActivityService.end() }
+    }
+
+    /// What `PlanStore.normalizeDates` must not roll out from under the countdown.
+    var dateHold: PlanStore.DateHold {
+        guard armed else { return PlanStore.DateHold() }
+        return armedIsDay ? PlanStore.DateHold(day: true) : PlanStore.DateHold(plan: armedKey)
+    }
+
+    /// Wait out any Stop still tearing down. See `teardown`.
+    private func settleTeardown() async {
+        guard let pending = teardown else { return }
+        await pending.value
+        if teardown == pending { teardown = nil }
+    }
+
+    // MARK: - Stale
+
+    /// True when the live plan (or Day) no longer matches the armed snapshot —
+    /// the scheduled alerts, the countdown and the Live Activity are all out of
+    /// date until a re-arm. Compared as *absolute* schedules: overnight, a
+    /// plan's Tomorrow becomes Today with no moment moving, and that is not a
+    /// change. Asked of the armed half, not the one being edited — switching
+    /// tabs is not a change to the armed plan. Done / Running late edit the
+    /// result, not the snapshot, so they never read as changed either.
+    func isStale(against store: PlanStore, now: Date = Date()) -> Bool {
+        guard armed else { return false }
+        if let armedDay { return store.day.anchored(now: now) != armedDay.anchored(now: now) }
+        guard let armedPlan else { return false }
+        return store.resolved(armedKey, now: now).anchored(now: now) != armedPlan.anchored(now: now)
     }
 
     // MARK: - Done / Running late (Now skin)
@@ -166,7 +209,7 @@ final class TimerController {
         )
         // A disarm may have landed while we were awaiting the scheduler — don't
         // leave its alerts behind it.
-        guard armed else { NotificationService.shared.cancelAll(); return }
+        guard armed else { await NotificationService.shared.cancelAll(); return }
         guard armedResult == result else { return }
         persist()
         let at = armedAt

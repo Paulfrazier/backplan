@@ -94,14 +94,13 @@ enum BackwardsPlanner {
 // MARK: - Formatting helpers (ports of the web fmtTime / fmtDuration)
 
 enum Fmt {
+    /// Clock time in the user's own format — "9:05 PM", or "21:05" with the
+    /// 24-Hour Time setting on (or a locale that defaults to it). The web's
+    /// `fmtTime` does the same through `toLocaleTimeString`.
     static func time(_ d: Date, calendar: Calendar = .current) -> String {
-        let comps = calendar.dateComponents([.hour, .minute], from: d)
-        var h = comps.hour ?? 0
-        let m = comps.minute ?? 0
-        let ampm = h >= 12 ? "PM" : "AM"
-        h = h % 12
-        if h == 0 { h = 12 }
-        return String(format: "%d:%02d %@", h, m, ampm)
+        d.formatted(Date.FormatStyle(date: .omitted, time: .shortened,
+                                     locale: .autoupdatingCurrent, calendar: calendar,
+                                     timeZone: calendar.timeZone))
     }
 
     static func duration(_ mins: Int) -> String {
@@ -386,11 +385,19 @@ struct NightSolve {
     /// The real bedtime deadline — routinely earlier than the one the user set.
     let deadline: Date
 
+    /// `morningOffset` is days from *today* — track mode's question.
     static func solve(
         morning: Plan, morningOffset: Int, sleepNeed: Int,
         now: Date = Date(), calendar: Calendar = .current
     ) -> NightSolve {
-        let morningTarget = morning.targetDate(now: now, calendar: calendar, dayOffset: morningOffset)
+        solve(morning: morning,
+              morningTarget: morning.targetDate(now: now, calendar: calendar, dayOffset: morningOffset),
+              sleepNeed: sleepNeed)
+    }
+
+    /// The pair's form: the morning plan already resolved to its own date (see
+    /// `PlanStore.resolved`), so this never re-derives which day it is.
+    static func solve(morning: Plan, morningTarget: Date, sleepNeed: Int) -> NightSolve {
         let wake = morningTarget.addingTimeInterval(TimeInterval(-morning.totalMinutes * 60))
         return NightSolve(
             morningTarget: morningTarget,
@@ -422,7 +429,12 @@ struct NightSolve {
 ///
 /// Direct port of the web `computeLink()` — keep the two in sync.
 struct NightBridge {
-    enum Verdict { case onTrack, tight, late }
+    /// `checkTimes`: more than a night between lights out and waking — a time
+    /// typed on the wrong side of noon, not a lie-in. Drawn in the tight tone.
+    enum Verdict { case onTrack, tight, late, checkTimes }
+
+    /// Longer than any real night. KEEP IN SYNC with the web `NIGHT_MAX_MIN`.
+    static let nightMaxMinutes = 16 * 60
 
     let morningTarget: Date
     let wake: Date
@@ -439,6 +451,7 @@ struct NightBridge {
     let latestStart: Date
 
     var verdict: Verdict {
+        if actualSleepMinutes > Self.nightMaxMinutes { return .checkTimes }
         if slackMinutes < 0 { return .late }
         if slackMinutes < 15 { return .tight }
         return .onTrack
@@ -449,22 +462,26 @@ struct NightBridge {
         case .onTrack: return "On track"
         case .tight: return "Tight"
         case .late: return "Too late"
+        case .checkTimes: return "Check times"
         }
     }
 
+    /// Both plans arrive already resolved to their own dates (`PlanStore.resolved`):
+    /// the morning is the day after the evening's *effective* date, so lights
+    /// out and wake are always one night apart, whatever day it is now.
     static func make(
-        evening: Plan, eveningOffset: Int,
-        morning: Plan, morningOffset: Int,
+        evening: Plan, morning: Plan,
         sleepNeed: Int,
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> NightBridge {
-        let solved = NightSolve.solve(morning: morning, morningOffset: morningOffset,
-                                      sleepNeed: sleepNeed, now: now, calendar: calendar)
+        let solved = NightSolve.solve(morning: morning,
+                                      morningTarget: morning.targetDate(now: now, calendar: calendar),
+                                      sleepNeed: sleepNeed)
         let morningTarget = solved.morningTarget
         let wake = solved.wake
         let deadline = solved.deadline
-        let lightsOut = evening.targetDate(now: now, calendar: calendar, dayOffset: eveningOffset)
+        let lightsOut = evening.targetDate(now: now, calendar: calendar)
         let eveningMinutes = evening.totalMinutes
 
         // "If the whole evening started right now" — a projection that needs no
@@ -497,6 +514,9 @@ struct NightBridge {
         let slept = Fmt.duration(max(0, actualSleepMinutes))
 
         switch verdict {
+        case .checkTimes:
+            return "Lights out at \(Fmt.time(lightsOut)) is \(slept) before waking at \(Fmt.time(wake)) — "
+                 + "more than one night. Check AM and PM on both targets."
         case .late:
             return "Lights out at \(Fmt.time(lightsOut)) is \(Fmt.duration(-slackMinutes)) past the deadline. "
                  + "Wake at \(Fmt.time(wake)) gives \(slept) — \(sleepPhrase)."
@@ -631,7 +651,8 @@ struct SleepTrack {
         if secondsToLeaveBy > 0 {
             return "Leave by \(Fmt.time(leaveBy)) and the full \(need) still fits — \(Fmt.clock(secondsToLeaveBy)) from now."
         }
-        return "The full \(need) needed leaving by \(Fmt.time(leaveBy)) — \(Fmt.clock(-secondsToLeaveBy)) ago. "
+        // Whole minutes: "11:34:07 ago" is a stopwatch dropped into a sentence.
+        return "The full \(need) needed leaving by \(Fmt.time(leaveBy)) — \(Fmt.duration(max(1, Int((Double(-secondsToLeaveBy) / 60).rounded())))) ago. "
              + "Every minute here is a minute of sleep: trim the wind-down below, or take the loss."
     }
 }

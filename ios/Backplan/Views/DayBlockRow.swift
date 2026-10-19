@@ -241,7 +241,7 @@ struct DayBlockRow: View {
 
     private var atBinding: Binding<Date> {
         Binding(
-            get: { DayPlanner.clock(block.at ?? "12:00", on: store.day.date, now: Date()) },
+            get: { DayPlanner.clock(block.at ?? "12:00", on: store.day, now: Date()) },
             set: { block.at = DayPlanner.hhmm($0) }
         )
     }

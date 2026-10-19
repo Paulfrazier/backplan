@@ -61,7 +61,7 @@ struct NowView: View {
         if store.track.on {
             return .empty("Track to sleep is on, so your plan has no fixed time to count down to — and nothing on your day is still ahead.")
         }
-        let plan = BackwardsPlanner.compute(store.plan, now: now)
+        let plan = store.result(for: store.activeKey, now: now)
         if !plan.segments.isEmpty && !plan.isPast {
             return .chain(NowChain(isDay: false, result: plan, name: planName(store.plan),
                                    armed: false, armedAt: now, eventName: eventName(store.plan)))
@@ -69,7 +69,9 @@ struct NowView: View {
         if plan.segments.isEmpty {
             return .empty("Your plan has no steps with a duration yet, and nothing on your day is still ahead.")
         }
-        return .empty("Your plan’s target time has passed, and nothing on your day is still ahead.")
+        // Not a dead end: the same one-tap way out the Plan tab offers.
+        return .empty("Your plan’s target time has passed, and nothing on your day is still ahead.",
+                      offerTomorrow: true)
     }
 
     private func eventName(_ plan: Plan?) -> String {
@@ -86,8 +88,8 @@ struct NowView: View {
     @ViewBuilder
     private func screen(_ candidate: NowCandidate, now: Date) -> some View {
         switch candidate {
-        case .empty(let why):
-            ScrollView { emptyState(why).padding(16) }
+        case .empty(let why, let offerTomorrow):
+            ScrollView { emptyState(why, offerTomorrow: offerTomorrow).padding(16) }
         case .chain(let chain):
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -211,7 +213,7 @@ struct NowView: View {
                         if chain.isDay {
                             await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
                         } else {
-                            await timer.arm(key: store.activeKey, plan: store.plan)
+                            await timer.arm(key: store.activeKey, plan: store.resolved(store.activeKey))
                         }
                     }
                 } label: {
@@ -236,7 +238,7 @@ struct NowView: View {
 
     // MARK: - Empty
 
-    private func emptyState(_ why: String) -> some View {
+    private func emptyState(_ why: String, offerTomorrow: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Nothing to count down")
                 .font(.display(30))
@@ -244,6 +246,19 @@ struct NowView: View {
             Text(why)
                 .font(.body)
                 .foregroundStyle(.bpInk)
+            if offerTomorrow {
+                Button {
+                    store.planForTomorrow(store.activeKey)
+                } label: {
+                    Text("Plan for tomorrow")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .neoPill(fill: .bpLime)
+                        .foregroundStyle(.bpInk)
+                }
+                .buttonStyle(.plain)
+            }
             HStack(spacing: 10) {
                 emptyButton("Open Plan", tab: "plan")
                 emptyButton("Open Day", tab: "day")
@@ -268,14 +283,9 @@ struct NowView: View {
 
     // MARK: - Stale
 
-    /// Same question Classic's arm bar asks: the plan/day, not the segments, so
-    /// Done / Running late never read as "changed".
-    private var planChanged: Bool {
-        guard timer.armed else { return false }
-        if let armedDay = timer.armedDay { return store.day != armedDay }
-        guard let armedPlan = timer.armedPlan else { return false }
-        return store.pair[timer.armedKey] != armedPlan
-    }
+    /// Same question Classic's arm bar asks (`TimerController.isStale`): the
+    /// plan/day, not the segments, so Done / Running late never read as "changed".
+    private var planChanged: Bool { timer.isStale(against: store) }
 
     private var staleBanner: some View {
         HStack(spacing: 8) {
@@ -290,7 +300,7 @@ struct NowView: View {
                         if timer.armedIsDay {
                             await timer.armDay(store.day, result: DayPlanner.armable(store.dayResult()))
                         } else {
-                            await timer.arm(key: timer.armedKey, plan: store.pair[timer.armedKey])
+                            await timer.arm(key: timer.armedKey, plan: store.resolved(timer.armedKey))
                         }
                     }
                 } label: {
@@ -336,7 +346,8 @@ struct NowChain {
 
 enum NowCandidate {
     case chain(NowChain)
-    case empty(String)
+    /// `offerTomorrow`: the plan's time has passed today and one tap can move it.
+    case empty(String, offerTomorrow: Bool = false)
 }
 
 /// The words at the top of the screen. Pure, so it reads the same armed or
@@ -542,8 +553,13 @@ private struct NowHero: View {
 // MARK: - Up next
 
 /// The whole chain as rows — `start · name · duration` — with the running one
-/// marked and past ones receded, exactly as Overview mode draws a plan. Idle
-/// stretches (a Day's, or the gap Done opens) show as "free".
+/// marked, exactly as Overview mode draws a plan. Idle stretches (a Day's, or
+/// the gap Done opens) show as "free". Rows run in time order with the target
+/// where it falls: Running late can push a step past the target, or one run
+/// past the next, and array order would print those out of sequence. The
+/// header says "Up next" until something is done; then it names the whole
+/// list ("Schedule") and an "Up next" divider marks the first row still ahead.
+/// KEEP IN SYNC with the web `buildNowList` / `tickNow`.
 private struct NowUpNextList: View {
     let chain: NowChain
     let now: Date
@@ -551,12 +567,29 @@ private struct NowUpNextList: View {
     private enum Row: Identifiable {
         case seg(PlanSegment)
         case gap(start: Date, minutes: Int)
+        case target(Date)
         var id: String {
             switch self {
             case .seg(let s): return s.id.uuidString + "\(s.start.timeIntervalSince1970)"
             case .gap(let start, _): return "gap\(start.timeIntervalSince1970)"
+            case .target: return "target"
             }
         }
+        var start: Date {
+            switch self {
+            case .seg(let s): return s.start
+            case .gap(let start, _): return start
+            case .target(let t): return t
+            }
+        }
+        var end: Date {
+            switch self {
+            case .seg(let s): return s.end
+            case .gap(let start, let minutes): return start.addingTimeInterval(TimeInterval(minutes * 60))
+            case .target(let t): return t
+            }
+        }
+        var isTarget: Bool { if case .target = self { return true } else { return false } }
     }
 
     private var rows: [Row] {
@@ -570,34 +603,58 @@ private struct NowUpNextList: View {
             out.append(.seg(seg))
             lastEnd = max(lastEnd ?? seg.end, seg.end)
         }
-        return out
+        out.append(.target(chain.result.target))
+        // Stable sort, so a gap stays ahead of the step it precedes and the
+        // target, appended last, stays after anything starting at its minute.
+        return out.enumerated()
+            .sorted { ($0.element.start, $0.offset) < ($1.element.start, $1.offset) }
+            .map(\.element)
     }
 
     var body: some View {
+        let all = rows
+        let isDone = { (r: Row) in !r.isTarget && r.end <= now }
+        let anyDone = all.contains(where: isDone)
+        let firstAhead = all.first { !isDone($0) && !($0.isTarget && now >= $0.start) }?.id
         VStack(alignment: .leading, spacing: 0) {
-            Text("UP NEXT")
-                .font(.caption.weight(.bold))
-                .kerning(0.8)
-                .foregroundStyle(.bpMuted)
-                .padding(.horizontal, 14)
+            header(anyDone ? "SCHEDULE" : "UP NEXT")
                 .padding(.bottom, 6)
-            ForEach(rows) { row in
-                switch row {
-                case .seg(let seg): segRow(seg)
-                case .gap(let start, let minutes): gapRow(start: start, minutes: minutes)
+            ForEach(all) { r in
+                if anyDone && r.id == firstAhead {
+                    header("UP NEXT")
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.bpPaper)
+                        .overlay(alignment: .bottom) { Rectangle().fill(.bpRule).frame(height: 1) }
                 }
+                row(r).opacity(isDone(r) ? 0.45 : 1)
             }
-            OverviewTargetRow(target: chain.result.target,
-                              eventName: chain.isDay ? "Day done" : chain.name)
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .neoCard(padding: 0)
     }
 
+    private func header(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.bold))
+            .kerning(0.8)
+            .foregroundStyle(.bpMuted)
+            .padding(.horizontal, 14)
+    }
+
+    @ViewBuilder
+    private func row(_ row: Row) -> some View {
+        switch row {
+        case .seg(let seg): segRow(seg)
+        case .gap(let start, let minutes): gapRow(start: start, minutes: minutes)
+        case .target(let t):
+            OverviewTargetRow(target: t, eventName: chain.isDay ? "Day done" : chain.name)
+        }
+    }
+
     private func segRow(_ seg: PlanSegment) -> some View {
         let isNow = now >= seg.start && now < seg.end
-        let done = now >= seg.end
         return HStack(alignment: .firstTextBaseline, spacing: 14) {
             Text(Fmt.time(seg.start))
                 .font(.subheadline.weight(.bold))
@@ -629,7 +686,6 @@ private struct NowUpNextList: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 14)
         .background(isNow ? Color.bpLimeTint : .clear)
-        .opacity(done ? 0.45 : 1)
     }
 
     private func gapRow(start: Date, minutes: Int) -> some View {
@@ -647,7 +703,6 @@ private struct NowUpNextList: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 14)
-        .opacity(now >= start.addingTimeInterval(TimeInterval(minutes * 60)) ? 0.45 : 1)
     }
 }
 

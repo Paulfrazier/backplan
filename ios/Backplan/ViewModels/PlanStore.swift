@@ -9,8 +9,14 @@ final class PlanStore {
     /// `store.plan.steps` call site working unchanged.
     var pair: PlanPair {
         didSet {
+            // Assigned inside its own didSet, so this doesn't re-enter; and
+            // even if it did, a second pass finds nothing left to stamp.
+            var stamped = pair
+            if PlanStore.stampBaseDates(&stamped, from: oldValue) { pair = stamped }
             persistLast()
-            syncLinked()
+            // Re-saying a date isn't an edit: a linked template keeps the
+            // Today / Tomorrow it was saved with.
+            if !normalizing { syncLinked() }
         }
     }
     /// Which half the editor is pointed at.
@@ -46,8 +52,16 @@ final class PlanStore {
     /// The Day view's blocks. Lives here, not in its own store, because a
     /// linked plan writes through to its blocks on every edit.
     var day: DayPlan {
-        didSet { persistDay() }
+        didSet {
+            // Picking Today / Tomorrow anchors it to today's date, exactly as
+            // the plan's picker does (see `stampBaseDates`).
+            let picked = day.date != oldValue.date && day.baseDate == oldValue.baseDate
+            if picked || day.baseDate == nil { day.baseDate = LocalDay.key(Date()) }
+            persistDay()
+        }
     }
+    /// True while `normalizeDates` writes, so the write isn't taken for an edit.
+    @ObservationIgnored private var normalizing = false
     /// The template the open plan writes through to (see `syncLinked`).
     var linkedTemplateID: UUID? {
         didSet { defaults.set(linkedTemplateID?.uuidString, forKey: linkedKey) }
@@ -85,6 +99,94 @@ final class PlanStore {
         let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
         self.dayLegs = (PlanStore.load([String: DayLegCacheEntry].self, key: "backplan.daylegs", from: defaults) ?? [:])
             .filter { $0.value.fetchedAt > cutoff }
+        // Dates are normalized by the app once the armed snapshot is loaded
+        // (a roll has to wait while its plan is the armed one) — see BackplanApp.
+    }
+
+    // MARK: - Dates
+
+    /// What is armed, for `normalizeDates`: the armed plan's half, or the Day.
+    struct DateHold {
+        var plan: PlanKey?
+        var day = false
+    }
+
+    /// Re-anchor every saved date to today (see `Plan.normalizeDate`). Run at
+    /// launch, on return to the foreground and when the local date changes
+    /// under a running app — the three ways a plan saved "tomorrow" can find
+    /// itself read on the day it meant. KEEP IN SYNC with the web
+    /// `normalizeDates` — same rules, same order (evening, morning, Day).
+    ///
+    /// `hold` says what is armed: a roll (which moves the moment) never
+    /// happens to the armed plan or an armed Day; re-saying the same moment
+    /// from today always does.
+    func normalizeDates(hold: DateHold = DateHold(), now: Date = Date()) {
+        var p = pair
+        let holdEvening: Bool
+        if link.enabled {
+            // The pair is one night: last night's lights-out stays where it was
+            // until this morning's target has gone by — rolling it to tonight at
+            // 6:55 AM would push the school run to tomorrow.
+            let lastNight = p.evening.effectiveDay(now: now) < Calendar.current.startOfDay(for: now)
+            holdEvening = hold.plan != nil
+                || (lastNight && PlanStore.chainedMorning(p.morning, after: p.evening, now: now).targetDate(now: now) > now)
+        } else {
+            holdEvening = hold.plan == .evening
+        }
+        let evening = p.evening.normalizeDate(now: now, hold: holdEvening)
+        let morning = p.morning.normalizeDate(now: now, hold: hold.plan == .morning)
+        if evening || morning {
+            normalizing = true
+            pair = p
+            normalizing = false
+        }
+        var d = day
+        if d.normalizeDate(now: now, hold: hold.day) { day = d }
+    }
+
+    /// Is this half's date before today? Only a held linked evening can be —
+    /// last night's lights-out, read before this morning's target.
+    func isLastNight(_ key: PlanKey, now: Date = Date()) -> Bool {
+        resolved(key, now: now).effectiveDay(now: now) < Calendar.current.startOfDay(for: now)
+    }
+
+    /// The past-target way forward: the same clock time, tomorrow. A linked
+    /// morning's day is derived, so it gets there by moving the night —
+    /// tonight's evening, or tomorrow's if that still lands the morning today.
+    /// KEEP IN SYNC with the web `planForTomorrow`.
+    func planForTomorrow(_ key: PlanKey, now: Date = Date()) {
+        let today = LocalDay.key(now)
+        var p = pair
+        if link.enabled && key == .morning {
+            p.evening.day = .today
+            p.evening.baseDate = today
+            let morningDay = PlanStore.chainedMorning(p.morning, after: p.evening, now: now).effectiveDay(now: now)
+            if morningDay <= Calendar.current.startOfDay(for: now) { p.evening.day = .tomorrow }
+        } else {
+            p[key].day = .tomorrow
+            p[key].baseDate = today
+        }
+        pair = p
+    }
+
+    /// Choosing Today / Tomorrow or a new target time is a choice made *today*,
+    /// so it anchors to today's date — unless the same write set `baseDate`
+    /// itself (normalization does), or there was none to begin with (a template
+    /// just loaded, a legacy record). Returns true when it stamped anything.
+    private static func stampBaseDates(_ pair: inout PlanPair, from old: PlanPair) -> Bool {
+        var changed = false
+        for key in PlanKey.allCases {
+            let was = old[key], now = pair[key]
+            let picked = (now.day != was.day || now.target != was.target) && now.baseDate == was.baseDate
+            if picked || now.baseDate == nil {
+                let today = LocalDay.key(Date())
+                if now.baseDate != today {
+                    pair[key].baseDate = today
+                    changed = true
+                }
+            }
+        }
+        return changed
     }
 
     /// Live computed result for the current plan. Pass `now` so views can drive
@@ -96,34 +198,48 @@ final class PlanStore {
         if let track = sleepTrack(now: now) {
             return BackwardsPlanner.compute(plan, endingAt: track.asleepAt, now: now)
         }
-        return BackwardsPlanner.compute(plan, now: now)
+        return BackwardsPlanner.compute(resolved(activeKey, now: now), now: now)
     }
 
     // MARK: - The night pair
 
-    /// Chained, the morning plan is always the day *after* the evening one — an
-    /// offset two-valued `TargetDay` cannot express, so it is derived here.
-    /// Mirrors the web `dayOffsetFor(plan)`.
-    func dayOffset(for key: PlanKey) -> Int {
-        if link.enabled && key == .morning {
-            return (pair.evening.day == .tomorrow ? 1 : 0) + 1
+    /// A half as it will actually run. Chained, the morning plan is always the
+    /// day *after* the evening one's effective date — something two-valued
+    /// `TargetDay` cannot say on its own, so it is derived here, and every
+    /// consumer (result, bridge, arming, the stale check) reads this rather
+    /// than `pair[key]`. Mirrors the web `dayOffsetFor(plan)`.
+    func resolved(_ key: PlanKey, now: Date = Date()) -> Plan {
+        guard link.enabled && key == .morning else { return pair[key] }
+        return PlanStore.chainedMorning(pair.morning, after: pair.evening, now: now)
+    }
+
+    /// The first morning target *after* lights out: normally the next day,
+    /// but a 12:30 AM lights-out is followed by that same day's 8:15, not the
+    /// one 31 hours away.
+    static func chainedMorning(_ morning: Plan, after evening: Plan, now: Date = Date()) -> Plan {
+        func mins(_ hhmm: String) -> Int {
+            let parts = hhmm.split(separator: ":").map { Int($0) ?? 0 }
+            return (parts.first ?? 0) * 60 + (parts.count > 1 ? parts[1] : 0)
         }
-        return pair[key].day == .tomorrow ? 1 : 0
+        var p = morning
+        p.baseDate = LocalDay.key(evening.effectiveDay(now: now))
+        p.day = mins(morning.target) > mins(evening.target) ? .today : .tomorrow
+        return p
     }
 
     /// `nil` when the pair is off, which is also what hides the bridge.
     func bridge(now: Date = Date()) -> NightBridge? {
         guard link.enabled else { return nil }
         return NightBridge.make(
-            evening: pair.evening, eveningOffset: dayOffset(for: .evening),
-            morning: pair.morning, morningOffset: dayOffset(for: .morning),
+            evening: resolved(.evening, now: now),
+            morning: resolved(.morning, now: now),
             sleepNeed: link.sleepNeed, now: now
         )
     }
 
     /// Result for either half, for the tab subtitles.
     func result(for key: PlanKey, now: Date = Date()) -> PlanResult {
-        BackwardsPlanner.compute(pair[key], now: now)
+        BackwardsPlanner.compute(resolved(key, now: now), now: now)
     }
 
     func switchTo(_ key: PlanKey) {
@@ -218,7 +334,10 @@ final class PlanStore {
     func loadStarter(_ starter: Starters.Starter) {
         // Unlink first: otherwise the swap would be written into the template.
         linkedTemplateID = nil
-        plan.steps = starter.steps
+        var p = plan
+        p.steps = starter.steps
+        p.baseDate = LocalDay.key(Date())
+        plan = p
     }
 
     /// True if there's anything worth warning about before a starter replaces it.
@@ -365,9 +484,9 @@ final class PlanStore {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         if let idx = templates.firstIndex(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
-            templates[idx].plan = plan
+            templates[idx].plan = plan.asTemplate
         } else {
-            templates.append(Template(name: trimmed, plan: plan))
+            templates.append(Template(name: trimmed, plan: plan.asTemplate))
         }
         refreshLinkedBlocks()
     }
@@ -375,7 +494,10 @@ final class PlanStore {
     /// Loading a template is a fresh copy, not an edit of it.
     func loadTemplate(_ template: Template) {
         linkedTemplateID = nil
-        plan = template.plan
+        // Templates carry no date; a loaded one is planned from today.
+        var p = template.plan
+        p.baseDate = LocalDay.key(Date())
+        plan = p
     }
 
     func deleteTemplate(_ template: Template) {
@@ -431,7 +553,7 @@ final class PlanStore {
     /// The morning half before the user has ever switched the pair on. Empty by
     /// design — `setLinkEnabled` seeds it at the moment it first becomes visible.
     private static func seedMorning() -> Plan {
-        Plan(eventName: "", target: "08:15", day: .tomorrow, steps: [])
+        Plan(eventName: "", target: "08:15", day: .tomorrow, steps: [], baseDate: LocalDay.key(Date()))
     }
 
     private func persistTemplates() {
@@ -477,7 +599,8 @@ final class PlanStore {
                 Step(name: "Get dressed", duration: 10, unit: .min),
                 Step(name: "Drive there", duration: 25, unit: .min),
                 Step(name: "Find parking", duration: 10, unit: .min),
-            ]
+            ],
+            baseDate: LocalDay.key(now, calendar: calendar)
         )
     }
 }

@@ -13,6 +13,11 @@ struct PlanView: View {
     @State private var askingDayName = false
     @State private var dayName = ""
     @State private var confirmOverwrite: String?
+    /// Add to Day when the Day holds blocks for another date: the name to add
+    /// under, and both dates in words.
+    @State private var dateClash: (name: String, plan: String, day: String)?
+    /// Add to Day refused outright (a plan dated outside today / tomorrow).
+    @State private var dateRefusal: String?
 
     var body: some View {
         @Bindable var store = store
@@ -75,6 +80,30 @@ struct PlanView: View {
                 Button("Cancel", role: .cancel) { confirmOverwrite = nil }
             } message: {
                 Text("A template with that name exists. This plan replaces it and links it to your Day.")
+            }
+            .confirmationDialog(
+                "Switch your Day to \(dateClash?.plan ?? "that day")?",
+                isPresented: Binding(get: { dateClash != nil }, set: { if !$0 { dateClash = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Switch to \(dateClash?.plan ?? "that day")") {
+                    if let name = dateClash?.name, store.addPlanToDay(name: name, moveDay: true) != nil {
+                        mode = "day"
+                    }
+                    dateClash = nil
+                }
+                // Cancel adds nothing.
+                Button("Cancel", role: .cancel) { dateClash = nil }
+            } message: {
+                // KEEP IN SYNC with the web confirm.
+                Text("This plan is for \(dateClash?.plan ?? ""), and your Day is planning \(dateClash?.day ?? ""). "
+                     + "Switch your Day to \(dateClash?.plan ?? "")? Its blocks move with it.")
+            }
+            .alert("Can't add to your Day",
+                   isPresented: Binding(get: { dateRefusal != nil }, set: { if !$0 { dateRefusal = nil } })) {
+                Button("OK", role: .cancel) { dateRefusal = nil }
+            } message: {
+                Text(dateRefusal ?? "")
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -195,19 +224,17 @@ struct PlanView: View {
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(.bpInk)
             Spacer(minLength: 8)
-            if store.plan.day == .today {
-                Button {
-                    store.plan.day = .tomorrow
-                } label: {
-                    Text("Tomorrow")
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .neoPill(fill: .bpLime)
-                        .foregroundStyle(.bpInk)
-                }
-                .buttonStyle(.plain)
+            Button {
+                store.planForTomorrow(store.activeKey)
+            } label: {
+                Text("Plan for tomorrow")
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .neoPill(fill: .bpLime)
+                    .foregroundStyle(.bpInk)
             }
+            .buttonStyle(.plain)
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.bpCoralTint))
@@ -229,7 +256,10 @@ struct PlanView: View {
                             .labelsHidden()
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        fieldLabel(dayIsDerived ? "Day — follows tonight" : "Day")
+                        // Before this morning's target, a linked evening is
+                        // still last night's (normalizeDates holds it there).
+                        fieldLabel(dayIsDerived ? "Day — follows tonight"
+                                   : store.wrappedValue.isLastNight(store.wrappedValue.activeKey) ? "Day — last night" : "Day")
                         Picker("Day", selection: store.plan.day) {
                             ForEach(TargetDay.allCases) { d in
                                 Text(d.label).tag(d)
@@ -598,6 +628,17 @@ struct PlanView: View {
     }
 
     private func commitAddToDay(_ name: String) {
+        // Never drop a plan onto a Day showing some other date; ask first.
+        switch store.addToDayDate() {
+        case .refused(let why):
+            dateRefusal = why
+            return
+        case .move(let plan, let day):
+            dateClash = (name, plan, day)
+            return
+        case .fits:
+            break
+        }
         if store.addPlanToDay(name: name) != nil { mode = "day" }
     }
 

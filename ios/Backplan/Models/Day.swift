@@ -78,16 +78,55 @@ struct DayBlock: Codable, Identifiable, Hashable, Sendable {
 struct DayPlan: Codable, Equatable, Sendable {
     var date: TargetDay = .today
     var blocks: [DayBlock] = []
+    /// The calendar date `date` is relative to — the same anchor, for the
+    /// same reason, as `Plan.baseDate`. nil (a legacy record) reads as today.
+    var baseDate: String?
 
-    init(date: TargetDay = .today, blocks: [DayBlock] = []) {
+    init(date: TargetDay = .today, blocks: [DayBlock] = [], baseDate: String? = nil) {
         self.date = date
         self.blocks = blocks
+        self.baseDate = baseDate
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         date = try c.decodeIfPresent(TargetDay.self, forKey: .date) ?? .today
         blocks = try c.decodeIfPresent([DayBlock].self, forKey: .blocks) ?? []
+        baseDate = try? c.decodeIfPresent(String.self, forKey: .baseDate)
+    }
+
+    /// The Day's dates go through the very same rules as a plan's, so the two
+    /// can never disagree about which day "tomorrow" is.
+    private var asPlan: Plan { Plan(target: "00:00", day: date, baseDate: baseDate) }
+
+    /// Start of the calendar day the blocks are on.
+    func effectiveDay(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        asPlan.effectiveDay(now: now, calendar: calendar)
+    }
+
+    func isToday(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        calendar.isDate(effectiveDay(now: now, calendar: calendar), inSameDayAs: now)
+    }
+
+    /// See `Plan.normalizeDate`. A Day has no single target time, so a Day
+    /// whose date has gone by simply becomes today's — unless it is armed.
+    @discardableResult
+    mutating func normalizeDate(now: Date = Date(), calendar: Calendar = .current, hold: Bool = false) -> Bool {
+        var p = asPlan
+        // Midnight target: "has it passed today" is always yes, so a stale Day
+        // would roll to tomorrow. A Day left over from before is today's.
+        guard p.normalizeDate(now: now, calendar: calendar, hold: hold) else { return false }
+        let wasStale = baseDate.flatMap { LocalDay.start($0, calendar: calendar) }
+            .map { effectiveDay(now: now, calendar: calendar) < calendar.startOfDay(for: now) } ?? false
+        date = wasStale ? .today : p.day
+        baseDate = p.baseDate
+        return true
+    }
+
+    /// See `Plan.anchored` — blocks plus an absolute date.
+    func anchored(now: Date = Date(), calendar: Calendar = .current) -> DayPlan {
+        DayPlan(date: .today, blocks: blocks,
+                baseDate: LocalDay.key(effectiveDay(now: now, calendar: calendar), calendar: calendar))
     }
 
     /// First visit: the exact question the Day view exists to answer.

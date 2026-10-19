@@ -111,7 +111,7 @@ struct NightBridgeView: View {
     private var deadlineColor: Color {
         switch bridge.verdict {
         case .onTrack: return .bpLimeInk
-        case .tight: return .bpGoldInk
+        case .tight, .checkTimes: return .bpGoldInk
         case .late: return .bpCoral
         }
     }
@@ -119,7 +119,7 @@ struct NightBridgeView: View {
     private var pillFill: Color {
         switch bridge.verdict {
         case .onTrack: return .bpLimeTint
-        case .tight: return .bpGoldTint
+        case .tight, .checkTimes: return .bpGoldTint
         case .late: return .bpCoralTint
         }
     }
@@ -127,7 +127,7 @@ struct NightBridgeView: View {
     private var pillBorder: Color {
         switch bridge.verdict {
         case .onTrack: return .bpLime
-        case .tight: return .bpGold
+        case .tight, .checkTimes: return .bpGold
         case .late: return .bpCoral
         }
     }
@@ -135,7 +135,7 @@ struct NightBridgeView: View {
     private var pillInk: Color {
         switch bridge.verdict {
         case .onTrack: return .bpLimeInk
-        case .tight: return .bpGoldInk
+        case .tight, .checkTimes: return .bpGoldInk
         case .late: return .bpCoral
         }
     }
