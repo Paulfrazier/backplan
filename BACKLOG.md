@@ -349,8 +349,58 @@ no-backend / client-only solutions where possible.
   - Open: the overlap case (a late block running into a pinned one) keeps counting
     to the late block's end; live alert delivery and Live Activity updates after an
     adjustment are untested headlessly; re-arming clears adjustments.
+- [x] **Morning fixes — "Tomorrow" is a date now** (branch `morning-fixes`, from
+  the Oct 2026 four-agent design review). Web + iOS.
+  - **The bug.** `day: 'tomorrow'` was resolved against *now* on every read, so a
+    9 PM plan for "8:05 tomorrow" meant the day after once midnight passed: hero,
+    countdown and armed snapshot disagreed, "Plan changed" fired falsely, and
+    Re-arm armed a day late — no alerts on the actual school morning.
+  - **Model.** Plans (single, evening, morning) and the Day carry `baseDate`
+    (local `YYYY-MM-DD`); real date = baseDate + (tomorrow ? 1 : 0). Templates stay
+    relative. `normalizeDates` (web: load, tab focus, 1s tick; iOS: launch,
+    foreground, day-change, 1-min) re-says the same moment from today, or rolls a
+    days-stale plan to the next occurrence of its clock time. Rolls are **held**
+    while that plan is armed, and a linked evening is held until this morning's
+    target has passed (else 6:55 AM would roll last night to tonight and push
+    school to tomorrow). Stale checks compare absolute times/dates.
+  - **Pair.** Linked morning = first morning target *after* lights-out (fixed "23 hr
+    of sleep"); >16 hr lights-out→wake reads "Check times" (a PM-typed morning).
+  - **Past target** offers one-tap "Plan for tomorrow" instead of a dead end.
+  - Smaller: Send to Day lands on the plan's real date (asks before switching the
+    Day); a linked block's pin follows the plan's target (only if still on the old
+    one); sleep fields hidden with the chain off (CSS specificity); Track to sleep
+    says "11 hr 34 min ago"; Now list in time order with an "Up next" divider.
+  - **iOS only:** foreground notification delegate (alerts were silent while the
+    app was open); Stop's teardown is one task every arm awaits (Stop→Start race);
+    Live Activity progress span rides the content state so Done/Late move it;
+    clock times follow the locale (24-hour). DEBUG `-BPSelfCheck` runs 39 date
+    checks.
+  - Open: foreground alerts, the Stop→Start ordering and the Live Activity bar
+    after Done/Late are code-verified only (sim can't tap or lock).
 
 ## Backlog
+
+### 0. Design review roadmap (Oct 2026) — "close to great → amazing"
+Four parallel reviews (visual, flow, iOS, product) converged on:
+1. **Now is the app, not a skin.** Three tabs: Now (home) · Day (real-date strip;
+   bedtime = the sleep block before tomorrow's first pin, replacing Track-to-sleep
+   and the Chain checkbox) · Routines (step lists with no time). Classic behind a
+   hidden flag for one release. *Paul's call.*
+2. **School mornings arm themselves** — weekday → routine map, countdown already
+   running at wake. Ship a local Done-tap log alongside (learned durations need
+   ~2 weeks of history).
+3. **Polish:** dark mode (none on either platform, in a bedtime app); Now clock
+   ~30vw with status colour, Done the primary and Stop a text link; Dynamic Type
+   (AX sizes push Done off-screen on iOS); haptics (none); tokenise ~30 stray hex
+   colours; fix the khaki elapsed fill; first run starts with a question
+   ("School 8:05") not a demo already in progress.
+4. **iOS surfaces:** Done/+5 on the Live Activity and notification actions (each tap
+   refreshes the card, no server) → Home/Lock/StandBy widgets (timeline can change
+   the step name while suspended) → App Intents ("When do I leave?", "I'm running
+   late") → AlarmKit "leave now", MapKit ETA for traffic (free, no key).
+5. **Later bets:** behind → offer cuts (skip buffer, quick breakfast); kid view (big
+   wedge, giant Done); partner share link; calendar pins. Edge vs. Rutin (closest
+   competitor): tomorrow's bell → tonight's bedtime, key-free bike/walk legs, free.
 
 ### 1. Timer integration — what's still missing
 The core shipped (see Done). Still open:
