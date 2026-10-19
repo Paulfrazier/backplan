@@ -42,8 +42,10 @@ enum DebugSeed {
             let enc = JSONEncoder()
             let target = Date().addingTimeInterval(40 * 60)
             let c = Calendar.current.dateComponents([.hour, .minute], from: target)
+            // Near midnight "now + 40" is tomorrow's clock time.
+            let day: TargetDay = Calendar.current.isDateInToday(target) ? .today : .tomorrow
             let plan = Plan(eventName: "School", target: String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0),
-                            day: .today, steps: [
+                            day: day, steps: [
                 Step(name: "Pack bag", duration: 15, unit: .min),
                 Step(name: "Shoes on", duration: 5, unit: .min),
                 Step(name: "Bike to School", duration: 25, unit: .min),
