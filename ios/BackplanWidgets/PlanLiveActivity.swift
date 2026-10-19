@@ -135,11 +135,13 @@ struct PlanLiveActivity: Widget {
 
     /// The whole plan's span, not the current step's — it is the only bar that
     /// answers "how much of tonight is left", which is the question the card is
-    /// on the Lock Screen to answer.
+    /// on the Lock Screen to answer. Read from the state, which follows Done /
+    /// Running late; the attributes are only the arm-time fallback.
     private func progress(_ context: ActivityViewContext<PlanActivityAttributes>,
                           accent: Color) -> some View {
         ProgressView(
-            timerInterval: range(from: context.attributes.chainStart, to: context.attributes.target),
+            timerInterval: range(from: context.state.spanStart ?? context.attributes.chainStart,
+                                 to: context.state.spanEnd ?? context.attributes.target),
             countsDown: false
         ) { EmptyView() } currentValueLabel: { EmptyView() }
         .progressViewStyle(.linear)

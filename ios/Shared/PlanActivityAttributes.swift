@@ -34,6 +34,13 @@ struct PlanActivityAttributes: ActivityAttributes {
         /// What follows it; empty when nothing does.
         var next: String
         var phase: Phase
+        /// The progress bar's span as the chain now stands. Done / Running late
+        /// move it after arming, and `chainStart` / `target` above are fixed for
+        /// the life of the activity, so the span has to ride the state instead.
+        /// Optional so a state pushed by an older build still decodes; nil
+        /// falls back to the attributes.
+        var spanStart: Date?
+        var spanEnd: Date?
     }
 
     /// Mirrors `PlanPhase`, redeclared here because the planner is app-only.

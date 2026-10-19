@@ -89,7 +89,11 @@ enum LiveActivityService {
             // under a detail line that already says so reads as a bug. Same call
             // the web arm strip makes.
             next: countdown.phase == .future ? "" : countdown.status.next,
-            phase: phase(countdown.phase)
+            phase: phase(countdown.phase),
+            // First start to the later of the last end and the target: a step
+            // Running late has pushed past the target still belongs on the bar.
+            spanStart: result.segments.map(\.start).min(),
+            spanEnd: max(result.chainEnd ?? result.target, result.target)
         )
         return ActivityContent(state: state, staleDate: PlanCountdown.nextChange(result: result, now: now))
     }
