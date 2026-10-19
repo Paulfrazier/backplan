@@ -343,7 +343,9 @@
       cursor: pointer;
       flex: 0 0 auto;
     }
-    .night-field[hidden] { display: none; }
+    /* Two classes deep so `.target-row .field { display: flex }`, later in the
+       sheet and just as specific, can't un-hide these when the chain is off. */
+    .target-row .night-field[hidden] { display: none; }
     .sleep-input { display: flex; align-items: center; gap: var(--s1); }
     .sleep-input input { width: 5.5em; }
     .sleep-input span { font-size: 13px; color: var(--muted); }
@@ -1733,6 +1735,18 @@
     .now-stale .btn { padding: 6px 12px; font-size: 12.5px; }
     .now-list-panel { padding: 0; overflow: hidden; margin-bottom: var(--s4); }
     .now-list-panel[hidden] { display: none; }
+    .now-sep {
+      margin: 0;
+      padding: var(--s1) var(--s3);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom: var(--line-hair);
+      background: var(--paper);
+    }
     .ov-row.gap .ov-name { color: var(--muted); font-weight: 500; font-style: italic; }
     .ov-row.gap .ov-time { color: var(--muted); }
     .ov-row.gap.now .ov-name::after { content: none; }
@@ -2273,6 +2287,8 @@
         <!-- Only when the running countdown isn't the one this tab would start:
              there is one countdown, so this replaces it. -->
         <button class="btn" id="arm-swap" type="button" hidden>Count down the day</button>
+        <!-- Only when the plan's target has gone by: the one-tap way forward. -->
+        <button class="btn" id="arm-tomorrow" type="button" hidden>Plan for tomorrow</button>
         <p class="arm-note" id="arm-note"></p>
       </div>
     </section>
@@ -2547,6 +2563,7 @@
         <p class="now-headline">Nothing to count down.</p>
         <p class="now-empty-why" id="now-empty-why"></p>
         <div class="now-empty-actions">
+          <button class="btn" type="button" id="now-plan-tomorrow" hidden>Plan for tomorrow</button>
           <button class="btn" type="button" id="now-go-plan">Set up a plan</button>
           <button class="btn" type="button" id="now-go-day">Plan your day</button>
         </div>
@@ -2646,13 +2663,14 @@
     //   switching tabs is a pointer swap plus a re-render. It is `let`, not
     //   `const`, for exactly that reason.
     const plans = {
-      evening: { eventName: '', target: '20:20', day: 'today', steps: [], linked: null },
-      morning: { eventName: '', target: '08:15', day: 'tomorrow', steps: [], linked: null },
+      evening: { eventName: '', target: '20:20', day: 'today', baseDate: null, steps: [], linked: null },
+      morning: { eventName: '', target: '08:15', day: 'tomorrow', baseDate: null, steps: [], linked: null },
     };
     let activePlanKey = 'evening';
     let state = plans.evening;
     // Each plan carries `linked` — the name of the Day template it writes
-    // through to — so a link belongs to the half it was made from.
+    // through to — so a link belongs to the half it was made from — and
+    // `baseDate`, the calendar date its `day` is relative to (see isoOffset).
 
     // The edge. `sleepNeed` is a *minimum*, not a duration — the plan is wrong
     // when sleep falls under it, not when it merely differs from it.
@@ -2759,6 +2777,7 @@
     const $armNote = document.getElementById('arm-note');
     const $armSwap = document.getElementById('arm-swap');
     const $armStaleText = document.getElementById('arm-stale-text');
+    const $armTomorrow = document.getElementById('arm-tomorrow');
     const $hero = document.getElementById('hero');
     const $targetCard = document.getElementById('target-card');
     const $stepsTitle = document.getElementById('steps-title');
@@ -2821,14 +2840,41 @@
       const [h, m] = s.split(':').map(Number);
       return { h, m };
     }
+    // ── Calendar anchoring.
+    //   "Tomorrow" is relative, so on its own it means a different day once
+    //   midnight passes: 8:05 tomorrow, set at 9 PM, would silently become the
+    //   day after. So every plan (and the Day) carries `baseDate`, the local
+    //   calendar date its Today/Tomorrow was chosen on, and its real date is
+    //   baseDate + (tomorrow ? 1 : 0). normalizeDates() keeps baseDate at today
+    //   without moving the moment. KEEP IN SYNC with iOS (same field, same rule).
+    function localISO(d) {
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    }
+    function todayISO() { return localISO(new Date()); }
+    function validISO(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+    // Whole calendar days from today to `iso` (negative = past). Rounded, so a
+    // DST night's 23- or 25-hour day still counts as one.
+    function isoOffset(iso) {
+      if (!validISO(iso)) return 0;
+      const [y, mo, d] = iso.split('-').map(Number);
+      const then = new Date(y, mo - 1, d);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return Math.round((then - today) / 86400000);
+    }
+    function ownOffset(o) {
+      return isoOffset(o.baseDate) + (o.day === 'tomorrow' ? 1 : 0);
+    }
     // The pair spans midnight, which the two-value day toggle cannot express on
-    // its own: when linked, morning is always the day *after* the evening plan,
-    // so its offset is derived rather than chosen.
+    // its own: when linked, morning is the first morning target *after* lights
+    // out — normally the next day, but a 12:30 AM lights-out is followed by
+    // that same day's 8:15, not the one 31 hours away. Derived, not chosen.
     function dayOffsetFor(plan) {
       if (link.enabled && plan === plans.morning) {
-        return (plans.evening.day === 'tomorrow' ? 1 : 0) + 1;
+        const mins = t => { const { h, m } = parseHHMM(t || '00:00'); return h * 60 + m; };
+        return ownOffset(plans.evening) + (mins(plans.morning.target) > mins(plans.evening.target) ? 0 : 1);
       }
-      return plan.day === 'tomorrow' ? 1 : 0;
+      return ownOffset(plan);
     }
     // "HH:MM, N days from today" as an absolute Date.
     function dateAt(hhmm, dayOffset) {
@@ -3842,6 +3888,9 @@
       };
     }
 
+    // Longer than any real night; KEEP IN SYNC with iOS.
+    const NIGHT_MAX_MIN = 16 * 60;
+
     // The bridge sits in an aria-live region, so every write is change-guarded.
     function setText(el, txt) {
       if (el && el.textContent !== txt) el.textContent = txt;
@@ -3868,7 +3917,14 @@
       const slept = fmtDuration(Math.max(0, L.actualSleepMin));
 
       let cls, pill, text;
-      if (L.slackMin < 0) {
+      if (L.actualSleepMin > NIGHT_MAX_MIN) {
+        // More than a night between lights out and waking is a typed time on
+        // the wrong side of noon, not a lie-in — say so instead of "On track".
+        cls = 'tight';
+        pill = 'Check times';
+        text = `Lights out at ${fmtTime(L.lightsOut)} is ${slept} before waking at ${fmtTime(L.wake)} — ` +
+               `more than one night. Check AM and PM on both targets.`;
+      } else if (L.slackMin < 0) {
         cls = 'late';
         pill = 'Too late';
         text = `Lights out at ${fmtTime(L.lightsOut)} is ${fmtDuration(-L.slackMin)} past the deadline. ` +
@@ -4023,15 +4079,38 @@
     // derives from them (those drift with the clock and as routes land).
     // Like the plan's, it never looks at the snapshot's segments, so Done and
     // Running late can't trip "changed since you started".
+    // The calendar date, not the Today/Tomorrow word, so the midnight
+    // re-anchoring of "tomorrow" to "today" can't read as a change.
     function daySignature() {
-      return JSON.stringify(['day', dayState.date, dayState.blocks]);
+      return JSON.stringify(['day', localISO(dateAt('00:00', dayOffset())), dayState.blocks]);
     }
 
     function planBlockedReason(plan) {
       const { target, segments } = planSegments(plan);
       if (!segments.length) return 'Add a step with a duration first.';
-      if (target <= new Date()) return 'Target time has passed — pick a later time.';
+      if (target <= new Date()) return PAST_TARGET;
       return '';
+    }
+    // KEEP IN SYNC with iOS: wording and what the button does.
+    const PAST_TARGET = 'Target time has passed — pick a later time, or plan it for tomorrow.';
+    function planPast(plan) {
+      return planBlockedReason(plan) === PAST_TARGET;
+    }
+    // Same clock time, tomorrow. A linked morning's day is derived, so it gets
+    // there by moving the night: tonight's evening is followed by tomorrow's.
+    function planForTomorrow(key) {
+      const today = todayISO();
+      if (link.enabled && key === 'morning') {
+        plans.evening.day = 'today';
+        plans.evening.baseDate = today;
+        if (dayOffsetFor(plans.morning) < 1) plans.evening.day = 'tomorrow';
+      } else {
+        plans[key].day = 'tomorrow';
+        plans[key].baseDate = today;
+      }
+      syncPlanInputs();
+      persistLast();
+      compute();
     }
 
     // The two guards iOS also enforces: nothing to schedule against a target
@@ -4340,6 +4419,7 @@
       $arm.classList.toggle('on', live);
       $armLive.hidden = !live;
 
+      $armTomorrow.hidden = live || src === 'day' || !planPast(state);
       if (!live) {
         $arm.classList.remove('future', 'active', 'past');
         $armStale.hidden = true;
@@ -4477,6 +4557,7 @@
     });
     $armSwap.addEventListener('click', () => armFromSource(armSource()));
     $armRearm.addEventListener('click', rearm);
+    $armTomorrow.addEventListener('click', () => planForTomorrow(activePlanKey));
     // Track to sleep — the same night edge, anchored at now.
     //   The pair pins both ends (a lights-out you chose, a morning you can't
     //   move) and measures the gap. The tracker pins only the far end and lets
@@ -4652,7 +4733,9 @@
       } else if (T.toLeaveMs > 0) {
         msg = `Leave by ${fmtTime(T.leaveBy)} and the full ${need} still fits — ${fmtClock(T.toLeaveMs)} from now.`;
       } else {
-        msg = `The full ${need} needed leaving by ${fmtTime(T.leaveBy)} — ${fmtClock(-T.toLeaveMs)} ago. ` +
+        // Minutes, not the clock: "11:34:07 ago" reads like a lap time.
+        const ago = fmtDuration(Math.max(1, Math.round(-T.toLeaveMs / 60000)));
+        msg = `The full ${need} needed leaving by ${fmtTime(T.leaveBy)} — ${ago} ago. ` +
               `Every minute here is a minute of sleep: trim the wind-down below, or take the loss.`;
       }
       setText($trackVerdictText, msg);
@@ -4756,14 +4839,17 @@
       });
       $eventInput.value = state.eventName;
       $targetInput.value = state.target;
-      $dayToggleButtons.forEach(b => b.classList.toggle('active', b.dataset.day === state.day));
+      // Before this morning's target, a linked evening is still last night's
+      // (normalizeDates holds it there) — neither button is true of it.
+      const lastNight = dayOffsetFor(state) < 0;
+      $dayToggleButtons.forEach(b => b.classList.toggle('active', !lastNight && b.dataset.day === state.day));
       // Linked, the morning plan's day follows the evening's; it stops being a
       // choice, so the control says so rather than lying about being editable.
       const derived = link.enabled && activePlanKey === 'morning';
       $dayToggle.classList.toggle('derived', derived);
       $dayToggle.setAttribute('aria-disabled', derived ? 'true' : 'false');
       $dayToggleButtons.forEach(b => { b.disabled = derived; });
-      setText($dayLabel, derived ? 'Day — follows tonight' : 'Day');
+      setText($dayLabel, derived ? 'Day — follows tonight' : lastNight ? 'Day — last night' : 'Day');
 
       // Chained, these times stop being generic targets: the evening plan ends
       // at lights-out and the morning plan ends at the fixed obligation. Say so,
@@ -5261,6 +5347,7 @@
 
     $targetInput.addEventListener('input', () => {
       state.target = $targetInput.value || '00:00';
+      state.baseDate = todayISO();
       persistLast();
       compute();
     });
@@ -5274,6 +5361,7 @@
     $dayToggleButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         state.day = btn.dataset.day;
+        state.baseDate = todayISO();
         $dayToggleButtons.forEach(b => b.classList.toggle('active', b === btn));
         persistLast();
         compute();
@@ -5491,7 +5579,9 @@
     function loadTemplateIntoPlan(t) {
       state.eventName = t.eventName || '';
       state.target = t.target || '18:00';
-      state.day = t.day || 'today';
+      state.day = t.day === 'tomorrow' ? 'tomorrow' : 'today';
+      // Templates stay relative; loading one anchors its day to today.
+      state.baseDate = todayISO();
       state.steps = (t.steps || []).map(normalizeStep);
       travelOpen.clear();
       $eventInput.value = state.eventName;
@@ -5512,18 +5602,22 @@
       const arr = loadTemplates();
       const i = arr.findIndex(t => t.name === state.linked);
       if (i < 0) { state.linked = null; renderLinkBanner(); return; }
+      const was = arr[i].target;
       arr[i] = planSnapshot(state.linked);
       saveTemplates(arr);
-      refreshLinkedBlocks(arr);
+      // A new target moves the block's pin with it — but only a pin still on
+      // the old target; one re-pinned in the Day is the Day's call.
+      refreshLinkedBlocks(arr, was !== arr[i].target ? { name: state.linked, from: was, to: arr[i].target } : null);
     }
-    function refreshLinkedBlocks(templates) {
+    function refreshLinkedBlocks(templates, retime) {
       if (!dayLoaded) return;
       const byName = new Map((templates || loadTemplates()).map(t => [t.name, t]));
       let changed = false;
       dayState.blocks.forEach((b, i) => {
         const t = b.link && byName.get(b.link);
         if (!t) return;
-        dayState.blocks[i] = normalizeBlock({ ...b, steps: t.steps || [] });
+        const at = retime && b.link === retime.name && b.at === retime.from ? retime.to : b.at;
+        dayState.blocks[i] = normalizeBlock({ ...b, at, steps: t.steps || [] });
         changed = true;
       });
       if (changed) persistDay();
@@ -5686,6 +5780,7 @@
       if (hasContent && !confirm(`Replace your current steps with the "${st.name}" starter?`)) return;
       state.linked = null;
       state.steps = st.steps.map(normalizeStep);
+      state.baseDate = todayISO();
       persistLast();
       renderSteps();
       renderLinkBanner();
@@ -5697,6 +5792,7 @@
         eventName: plan.eventName,
         target: plan.target,
         day: plan.day,
+        baseDate: plan.baseDate,
         steps: plan.steps,
         linked: plan.linked || null,
       };
@@ -5733,6 +5829,62 @@
       } catch { return null; }
     }
 
+    // ── Keeping baseDate at today. Runs on load, on coming back to the tab and
+    // from the 1s tick (a string compare until the date actually changes).
+    //   Still today or later → the same moment, re-said from today: 9 PM's
+    //     "tomorrow 8:05" reads "today 8:05" at 6:55 AM. Nothing absolute moves,
+    //     so an armed countdown's signature still matches.
+    //   Days stale → the next occurrence of its clock time: today if that is
+    //     still ahead, otherwise tomorrow. That *does* move the moment, so it
+    //     waits (`hold`) while the plan is the armed one.
+    // `hhmm` null = a Day, whose next occurrence is simply today.
+    // KEEP IN SYNC with iOS (same rules, same order).
+    function rebase(o, hhmm, hold) {
+      const today = todayISO();
+      // Legacy or malformed: anchor to today and let the past-target offer
+      // handle a time that has gone by.
+      if (!validISO(o.baseDate)) { o.baseDate = today; return true; }
+      if (o.baseDate >= today) return false;
+      if (ownOffset(o) >= 0) {
+        o.day = 'today';
+      } else {
+        if (hold) return false;
+        o.day = hhmm && !(dateAt(hhmm, 0) > new Date()) ? 'tomorrow' : 'today';
+      }
+      o.baseDate = today;
+      return true;
+    }
+    function normalizeDates() {
+      const armedKey = armed && armed.kind === 'plan' ? armed.key : null;
+      const ev = plans.evening, mo = plans.morning;
+      let plan = false;
+      if (link.enabled) {
+        // The pair is one night: last night's lights-out stays where it was
+        // until this morning's target has gone by — rolling it to tonight at
+        // 6:55 AM would push the school run to tomorrow.
+        const hold = armedKey !== null || (ownOffset(ev) < 0 && targetDateFor(mo) > new Date());
+        plan = rebase(ev, ev.target, hold) || plan;
+      } else {
+        plan = rebase(ev, ev.target, armedKey === 'evening') || plan;
+      }
+      plan = rebase(mo, mo.target, armedKey === 'morning') || plan;
+
+      let day = false;
+      if (dayLoaded) {
+        const o = { day: dayState.date, baseDate: dayState.baseDate };
+        day = rebase(o, null, !!(armed && armed.kind === 'day'));
+        dayState.date = o.day;
+        dayState.baseDate = o.baseDate;
+      }
+      return { plan, day };
+    }
+    // The re-render half, for callers outside init.
+    function checkDates() {
+      const r = normalizeDates();
+      if (r.plan) { persistLast(); syncPlanInputs(); compute(); }
+      if (r.day) { persistDay(); syncDayDateButtons(); if (appMode === 'day') drawDay(); }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // Day view: pin the fixed times, drop flexible blocks into the gaps.
     //
@@ -5763,7 +5915,8 @@
     };
 
     let appMode = 'plan';
-    const dayState = { date: 'today', blocks: [] };
+    // `date` is relative like a plan's `day`; `baseDate` anchors it (isoOffset).
+    const dayState = { date: 'today', baseDate: null, blocks: [] };
     let dayLoaded = false;   // persistLast can fire during init; don't sync into an unloaded day
 
     const $modePlan = document.getElementById('mode-plan');
@@ -5869,10 +6022,12 @@
       try { saved = JSON.parse(localStorage.getItem(KEY_DAY) || 'null'); } catch {}
       if (saved && Array.isArray(saved.blocks)) {
         dayState.date = saved.date === 'tomorrow' ? 'tomorrow' : 'today';
+        dayState.baseDate = validISO(saved.baseDate) ? saved.baseDate : null;
         dayState.blocks = saved.blocks.map(normalizeBlock);
         return;
       }
       // First visit: the exact question this view exists to answer.
+      dayState.baseDate = todayISO();
       dayState.blocks = [
         normalizeBlock({ name: 'Climb', duration: 1, unit: 'hr' }),
         normalizeBlock({ name: 'Pick-up routine', duration: 30, unit: 'min', at: '15:00' }),
@@ -5880,12 +6035,11 @@
     }
 
     function addMin(d, m) { return new Date(d.getTime() + m * 60000); }
+    function dayOffset() {
+      return ownOffset({ day: dayState.date, baseDate: dayState.baseDate });
+    }
     function dayClock(hhmm) {
-      const { h, m } = parseHHMM(hhmm);
-      const d = new Date();
-      if (dayState.date === 'tomorrow') d.setDate(d.getDate() + 1);
-      d.setHours(h, m, 0, 0);
-      return d;
+      return dateAt(hhmm, dayOffset());
     }
     function round5(d, up) {
       const x = new Date(d);
@@ -5969,7 +6123,7 @@
 
       if (anchors.length === 0) {
         // Nothing pinned: no target to plan back from, so run forwards from now.
-        fwd(dayState.date === 'today' ? round5(new Date(), true) : dayClock('09:00'), 0);
+        fwd(dayOffset() === 0 ? round5(new Date(), true) : dayClock('09:00'), 0);
       } else {
         anchors.forEach(a => {
           const t = dayClock(blocks[a].at);
@@ -6535,6 +6689,7 @@
     }
     function setDayDate(date) {
       dayState.date = date === 'tomorrow' ? 'tomorrow' : 'today';
+      dayState.baseDate = todayISO();
       syncDayDateButtons();
       persistDay();
       drawDay();
@@ -6544,6 +6699,19 @@
     // target, slotted in where it falls chronologically.
     document.getElementById('send-to-day').addEventListener('click', () => {
       if (!state.steps.length) return;
+      // The block lands on the plan's real date. The Day only holds today or
+      // tomorrow, one date at a time; a plan for the other one moves the Day
+      // there (blocks and all) only with a yes — never silently into today.
+      const planOff = dayOffsetFor(state);
+      const dayWord = off => off === 1 ? 'tomorrow' : 'today';
+      if (planOff !== 0 && planOff !== 1) {
+        alert('Your Day plans today or tomorrow, and this plan is for ' +
+          (planOff < 0 ? 'a day that has passed.' : 'later than tomorrow.'));
+        return;
+      }
+      const moveDay = !!dayState.blocks.length && dayOffset() !== planOff;
+      if (moveDay && !confirm(`This plan is for ${dayWord(planOff)}, and your Day is planning ${dayWord(dayOffset())}. ` +
+          `Switch your Day to ${dayWord(planOff)}? Its blocks move with it.`)) return;
       // The block links through a saved template, so the plan needs a name.
       let name = state.linked || (state.eventName || '').trim();
       if (!name) name = (prompt('Name this plan — your Day block stays linked to it:', '') || '').trim();
@@ -6560,8 +6728,11 @@
       persistLast();
       renderLinkBanner();
       const block = normalizeBlock({ name, steps: snap.steps, at: state.target, edge: 'end', link: name });
-      // An empty day adopts the plan's day; otherwise the day keeps its own.
-      if (!dayState.blocks.length) { dayState.date = state.day; syncDayDateButtons(); }
+      if (dayOffset() !== planOff) {
+        dayState.date = dayWord(planOff);
+        dayState.baseDate = todayISO();
+        syncDayDateButtons();
+      }
       const due = dayClock(state.target);
       const idx = computeDay().items.findIndex(it => it.start >= due);
       dayState.blocks.splice(idx < 0 ? dayState.blocks.length : idx, 0, block);
@@ -6718,10 +6889,14 @@
     }
 
     // The schedule, readable at arm's length — Overview's rows, gaps included,
-    // ending on the target. Built only when the chain itself changes.
+    // in time order with the target where it falls (a slipped step can run
+    // past it). Built only when the chain itself changes; tickNow marks done
+    // rows and moves the "Up next" divider to the first one still ahead.
     function buildNowList(c) {
       $nowList.innerHTML = '';
-      const add = (cls, at, s, e, name, dur) => {
+      const rows = [];
+      const add = (cls, at, s, e, name, dur) => rows.push({ cls, at, s, e, name, dur });
+      const put = ({ cls, at, s, e, name, dur }) => {
         const row = document.createElement('div');
         row.className = 'ov-row' + (cls ? ' ' + cls : '');
         row.dataset.s = String(s.getTime());
@@ -6752,6 +6927,9 @@
       });
       add('target', c.target, c.target, c.target,
         c.kind === 'day' ? 'End of the day' : (c.eventName || 'Target'), '');
+      // Stable sort, so a gap stays ahead of the step it precedes and the
+      // target, pushed last, stays after anything starting at its minute.
+      rows.sort((a, b) => a.at - b.at).forEach(put);
     }
 
     function nowSig(c) {
@@ -6780,6 +6958,7 @@
       if (empty) {
         $nowNight.hidden = true;
         setText($nowEmptyWhy, `Day: ${c.dayWhy} Plan: ${c.planWhy}`);
+        $nowPlanTomorrow.hidden = c.planWhy !== PAST_TARGET;
         nowListSig = null;
         return;
       }
@@ -6857,14 +7036,29 @@
         $nowActions.hidden = true;
       }
 
+      let firstAhead = null, anyDone = false;
       $nowList.querySelectorAll('.ov-row').forEach(row => {
-        if (row.classList.contains('target')) return;
         const s = Number(row.dataset.s), e = Number(row.dataset.e);
         const t = now.getTime();
-        row.classList.toggle('done', e <= t);
-        row.classList.toggle('now', s <= t && t < e);
+        const target = row.classList.contains('target');
+        const done = !target && e <= t;
+        if (!target) {
+          row.classList.toggle('done', done);
+          row.classList.toggle('now', s <= t && t < e);
+        }
+        if (done) anyDone = true;
+        else if (!firstAhead && !(target && t >= s)) firstAhead = row;
       });
+      // With nothing behind you the header already says "Up next"; once rows
+      // are done it names the whole list, and the divider marks where next is.
+      setText($nowListTitle, anyDone ? 'Schedule' : 'Up next');
+      const wantSep = anyDone && firstAhead;
+      if (!wantSep) { if ($nowSep.parentNode) $nowSep.remove(); }
+      else if ($nowSep.nextSibling !== firstAhead) $nowList.insertBefore($nowSep, firstAhead);
     }
+    const $nowSep = document.createElement('p');
+    $nowSep.className = 'now-sep';
+    $nowSep.textContent = 'Up next';
 
     $nowStart.addEventListener('click', () => {
       if (armed) { disarmPlan(); return; }
@@ -6881,6 +7075,8 @@
     });
     $nowRearm.addEventListener('click', rearm);
     document.getElementById('now-go-plan').addEventListener('click', () => setAppMode('plan'));
+    const $nowPlanTomorrow = document.getElementById('now-plan-tomorrow');
+    $nowPlanTomorrow.addEventListener('click', () => planForTomorrow(activePlanKey));
     document.getElementById('now-go-day').addEventListener('click', () => setAppMode('day'));
 
     function applySkin() {
@@ -6949,7 +7145,9 @@
       function hydrate(plan, src, fallbackTarget) {
         plan.eventName = (src && src.eventName) || '';
         plan.target = (src && src.target) || fallbackTarget;
-        plan.day = (src && src.day) || plan.day;
+        plan.day = src && src.day === 'tomorrow' ? 'tomorrow' : src && src.day === 'today' ? 'today' : plan.day;
+        // Missing on records from before it existed: normalizeDates anchors it.
+        plan.baseDate = src && validISO(src.baseDate) ? src.baseDate : null;
         plan.steps = (src && Array.isArray(src.steps) ? src.steps : []).map(normalizeStep);
         plan.linked = src && typeof src.linked === 'string' && loadTemplates().some(t => t.name === src.linked)
           ? src.linked : null;
@@ -6984,6 +7182,7 @@
         plans.evening.eventName = '';
         plans.evening.target = toHHMM(nextRoundHalfHour());
         plans.evening.day = 'today';
+        plans.evening.baseDate = todayISO();
         // Sensible default to demonstrate the tool
         plans.evening.steps = [
           { name: 'Get ready', duration: 10, unit: 'min' },
@@ -6996,6 +7195,11 @@
       // session should come back on screen already ticking rather than blinking
       // in a second later.
       loadArmed();
+      // After loadArmed: a roll waits while its plan is the armed one. Written
+      // back at once, so a legacy record gains its baseDate on first open.
+      const norm = normalizeDates();
+      if (norm.plan) persistLast();
+      if (norm.day) persistDay();
       applyNightFields();
       syncPlanInputs();
       renderSteps();
@@ -7042,7 +7246,14 @@
       // keep the "now" marker fresh
       setInterval(() => { if (appMode === 'day') drawDay(); else compute(); }, 30000);
       // Positional-only; keeps the fill and marker moving between full recomputes.
-      setInterval(() => { tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); tickNow(); }, 1000);
+      setInterval(() => { checkDates(); tickTimeline(); renderBridgeLive(); tickArm(); renderTrackLive(); tickNow(); }, 1000);
+      // A backgrounded tab's timers are throttled to a crawl; catch up on the
+      // date (and everything drawn from it) the moment it is looked at again.
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) return;
+        checkDates();
+        if (appMode === 'day') drawDay(); else compute();
+      });
     }
     init();
   </script>
