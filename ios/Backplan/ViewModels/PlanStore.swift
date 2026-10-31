@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import WidgetKit
 
 @MainActor
 @Observable
@@ -99,6 +100,9 @@ final class PlanStore {
         let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
         self.dayLegs = (PlanStore.load([String: DayLegCacheEntry].self, key: "backplan.daylegs", from: defaults) ?? [:])
             .filter { $0.value.fetchedAt > cutoff }
+        // An install that predates the widget has never published; nor has one
+        // whose last edit came before it. Cheap: a no-op when nothing changed.
+        publishSleepLeft()
         // Dates are normalized by the app once the armed snapshot is loaded
         // (a roll has to wait while its plan is the armed one) — see BackplanApp.
     }
@@ -527,6 +531,34 @@ final class PlanStore {
         let snap = PairSnapshot(v: 2, active: activeKey, link: link, plans: pair, track: track)
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: lastKey)
+        }
+        publishSleepLeft()
+    }
+
+    /// What the Sleep Left widget solves from — the same inputs `sleepTrack`
+    /// feeds `SleepTrack.make`, so the widget and the tracker card show the same
+    /// figure. The ride counts only while track mode is on, as on the card.
+    var sleepLeftInputs: SleepLeft.Inputs {
+        SleepLeft.Inputs(
+            enabled: link.enabled,
+            morningTarget: pair.morning.target,
+            morningName: pair.morning.eventName,
+            morningMinutes: pair.morning.totalMinutes,
+            windDownMinutes: pair.evening.totalMinutes,
+            rideMinutes: track.on ? (track.ride.result?.minutes ?? 0) : 0,
+            sleepNeed: link.sleepNeed,
+            sleeper: link.sleeper
+        )
+    }
+
+    /// Hand the widget its inputs; reload only when they changed, so editing a
+    /// step's name (or anything else the figure doesn't read) costs nothing.
+    private func publishSleepLeft() {
+        // Only the real store. The self-check builds throwaway stores on a test
+        // suite, and their scenarios must not land on the user's Lock Screen.
+        guard defaults === UserDefaults.standard else { return }
+        if SleepLeft.save(sleepLeftInputs) {
+            WidgetCenter.shared.reloadTimelines(ofKind: SleepLeft.widgetKind)
         }
     }
 

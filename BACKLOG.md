@@ -377,6 +377,25 @@ no-backend / client-only solutions where possible.
     checks.
   - Open: foreground alerts, the Stop→Start ordering and the Live Activity bar
     after Done/Late are code-verified only (sim can't tap or lock).
+- [x] **Sleep Left widget (iOS, `sleep-widget` branch)** — Home Screen (small,
+  medium), Lock Screen (circular gauge, rectangular, inline) and StandBy: hours of
+  sleep left before tomorrow's wake *if the wind-down starts now*. It is the
+  track-to-sleep figure with the wall clock as its near end — wake (next morning
+  target not yet passed − morning routine) − (now + evening plan + ride home in
+  track mode), floored. Green/gold/coral at the tracker's own 15-min band; footer
+  says when to start ("Start by 8:15 PM") or how short ("1 hr 15 min short").
+  - **No app process needed.** The figure falls one minute per minute, so the app
+    publishes plan-level *inputs* (not a solved wake, which goes stale at wake) to
+    App Group `group.website.fairpoint.backplan` on every save, and the provider
+    lays out one entry per minute for 3 h (`.atEnd`, ~8 reloads/day). The app
+    reloads the timeline only when the inputs actually change.
+  - `ios/Shared/SleepLeft.swift` mirrors `NightSolve`/`SleepTrack`; `-BPSelfCheck`
+    asserts widget == tracker card (evening, past midnight, a second before wake,
+    after wake) and that the store's published inputs reproduce the card. DEBUG
+    `-BPWidgetGallery` renders every family for screenshots.
+  - Needs the night pair ("Chain tomorrow morning") on; otherwise it says so.
+  - iOS only — the web has no widget surface. Open: verified in-app (gallery,
+    self-check, App Group write), not yet placed on a real Home/Lock Screen.
 
 ## Backlog
 

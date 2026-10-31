@@ -26,9 +26,21 @@ struct BackplanApp: App {
         _timer = State(initialValue: timer)
     }
 
+    @ViewBuilder private var root: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-BPWidgetGallery") {
+            SleepWidgetGallery()
+        } else {
+            RootView()
+        }
+        #else
+        RootView()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            root
                 .environment(store)
                 .environment(timer)
                 // Palette is an intentionally light "paper" neobrutalist look with no

@@ -33,6 +33,13 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: DFG7YZ82LP
+    # The Sleep Left widget reads the plan's inputs from this group; the app
+    # writes them on every save (see `SleepLeft`).
+    entitlements:
+      path: Backplan/Backplan.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.website.fairpoint.backplan
     info:
       path: Backplan/Info.plist
       properties:
@@ -65,8 +72,8 @@ targets:
           UIApplicationSupportsMultipleScenes: false
           UISceneConfigurations: {}
 
-  # Exists only to host the Live Activity: a Live Activity's views have to run
-  # in a widget extension, even when the app ships no Home Screen widgets.
+  # Hosts the Live Activity (whose views have to run in a widget extension) and
+  # the Sleep Left Home / Lock Screen widget.
   BackplanWidgets:
     type: app-extension
     platform: iOS
@@ -85,6 +92,11 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: DFG7YZ82LP
         SKIP_INSTALL: YES
+    entitlements:
+      path: BackplanWidgets/BackplanWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.website.fairpoint.backplan
     info:
       path: BackplanWidgets/Info.plist
       properties:

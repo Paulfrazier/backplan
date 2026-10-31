@@ -12,6 +12,7 @@ import Foundation
 ///                launch normalization must read it as today, same moment
 ///   -BPRolloverPair  the night pair saved yesterday (bedtime + school run)
 ///   -BPSelfCheck run the date-model checks below and print BPCHECK lines
+///   -BPWidgetGallery  show every Sleep Left widget family (BackplanApp)
 @MainActor
 enum DebugSeed {
     static let home = SavedPlace(id: UUID(uuidString: "00000000-0000-0000-0000-00000000A001")!,
@@ -304,6 +305,36 @@ extension DebugSeed {
         check("moving the Day lands it on the plan's date",
               store.day.effectiveDay() == store.plan.effectiveDay() && store.day.blocks.count == blocks + 1)
         defaults.removePersistentDomain(forName: suite)
+
+        // 5b. Sleep Left widget == the tracker card. Same inputs, same figure,
+        // same wake, same verdict — in the evening, across midnight, and after
+        // this morning's wake (which has to roll to tomorrow's).
+        do {
+            let evening = Plan(target: "21:00", steps: [Step(name: "Bath", duration: 25), Step(name: "Books", duration: 15)])
+            let morning = Plan(eventName: "School", target: "08:05", steps: [Step(name: "Breakfast", duration: 70)])
+            let inputs = SleepLeft.Inputs(enabled: true, morningTarget: "08:05", morningName: "School",
+                                          morningMinutes: 70, windDownMinutes: 40, rideMinutes: 12,
+                                          sleepNeed: 660, sleeper: "Ezra")
+            for (d, h, m, s) in [(0, 19, 25, 0), (0, 21, 30, 41), (1, 0, 40, 0), (1, 6, 54, 59), (1, 7, 30, 0)] {
+                let now = at(d, h, m).addingTimeInterval(TimeInterval(s))
+                let card = SleepTrack.make(evening: evening, morning: morning, sleepNeed: 660, rideMinutes: 12, now: now)
+                let widget = SleepLeft.solve(inputs, now: now)
+                check("widget matches tracker at d\(d) \(h):\(m):\(s)",
+                      widget.sleepMinutes == card.sleepMinutes && widget.wake == card.wake
+                        && widget.startBy == card.leaveBy && widget.verdict.rawValue == "\(card.verdict)",
+                      "widget \(widget.sleepMinutes) wake \(widget.wake) vs card \(card.sleepMinutes) wake \(card.wake)")
+            }
+            // The inputs the store publishes are the ones the card reads.
+            let suiteW = "backplan.selfcheck.widget"
+            let dw = UserDefaults(suiteName: suiteW)!
+            dw.removePersistentDomain(forName: suiteW)
+            let sw = PlanStore(defaults: dw)
+            sw.setTrackMode(true)
+            let now = at(0, 21, 30)
+            check("store inputs reproduce the card",
+                  SleepLeft.solve(sw.sleepLeftInputs, now: now).sleepMinutes == sw.sleepTrack(now: now)?.sleepMinutes)
+            dw.removePersistentDomain(forName: suiteW)
+        }
 
         // 6. Copy.
         let track = SleepTrack.make(

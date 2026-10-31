@@ -1,11 +1,12 @@
 import SwiftUI
 import WidgetKit
 
-/// Backplan ships no Home Screen widgets — this bundle exists solely to host the
-/// Live Activity, which has to live in a widget extension.
+/// The armed plan's Live Activity, plus the Sleep Left widget (Home Screen,
+/// Lock Screen, StandBy).
 @main
 struct BackplanWidgetsBundle: WidgetBundle {
     var body: some Widget {
         PlanLiveActivity()
+        SleepLeftWidget()
     }
 }
