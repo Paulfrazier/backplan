@@ -83,7 +83,7 @@ final class PlanStore {
     private let dayKey = "backplan.day"
     private let linkedKey = "backplan.linked"
     let dayLegsKey = "backplan.daylegs"
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -103,6 +103,7 @@ final class PlanStore {
         // An install that predates the widget has never published; nor has one
         // whose last edit came before it. Cheap: a no-op when nothing changed.
         publishSleepLeft()
+        publishDayWidget()
         // Dates are normalized by the app once the armed snapshot is loaded
         // (a roll has to wait while its plan is the armed one) — see BackplanApp.
     }
@@ -604,6 +605,7 @@ final class PlanStore {
         if let data = try? JSONEncoder().encode(day) {
             defaults.set(data, forKey: dayKey)
         }
+        publishDayWidget()
     }
 
     func persistDayLegs() {
