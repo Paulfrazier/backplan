@@ -396,6 +396,40 @@ no-backend / client-only solutions where possible.
   - Needs the night pair ("Chain tomorrow morning") on; otherwise it says so.
   - iOS only — the web has no widget surface. Open: verified in-app (gallery,
     self-check, App Group write), not yet placed on a real Home/Lock Screen.
+- [x] **Widget push (iOS, Nov 2026)** — roadmap item 0 #4 and #5, built by four
+  parallel branches merged into `sleep-widget`. Everything reads App Group
+  snapshots the app writes on save; nothing needs a server.
+  - **Wake-up sheet** (`SleepSheet.swift`, moon button in both skins, and
+    `backplan://sleep` from any sleep widget): Wake at, or "Be at <morning> by"
+    when the morning has steps (wake derived, same rule as the tracker); sleep
+    need; who. Writes the existing fields and turns the night link on without
+    seeding a morning routine. Empty widgets now say "Tap to set a wake-up".
+  - **Deep links** (`DeepLink.swift`, scheme `backplan`): sleep, now, day, kid.
+  - **Tonight widget** — "Lights out by 7:55 PM, or tomorrow starts short", live
+    start-by, verdict on the bedtime you set. `Tonight.swift` mirrors
+    `NightBridge` word for word (42 self-checks, cold and warm launches).
+  - **StandBy** faces for Sleep Left and Tonight (huge figure, system night tint).
+  - **Countdown widget** — the armed chain flattened to the App Group
+    (`ArmedChain.swift`); an entry at every boundary, so the step *name*
+    advances with the app closed (the Live Activity's stale-name problem).
+    Falls back to the **morning countdown** (wake−1h … bell) from the morning
+    plan, else an idle "Tomorrow: School 8:05" face.
+  - **Done / +5 / Start morning** as `LiveActivityIntent`s (run in the app
+    process) on the countdown widget and the Live Activity; Start morning also
+    as an iOS 18 Control Center control and Siri phrases.
+  - **Day widget** — next pinned block + leave-by, free / over time, mini
+    timeline on medium.
+  - **Kid view** (`KidView.swift`, `backplan://kid`, Kid view buttons on Now and
+    the arm bar): Time-Timer wedge, step icon, giant Done, next + dots, All done,
+    long-press-to-exit for grown-ups.
+  - **Smart Stack relevance** on every widget (evening for sleep/tonight, armed
+    and morning window for countdown, lead-in for Day).
+  - Verified: 126 `-BPSelfCheck` checks pass on the merged tree; every face
+    screenshot in `-BPWidgetGallery`. Open: real taps on widget/Live Activity
+    buttons and the control, Siri, StandBy/Lock Screen placement and kid-view
+    landscape/long-press are unverified (simulator can't tap, lock or rotate).
+  - Product calls left open: Tonight ignores the armed-plan date hold; "Start
+    school morning" arms whatever the morning plan is.
 
 ## Backlog
 

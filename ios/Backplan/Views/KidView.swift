@@ -91,7 +91,7 @@ struct KidView: View {
                         }
                     } else {
                         VStack(spacing: 22) {
-                            wedge(fraction: fraction, left: left, size: min(geo.size.width * 0.78, geo.size.height * 0.42))
+                            wedge(fraction: fraction, left: left, size: min(geo.size.width * 0.72, geo.size.height * 0.34))
                             stepName(seg.name, running: running)
                             Spacer(minLength: 0)
                             doneButton(running: running)
@@ -292,12 +292,12 @@ private struct PieShape: Shape {
 // MARK: - Icons
 
 /// Step name -> SF Symbol. The one place to teach the app a new word; the first
-/// matching keyword wins, and anything unknown gets a star.
+/// matching keyword wins, and anything unknown gets a star. "a|b" = try a, then b.
 enum KidIcon {
     private static let table: [(words: [String], symbol: String)] = [
-        (["shoe", "sock", "boot"], "shoe"),
+        (["shoe", "sock", "boot"], "shoe|shoeprints.fill"),
         (["breakfast", "lunch", "dinner", "snack", "eat", "meal"], "fork.knife"),
-        (["teeth", "tooth", "brush"], "mouth"),
+        (["teeth", "tooth", "brush"], "mouth|comb"),
         (["bath", "shower"], "bathtub"),
         (["book", "story", "stories", "read"], "book"),
         (["dress", "clothes", "pajama", "jammies", "shirt"], "tshirt"),
@@ -312,11 +312,15 @@ enum KidIcon {
 
     static func symbol(for name: String) -> String {
         let lower = name.lowercased()
-        let tokens = Set(lower.split { !$0.isLetter }.map(String.init))
-        for (words, symbol) in table {
-            // Whole words, so "car" doesn't light up on "carpool" or "cart".
-            if words.contains(where: { tokens.contains($0) }), UIImage(systemName: symbol) != nil {
-                return symbol
+        // Whole words, so "car" doesn't light up on "carpool" or "cart" — but a
+        // routine says "Shoes on" and "Brush teeth", so a plural's singular counts.
+        var tokens = Set(lower.split { !$0.isLetter }.map(String.init))
+        for t in tokens where t.count > 3 && t.hasSuffix("s") { tokens.insert(String(t.dropLast())) }
+        for (words, symbol) in table where words.contains(where: { tokens.contains($0) }) {
+            // Not every symbol exists on every OS; try the next spelling, then give up.
+            for candidate in symbol.split(separator: "|").map(String.init)
+            where UIImage(systemName: candidate) != nil {
+                return candidate
             }
         }
         return "star.fill"
