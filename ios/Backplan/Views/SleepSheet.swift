@@ -18,6 +18,7 @@ struct SleepSheet: View {
     @State private var target = Date()
     @State private var hours: Double = 11
     @State private var sleeper = ""
+    @State private var windDown = 30
     @State private var loaded = false
 
     var body: some View {
@@ -35,6 +36,16 @@ struct SleepSheet: View {
                             Text("Sleep needed")
                             Spacer()
                             Text(Fmt.duration(needMinutes))
+                                .monospacedDigit()
+                                .foregroundStyle(.bpInk)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    Stepper(value: $windDown, in: 0...120, step: 5) {
+                        HStack {
+                            Text("Wind-down")
+                            Spacer()
+                            Text(windDown == 0 ? "None" : Fmt.duration(windDown))
                                 .monospacedDigit()
                                 .foregroundStyle(.bpInk)
                                 .fontWeight(.semibold)
@@ -120,6 +131,11 @@ struct SleepSheet: View {
             Text("Lights out by \(Fmt.time(deadline))")
                 .font(.display(20))
                 .foregroundStyle(.bpPurple)
+            if windDown > 0 {
+                Text("Start wind-down by \(Fmt.time(deadline.addingTimeInterval(TimeInterval(-windDown * 60))))")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.bpInk)
+            }
             Text(summaryText)
                 .font(.footnote)
                 .foregroundStyle(.bpMuted)
@@ -131,11 +147,7 @@ struct SleepSheet: View {
     private var summaryText: String {
         let who = sleeper.trimmingCharacters(in: .whitespaces)
         let need = who.isEmpty ? "\(Fmt.duration(needMinutes)) of sleep" : "\(who)\u{2019}s \(Fmt.duration(needMinutes))"
-        let base = "That fits \(need) before waking at \(Fmt.time(wake))."
-        // Saving switches the edge on; say what that does to the evening plan
-        // rather than letting its target turn into "lights out" unannounced.
-        guard !store.link.enabled else { return base }
-        return base + " Saving chains tomorrow morning to your evening plan, whose target becomes lights out."
+        return "That fits \(need) before waking at \(Fmt.time(wake)) \(Self.dayWord(wake))."
     }
 
     // MARK: Derived values
@@ -153,10 +165,21 @@ struct SleepSheet: View {
         return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
+    /// The *next* wake that hasn't gone by — the one the widgets count to. The
+    /// first cut anchored the picked time to today, so on Nov 1 (clocks fell
+    /// back at 2 AM) "6:20 − 8 h" walked back across the extra hour and read
+    /// "lights out by 11:20 PM": true for last night, an hour late for tonight.
+    /// Solving through `SleepLeft` keeps the sheet and the widgets on one night.
     private var wake: Date {
-        store.wakeIsDerived
-            ? target.addingTimeInterval(TimeInterval(-store.pair.morning.totalMinutes * 60))
-            : target
+        let inputs = SleepLeft.Inputs(
+            enabled: true, morningTarget: targetHHMM, morningName: "",
+            morningMinutes: store.wakeIsDerived ? store.pair.morning.totalMinutes : 0,
+            windDownMinutes: 0, rideMinutes: 0, sleepNeed: needMinutes, sleeper: "")
+        return SleepLeft.tonightWake(inputs, now: Date())
+    }
+
+    static func dayWord(_ d: Date) -> String {
+        Calendar.current.isDateInToday(d) ? "today" : Calendar.current.isDateInTomorrow(d) ? "tomorrow" : ""
     }
 
     private var deadline: Date { wake.addingTimeInterval(TimeInterval(-needMinutes * 60)) }
@@ -169,10 +192,11 @@ struct SleepSheet: View {
         target = Plan.at(store.pair.morning.target, on: Date())
         hours = Double(store.link.sleepNeed) / 60
         sleeper = store.link.sleeper
+        windDown = store.link.windDown ?? 30
     }
 
     private func save() {
-        store.saveSleep(morningTarget: targetHHMM, sleepNeed: needMinutes, sleeper: sleeper)
+        store.saveSleep(morningTarget: targetHHMM, sleepNeed: needMinutes, sleeper: sleeper, windDown: windDown)
         dismiss()
     }
 

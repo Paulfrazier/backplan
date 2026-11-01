@@ -64,13 +64,16 @@ struct TonightView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            Text(n.setLine)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(ink(n.verdict))
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
+            // The sheet's night has no bedtime of the user's to judge.
+            if n.ownBedtime {
+                Text(n.setLine)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(ink(n.verdict))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -100,16 +103,21 @@ struct TonightView: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 if n.eveningMinutes > 0 { row("Start by", SleepLeft.time(n.latestStart), strong: true) }
-                row("You set", SleepLeft.time(n.lightsOut), tint: ink(n.verdict))
+                if n.ownBedtime { row("You set", SleepLeft.time(n.lightsOut), tint: ink(n.verdict)) }
                 row("Wake", SleepLeft.time(n.wake))
-                row(i.morningName.isEmpty ? "Morning" : i.morningName, SleepLeft.time(n.morningTarget))
-                Text(n.pillText)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(ink(n.verdict))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(tint(n.verdict)))
-                    .overlay(Capsule().strokeBorder(fill(n.verdict), lineWidth: 1))
+                if n.ownBedtime || i.morningMinutes > 0 {
+                    row(i.morningName.isEmpty ? "Morning" : i.morningName, SleepLeft.time(n.morningTarget))
+                }
+                row("Sleep", SleepLeft.hm(n.sleepNeed))
+                if n.ownBedtime {
+                    Text(n.pillText)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(ink(n.verdict))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(tint(n.verdict)))
+                        .overlay(Capsule().strokeBorder(fill(n.verdict), lineWidth: 1))
+                }
             }
             .frame(width: 128)
         }

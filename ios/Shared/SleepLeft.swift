@@ -47,6 +47,8 @@ enum SleepLeft {
         var eveningTarget: String? = nil
         var eveningDay: String? = nil
         var eveningBaseDate: String? = nil
+        /// The wake-up sheet's night: no evening plan to judge; lights out = deadline.
+        var ownNight: Bool? = nil
 
         static let preview = Inputs(enabled: true, morningTarget: "08:05", morningName: "School",
                                     morningMinutes: 70, windDownMinutes: 40, rideMinutes: 0,
@@ -77,6 +79,14 @@ enum SleepLeft {
             if deficitMinutes <= 15 { return .tight }
             return .short
         }
+        /// The real lights-out deadline: wake − need.
+        var lightsOutBy: Date { wake.addingTimeInterval(TimeInterval(-sleepNeed * 60)) }
+        /// Still room for the whole need, i.e. we haven't reached start-by yet.
+        /// At 7:37 AM the raw figure is "21h" — true and useless — so the faces
+        /// show the full need and when to be down instead.
+        var hasRoom: Bool { sleepMinutes >= sleepNeed }
+        /// The figure the faces show: never more than the need.
+        var shownMinutes: Int { min(sleepMinutes, sleepNeed) }
         /// 0…1 of the need, for gauges.
         var fraction: Double {
             guard sleepNeed > 0 else { return 1 }
@@ -113,6 +123,18 @@ enum SleepLeft {
             sleepNeed: inputs.sleepNeed,
             chainMinutes: chain
         )
+    }
+
+    /// The wake that "tonight's lights out" belongs to. `solve` keeps a wake
+    /// until it has passed — right for the live figure at 1 AM — but at 7:41 AM
+    /// with an 8:15 wake that is *last* night's, and the sheet said "lights out
+    /// by 10:15 PM… waking at 8:15 AM today". Within an hour of a wake the day
+    /// has started (the countdown's morning window opens at the same point), so
+    /// the night in question is the next one.
+    static func tonightWake(_ inputs: Inputs, now: Date, calendar: Calendar = .current) -> Date {
+        let wake = solve(inputs, now: now, calendar: calendar).wake
+        guard now >= wake.addingTimeInterval(-3600) else { return wake }
+        return solve(inputs, now: wake.addingTimeInterval(1), calendar: calendar).wake
     }
 
     // MARK: - Storage

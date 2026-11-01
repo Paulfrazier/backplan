@@ -39,6 +39,11 @@ enum Tonight {
         let startNowLightsOut: Date
         let startNowSlackMinutes: Int
         let sleepNeed: Int
+        /// False for the wake-up sheet's night: there is no bedtime the user set,
+        /// so lights out is the deadline and the faces drop the "You set" verdict.
+        var ownBedtime = true
+        /// "the evening" for the pair (its evening plan); "wind-down" for the sheet's.
+        private var startWhat: String { ownBedtime ? "the evening" : "wind-down" }
 
         var verdict: Verdict {
             if actualSleepMinutes > Self.nightMaxMinutes { return .checkTimes }
@@ -75,7 +80,7 @@ enum Tonight {
             if minutesToLatestStart <= 0 {
                 return "Start now \u{2014} there is no slack left in tonight."
             }
-            return "Start the evening by \(SleepLeft.time(latestStart)) \u{2014} \(SleepLeft.duration(minutesToLatestStart)) from now."
+            return "Start \(startWhat) by \(SleepLeft.time(latestStart)) \u{2014} \(SleepLeft.duration(minutesToLatestStart)) from now."
         }
 
         /// The same four cases cut to widget length.
@@ -86,11 +91,12 @@ enum Tonight {
                 return "Starting now: \(SleepLeft.duration(-startNowSlackMinutes)) short"
             }
             if minutesToLatestStart <= 0 { return "Start now \u{2014} no slack left" }
-            return "Start the evening by \(SleepLeft.time(latestStart)) \u{00B7} \(SleepLeft.duration(minutesToLatestStart)) from now"
+            return "Start \(startWhat) by \(SleepLeft.time(latestStart)) \u{00B7} \(SleepLeft.duration(minutesToLatestStart)) from now"
         }
 
         /// The verdict on the bedtime the user typed, in one short line.
         var setLine: String {
+            guard ownBedtime else { return "Lights out by \(SleepLeft.time(deadline))" }
             let set = SleepLeft.time(lightsOut)
             switch verdict {
             case .onTrack: return "Your \(set) leaves \(SleepLeft.duration(slackMinutes)) spare"
@@ -104,6 +110,7 @@ enum Tonight {
 
     /// `nil` when the pair is off, or the snapshot predates the evening fields.
     static func solve(_ i: SleepLeft.Inputs, now: Date, calendar: Calendar = .current) -> Night? {
+        if i.enabled, i.ownNight == true { return solveOwn(i, now: now, calendar: calendar) }
         guard i.enabled, let eveningTarget = i.eveningTarget else { return nil }
         let today = calendar.startOfDay(for: now)
         func addDays(_ n: Int, _ d: Date) -> Date { calendar.date(byAdding: .day, value: n, to: d) ?? d }
@@ -141,6 +148,28 @@ enum Tonight {
             startNowLightsOut: startNowLightsOut,
             startNowSlackMinutes: mins(deadline.timeIntervalSince(startNowLightsOut)),
             sleepNeed: i.sleepNeed
+        )
+    }
+
+    /// The wake-up sheet's night: wake is the next one that hasn't gone by (the
+    /// Sleep Left rule — no evening plan to say which night), lights out is the
+    /// deadline itself, and the wind-down is the sheet's own.
+    private static func solveOwn(_ i: SleepLeft.Inputs, now: Date, calendar: Calendar) -> Night {
+        let wake = SleepLeft.tonightWake(i, now: now, calendar: calendar)
+        let morningTarget = wake.addingTimeInterval(TimeInterval(i.morningMinutes * 60))
+        let deadline = wake.addingTimeInterval(TimeInterval(-i.sleepNeed * 60))
+        let startNowLightsOut = now.addingTimeInterval(TimeInterval(i.windDownMinutes * 60))
+        return Night(
+            now: now, lightsOut: deadline, morningTarget: morningTarget, wake: wake,
+            deadline: deadline,
+            latestStart: deadline.addingTimeInterval(TimeInterval(-i.windDownMinutes * 60)),
+            eveningMinutes: i.windDownMinutes,
+            slackMinutes: 0,
+            actualSleepMinutes: i.sleepNeed,
+            startNowLightsOut: startNowLightsOut,
+            startNowSlackMinutes: Int((deadline.timeIntervalSince(startNowLightsOut) / 60).rounded()),
+            sleepNeed: i.sleepNeed,
+            ownBedtime: false
         )
     }
 

@@ -256,6 +256,9 @@ final class PlanStore {
     /// the evening plan, since the morning tab is about to disappear.
     func setLinkEnabled(_ on: Bool) {
         link.enabled = on
+        // Chaining says "my evening plan is bedtime", which is exactly what the
+        // sheet's own wind-down says it isn't. The explicit choice wins.
+        if on { link.windDown = nil }
         if on, pair.morning.steps.isEmpty {
             pair.morning.eventName = MorningSeed.eventName
             pair.morning.steps = MorningSeed.steps
@@ -541,18 +544,24 @@ final class PlanStore {
     /// feeds `SleepTrack.make`, so the widget and the tracker card show the same
     /// figure. The ride counts only while track mode is on, as on the card.
     var sleepLeftInputs: SleepLeft.Inputs {
-        SleepLeft.Inputs(
-            enabled: link.enabled,
+        // The wake-up sheet's night (wake + need + its own wind-down) wins over
+        // the evening plan: once someone has typed a wind-down there, the plan in
+        // the evening slot is not their bedtime, and the Tonight widget has no
+        // bedtime of theirs to judge — lights out *is* the deadline.
+        let own = link.windDown
+        return SleepLeft.Inputs(
+            enabled: link.enabled || own != nil,
             morningTarget: pair.morning.target,
             morningName: pair.morning.eventName,
             morningMinutes: pair.morning.totalMinutes,
-            windDownMinutes: pair.evening.totalMinutes,
+            windDownMinutes: own ?? pair.evening.totalMinutes,
             rideMinutes: track.on ? (track.ride.result?.minutes ?? 0) : 0,
             sleepNeed: link.sleepNeed,
             sleeper: link.sleeper,
-            eveningTarget: pair.evening.target,
-            eveningDay: pair.evening.day.rawValue,
-            eveningBaseDate: pair.evening.baseDate
+            eveningTarget: own == nil ? pair.evening.target : nil,
+            eveningDay: own == nil ? pair.evening.day.rawValue : nil,
+            eveningBaseDate: own == nil ? pair.evening.baseDate : nil,
+            ownNight: own == nil ? nil : true
         )
     }
 

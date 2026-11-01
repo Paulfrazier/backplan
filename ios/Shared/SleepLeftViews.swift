@@ -51,7 +51,7 @@ struct SleepLeftView: View {
             eyebrow
             Spacer(minLength: 6)
             figure(n, size: 34)
-            Text(ifNow(i))
+            Text(ifNow(n, i))
                 .font(.caption2)
                 .foregroundStyle(Color.bpMuted)
             Spacer(minLength: 8)
@@ -72,7 +72,7 @@ struct SleepLeftView: View {
                 eyebrow
                 Spacer(minLength: 6)
                 figure(n, size: 38)
-                Text(ifNow(i))
+                Text(ifNow(n, i))
                     .font(.caption2)
                     .foregroundStyle(Color.bpMuted)
                 Spacer(minLength: 8)
@@ -103,9 +103,9 @@ struct SleepLeftView: View {
             Image(systemName: "moon.zzz.fill")
         } currentValueLabel: {
             VStack(spacing: -2) {
-                Text("\(max(0, n.sleepMinutes) / 60)h")
+                Text("\(max(0, n.shownMinutes) / 60)h")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                Text(String(format: "%02dm", max(0, n.sleepMinutes) % 60))
+                Text(String(format: "%02dm", max(0, n.shownMinutes) % 60))
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
             }
         }
@@ -117,7 +117,7 @@ struct SleepLeftView: View {
             Label("Sleep left", systemImage: "moon.zzz.fill")
                 .font(.caption.weight(.semibold))
                 .widgetAccentable()
-            Text(SleepLeft.hm(n.sleepMinutes))
+            Text(SleepLeft.hm(n.shownMinutes))
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
@@ -131,7 +131,7 @@ struct SleepLeftView: View {
     }
 
     private func inline(_ n: SleepLeft.Night) -> some View {
-        Label("\(SleepLeft.hm(n.sleepMinutes)) sleep left", systemImage: "moon.zzz.fill")
+        Label("\(SleepLeft.hm(n.shownMinutes)) sleep left", systemImage: "moon.zzz.fill")
     }
 
     /// StandBy on the nightstand: the figure as big as the face allows, and the
@@ -147,9 +147,9 @@ struct SleepLeftView: View {
             Spacer(minLength: 0)
             // Minutes smaller than hours: from across the room the hours are
             // the answer, the minutes the detail.
-            (Text("\(max(0, n.sleepMinutes) / 60)h")
+            (Text("\(max(0, n.shownMinutes) / 60)h")
                 .font(.system(size: 64, weight: .bold, design: .rounded))
-            + Text(String(format: " %02dm", max(0, n.sleepMinutes) % 60))
+            + Text(String(format: " %02dm", max(0, n.shownMinutes) % 60))
                 .font(.system(size: 34, weight: .bold, design: .rounded)))
                 .monospacedDigit()
                 .foregroundStyle(.primary)
@@ -212,7 +212,7 @@ struct SleepLeftView: View {
     }
 
     private func figure(_ n: SleepLeft.Night, size: CGFloat) -> some View {
-        Text(SleepLeft.hm(n.sleepMinutes))
+        Text(SleepLeft.hm(n.shownMinutes))
             .font(.system(size: size, weight: .bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(ink(n.verdict))
@@ -250,7 +250,10 @@ struct SleepLeftView: View {
     // MARK: - Copy
 
     /// What has to start now for the figure to be true.
-    private func ifNow(_ i: SleepLeft.Inputs) -> String {
+    private func ifNow(_ n: SleepLeft.Night, _ i: SleepLeft.Inputs) -> String {
+        // Daytime: the whole need still fits, so say when to be down by rather
+        // than "if wind-down starts now", which at 7 AM is no one's plan.
+        if n.hasRoom { return "full night if down by \(SleepLeft.time(n.lightsOutBy))" }
         if i.rideMinutes > 0 { return "if you leave now" }
         if i.windDownMinutes > 0 { return "if wind-down starts now" }
         return "if lights out now"

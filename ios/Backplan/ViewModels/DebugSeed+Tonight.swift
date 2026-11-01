@@ -125,25 +125,61 @@ extension DebugSeed {
             check("relevance low after lights out", r(end.addingTimeInterval(30 * 60)) < 0.2, "")
         }
 
-        // The wake-up sheet: a bare wake turns the night on WITHOUT seeding a
-        // morning routine (which would move wake an hour), and writes the
-        // store's own fields.
+        // The wake-up sheet: its own night (wake + need + wind-down). It must not
+        // switch the chain on — that re-read an 88-min errand plan as bedtime and
+        // put "21h" on the Lock Screen — nor seed a morning routine.
         store.link = NightLink()
         store.pair.morning = Plan(eventName: "", target: "08:15", day: .tomorrow, steps: [], baseDate: key(0))
-        store.saveSleep(morningTarget: "06:45", sleepNeed: 600, sleeper: " Ezra ")
-        check("sleep sheet turns the night on", store.link.enabled, "")
+        store.saveSleep(morningTarget: "06:45", sleepNeed: 600, sleeper: " Ezra ", windDown: 30)
+        let own = store.sleepLeftInputs
+        check("sleep sheet leaves the chain alone", !store.link.enabled && store.link.windDown == 30, "")
+        check("sleep sheet's night reaches the widgets",
+              own.enabled && own.ownNight == true && own.windDownMinutes == 30 && own.eveningTarget == nil, "\(own)")
         check("sleep sheet does not seed a morning", store.pair.morning.steps.isEmpty,
               "\(store.pair.morning.steps.count) steps")
         check("sleep sheet writes the store's fields",
               store.pair.morning.target == "06:45" && store.link.sleepNeed == 600 && store.link.sleeper == "Ezra",
               "\(store.pair.morning.target) \(store.link.sleepNeed) \(store.link.sleeper)")
         check("bare wake: wake is the target", !store.wakeIsDerived
-              && store.bridge(now: at(0, 12, 0))?.wake == at(1, 6, 45), "")
+              && SleepLeft.solve(own, now: at(0, 12, 0)).wake == at(1, 6, 45), "")
+        let tn = Tonight.solve(own, now: at(0, 12, 0))
+        check("own night: Tonight's lights out is the deadline",
+              tn?.deadline == at(0, 20, 45) && tn?.lightsOut == tn?.deadline && tn?.ownBedtime == false
+                && tn?.latestStart == at(0, 20, 15), "\(String(describing: tn?.deadline))")
+        // Daytime: the full need, not "21h".
+        let morn = SleepLeft.solve(own, now: at(0, 7, 37))
+        check("daytime shows the full night", morn.hasRoom && morn.shownMinutes == 600 && morn.verdict == .onTrack,
+              "\(morn.sleepMinutes) shown \(morn.shownMinutes)")
         // With a routine, the edited time is the obligation; wake follows.
         store.pair.morning.steps = school
-        store.saveSleep(morningTarget: "08:10", sleepNeed: 600, sleeper: "Ezra")
+        store.saveSleep(morningTarget: "08:10", sleepNeed: 600, sleeper: "Ezra", windDown: 30)
         check("routine: target moves, wake derived", store.wakeIsDerived
-              && store.bridge(now: at(0, 12, 0))?.wake == at(1, 7, 0), "")
+              && SleepLeft.solve(store.sleepLeftInputs, now: at(0, 12, 0)).wake == at(1, 7, 0), "")
+        // Chaining is the explicit "my evening plan is bedtime": it clears the sheet's night.
+        store.setLinkEnabled(true)
+        check("chaining clears the sheet's wind-down",
+              store.link.windDown == nil && store.sleepLeftInputs.eveningTarget != nil, "")
+        // Up before the alarm: 7:41 AM, wake 8:15, 11 h. Tonight is tonight's,
+        // not last night's.
+        do {
+            let i = SleepLeft.Inputs(enabled: true, morningTarget: "08:15", morningName: "", morningMinutes: 0,
+                                     windDownMinutes: 0, rideMinutes: 0, sleepNeed: 660, sleeper: "")
+            let w = SleepLeft.tonightWake(i, now: at(0, 7, 41))
+            check("up before the alarm: tonight's wake is tomorrow's", w == at(1, 8, 15), "\(w)")
+            check("1 AM: tonight's wake is still this morning's",
+                  SleepLeft.tonightWake(i, now: at(0, 1, 0)) == at(0, 8, 15), "")
+        }
+        // Nov 1 2026, 7:37 AM (US clocks fell back at 2 AM): wake 6:20, 8 h. The
+        // first sheet anchored 6:20 to *today* and walked back across the extra
+        // hour to "11:20 PM". Tonight's answer is 10:20 PM.
+        if let nov1 = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 7, minute: 37)) {
+            let i = SleepLeft.Inputs(enabled: true, morningTarget: "06:20", morningName: "", morningMinutes: 0,
+                                     windDownMinutes: 0, rideMinutes: 0, sleepNeed: 480, sleeper: "")
+            let n = SleepLeft.solve(i, now: nov1)
+            let c = Calendar.current.dateComponents([.day, .hour, .minute], from: n.lightsOutBy)
+            check("Nov 1: 6:20 wake, 8 h -> lights out 10:20 PM tonight",
+                  c.day == 1 && c.hour == 22 && c.minute == 20, "\(c)")
+        }
 
         // Deep links.
         let routes: [(String, DeepLink?)] = [

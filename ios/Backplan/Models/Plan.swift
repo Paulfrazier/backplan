@@ -312,6 +312,11 @@ struct NightLink: Codable, Equatable, Sendable {
     var enabled: Bool = false
     var sleepNeed: Int = 660
     var sleeper: String = ""
+    /// Set by the wake-up sheet: minutes of wind-down before lights out. Non-nil
+    /// means the sleep widgets have a night of their own — wake, need and this —
+    /// and the evening plan is *not* bedtime (it may be an errand run at 5:43).
+    /// Optional, so records from before it existed still decode.
+    var windDown: Int? = nil
 }
 
 // MARK: - Track to sleep
