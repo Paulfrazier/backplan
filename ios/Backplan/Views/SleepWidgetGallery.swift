@@ -17,6 +17,7 @@ struct SleepWidgetGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                DayWidgetGallerySection()
                 Text("School 8:05 · 70 min morning · 40 min wind-down · need 11h")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach([(18, 30), (19, 25), (21, 30)], id: \.0) { h, m in

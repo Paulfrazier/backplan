@@ -336,6 +336,55 @@ extension DebugSeed {
             dw.removePersistentDomain(forName: suiteW)
         }
 
+        // 5b. Day widget: the published snapshot reads the same as the solved Day.
+        do {
+            let places: [SavedPlace] = [DebugSeed.home, DebugSeed.gym, DebugSeed.school]
+            func solve(_ blocks: [DayBlock], now: Date) -> DayResult {
+                DayPlanner.compute(DayPlan(date: .today, blocks: blocks), places: places, now: now) { _, _, _ in .ok(15) }
+            }
+            func snap(_ r: DayResult) -> DayWidget.Snapshot {
+                DayWidget.snapshot(from: r, places: places, dayKey: DayWidget.key(at(0, 12, 0)))
+            }
+            let climb = DayBlock(name: "Climb", duration: 1, unit: .hr, placeID: DebugSeed.gym.id)
+            let pick = DayBlock(name: "Pick-up", duration: 30, unit: .min, at: "15:00", placeID: DebugSeed.school.id)
+            let dinner = { (t: String) in DayBlock(name: "Dinner", duration: 30, unit: .min, at: t) }
+            let roomy = solve([climb, pick, dinner("18:00")], now: at(0, 12, 0))
+            let rs = snap(roomy)
+            let nowA = at(0, 12, 10)
+            let ra = DayWidget.read(rs, now: nowA)
+            let wantNext = roomy.items.first { $0.block.isAnchor && $0.start > nowA }
+            check("day widget: next pinned agrees with the solved Day",
+                  ra.next?.name == wantNext?.block.name && ra.next?.start == wantNext?.start,
+                  "\(ra.next?.name ?? "nil") vs \(wantNext?.block.name ?? "nil")")
+            check("day widget: leave-by is the pinned block's leg start",
+                  ra.leaveBy == wantNext?.leg?.start, "\(String(describing: ra.leaveBy)) vs \(String(describing: wantNext?.leg?.start))")
+            // Before the first departure: free = time to the first leg start.
+            let firstLeg = roomy.items.compactMap { $0.leg?.start }.min()!
+            check("day widget: free minutes run to the next departure",
+                  ra.freeMinutes == Int((firstLeg.timeIntervalSince(nowA) / 60).rounded()), "\(String(describing: ra.freeMinutes))")
+            // Inside the gap between two pins: free = the gap's slack at its front.
+            let gap = roomy.gaps[0]
+            let rg = DayWidget.read(rs, now: gap.freeFrom)
+            check("day widget: free minutes at the gap's front equal its slack",
+                  rg.freeMinutes == gap.slack && rg.overMinutes == nil, "\(String(describing: rg.freeMinutes)) vs \(gap.slack)")
+            // A gap that doesn't fit reads as over, by exactly the shortfall.
+            let squeezed = solve([climb, pick, DayBlock(name: "Homework", duration: 45, unit: .min), dinner("15:20")],
+                                 now: at(0, 12, 0))
+            let sg = squeezed.gaps[0]
+            let ro = DayWidget.read(snap(squeezed), now: sg.depart.addingTimeInterval(60))
+            check("day widget: over-by equals the negative slack",
+                  sg.slack < 0 && ro.overMinutes == -sg.slack, "\(String(describing: ro.overMinutes)) vs \(sg.slack)")
+            // Dates: a stale Day says nothing about today; after the last block it's done.
+            var stale = rs
+            stale.dayKey = DayWidget.key(at(-1, 12, 0))
+            check("day widget: yesterday's Day reads as no Day today",
+                  DayWidget.read(stale, now: nowA).kind == .noDay && DayWidget.read(nil, now: nowA).kind == .noDay)
+            check("day widget: after the last block the Day is done", DayWidget.read(rs, now: at(0, 19, 0)).kind == .done)
+            // The snapshot survives the App Group round trip byte-for-byte.
+            let rt = try? JSONDecoder().decode(DayWidget.Snapshot.self, from: JSONEncoder().encode(rs))
+            check("day widget: snapshot round-trips", rt == rs)
+        }
+
         // 6. Copy.
         let track = SleepTrack.make(
             evening: Plan(target: "21:00", steps: [Step(name: "Wind down", duration: 30)]),

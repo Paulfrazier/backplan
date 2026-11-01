@@ -46,6 +46,7 @@ extension PlanStore {
         case .success(let r):
             dayLegs[key] = DayLegCacheEntry(minutes: r.minutes, fetchedAt: r.fetchedAt)
             persistDayLegs()
+            publishDayWidget()
         case .failure(let e):
             dayLegErrors[key] = e
         }
