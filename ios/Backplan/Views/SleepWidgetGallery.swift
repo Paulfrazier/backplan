@@ -30,6 +30,7 @@ struct SleepWidgetGallery: View {
                 Text("Night pair off").font(.caption.bold())
                 home(at(20, 0), nil, .systemSmall, width: 158)
                 lock(at(20, 0), nil)
+                CountdownGallerySection()
             }
             .padding(16)
         }

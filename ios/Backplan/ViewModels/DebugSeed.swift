@@ -14,6 +14,12 @@ import Foundation
 ///   -BPSelfCheck run the date-model checks below and print BPCHECK lines
 ///   -BPKid       open Kid view at launch (sets backplan.kidView)
 ///   -BPWidgetGallery  show every Sleep Left widget family (BackplanApp)
+///   -BPCountdownGallery [armed|morning|idle|live]  Countdown widget faces
+///   -BPMorningDemo N  night pair on, School bell N min from now (negative:
+///                gone by), evening = last night; nothing armed
+///   -BPIntent done|late|start  run that intent through the installed handler
+///   -BPWidgetCheck  arm the open plan, then Done, +5, disarm — checking the
+///                App Group chain against the timer after each (BPCHECK lines)
 @MainActor
 enum DebugSeed {
     static let home = SavedPlace(id: UUID(uuidString: "00000000-0000-0000-0000-00000000A001")!,
@@ -74,6 +80,11 @@ enum DebugSeed {
             ])), forKey: "backplan.day")
             return
         }
+        if let i = args.firstIndex(of: "-BPMorningDemo"), args.indices.contains(i + 1),
+           let mins = Int(args[i + 1]) {
+            seedMorning(defaults, bellIn: mins)
+            return
+        }
         guard args.contains("-BPDemo") else { return }
         let enc = JSONEncoder()
         for key in ["backplan.templates", "backplan.linked", "backplan.day", "backplan.last"] {
@@ -107,6 +118,88 @@ enum DebugSeed {
         // Edit the linked plan: the Day block must pick this up.
         store.plan.steps[0].duration = 15
         print("BPDEBUG linked=\(store.linkedTemplate?.name ?? "nil") blockSteps=\(store.day.blocks.compactMap { $0.steps?.map(\.minutes) })")
+    }
+}
+
+// MARK: - Countdown widget
+
+extension DebugSeed {
+    /// The night pair with the school bell `bellIn` minutes away and last
+    /// night's bedtime — the state a real school morning opens in.
+    static func seedMorning(_ defaults: UserDefaults, bellIn: Int) {
+        let cal = Calendar.current
+        let yesterday = LocalDay.key(cal.date(byAdding: .day, value: -1, to: Date())!)
+        let enc = JSONEncoder()
+        defaults.removeObject(forKey: "backplan.armed")
+        defaults.removeObject(forKey: "backplan.linked")
+        defaults.set(try? enc.encode(DayPlan(date: .today, blocks: [])), forKey: "backplan.day")
+        let morning = Plan(eventName: "School", target: hhmm(Date().addingTimeInterval(TimeInterval(bellIn * 60))),
+                           day: .tomorrow, steps: MorningInputs.preview.steps.map {
+            Step(name: $0.name, duration: Double($0.minutes), unit: .min)
+        }, baseDate: yesterday)
+        let evening = Plan(eventName: "Bedtime", target: "21:00", day: .today, steps: [
+            Step(name: "Bath", duration: 20, unit: .min),
+            Step(name: "Stories", duration: 20, unit: .min),
+        ], baseDate: yesterday)
+        let plans = try? JSONSerialization.jsonObject(with: enc.encode(PlanPair(evening: evening, morning: morning)))
+        let link = try? JSONSerialization.jsonObject(with: enc.encode(NightLink(enabled: true, sleepNeed: 660, sleeper: "Ezra")))
+        let snap: [String: Any] = ["v": 2, "active": "morning", "link": link ?? [:], "plans": plans ?? [:]]
+        defaults.set(try? JSONSerialization.data(withJSONObject: snap), forKey: "backplan.last")
+    }
+
+    /// The simulator can't tap a widget, so drive the same handler a tap
+    /// reaches, and check what the widget would read after each step.
+    static func widgetLaunchArgs(store: PlanStore, timer: TimerController) async {
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-BPIntent"), args.indices.contains(i + 1) {
+            let action: IntentAction? = switch args[i + 1] {
+            case "done": .done
+            case "late": .late(5)
+            case "start": .startMorning
+            default: nil
+            }
+            if let action {
+                // Through `IntentRouter`, not `IntentHandler` directly — this
+                // is also the check that `BackplanApp.init` installed it.
+                let said = await IntentRouter.run(action)
+                print("BPDEBUG intent \(args[i + 1]) -> \(said)")
+                let chain = CountdownStore.loadChain()
+                print("BPDEBUG appgroup chain=\(chain.map { "\($0.eventName) \($0.segments.map { "\($0.name)@\(Fmt.time($0.start))-\(Fmt.time($0.end))" })" } ?? "nil")")
+                fflush(stdout)
+            }
+        }
+        guard args.contains("-BPWidgetCheck") else { return }
+        var failures = 0
+        func check(_ name: String, _ ok: Bool, _ detail: @autoclosure () -> String = "") {
+            if !ok { failures += 1 }
+            print("BPCHECK \(ok ? "PASS" : "FAIL") \(name)\(ok ? "" : " \u{2014} " + detail())")
+        }
+        /// The App Group copy is exactly the timer's frozen result, flattened.
+        func matches(_ stage: String) {
+            let stored = CountdownStore.loadChain()
+            let segs = timer.armedResult?.segments ?? []
+            check("widget chain == armedResult after \(stage)",
+                  stored != nil && stored == timer.widgetChain
+                    && stored!.segments.count == segs.count
+                    && zip(stored!.segments, segs).allSatisfy { $0.name == $1.name && $0.start == $1.start && $0.end == $1.end }
+                    && stored!.target == timer.armedResult?.target,
+                  "stored \(String(describing: stored?.segments)) vs \(segs.map { "\($0.name) \($0.start)-\($0.end)" })")
+        }
+        await timer.arm(key: store.activeKey, plan: store.resolved(store.activeKey))
+        check("armed", timer.armed)
+        matches("arm")
+        let before = timer.armedResult
+        _ = await IntentRouter.run(.done)
+        check("Done moved the chain", timer.armedResult != before)
+        matches("Done")
+        let beforeLate = timer.armedResult
+        _ = await IntentRouter.run(.late(5))
+        check("+5 moved the chain", timer.armedResult != beforeLate)
+        matches("Late +5")
+        timer.disarm()
+        check("disarm clears the widget chain", CountdownStore.loadChain() == nil)
+        print("BPCHECK widget-live \(failures == 0 ? "ALL PASS" : "\(failures) FAILED")")
+        fflush(stdout)
     }
 }
 
@@ -338,7 +431,7 @@ extension DebugSeed {
             dw.removePersistentDomain(forName: suiteW)
         }
 
-        // 5b. Day widget: the published snapshot reads the same as the solved Day.
+        // 5c. Day widget: the published snapshot reads the same as the solved Day.
         do {
             let places: [SavedPlace] = [DebugSeed.home, DebugSeed.gym, DebugSeed.school]
             func solve(_ blocks: [DayBlock], now: Date) -> DayResult {
@@ -385,6 +478,73 @@ extension DebugSeed {
             // The snapshot survives the App Group round trip byte-for-byte.
             let rt = try? JSONDecoder().decode(DayWidget.Snapshot.self, from: JSONEncoder().encode(rs))
             check("day widget: snapshot round-trips", rt == rs)
+        }
+
+        // 5d. Countdown widget. The flattened chain reads exactly as the app's
+        // own countdown does — label, clock, pill, step — before the start,
+        // inside each step, at the boundaries and after the target, and again
+        // after Done and Running late; and the morning fallback is the
+        // planner's own chain.
+        do {
+            let target = at(0, 8, 5)
+            let plan = Plan(eventName: "School", target: "08:05", day: .today, steps: [
+                Step(name: "Breakfast", duration: 30), Step(name: "Shoes", duration: 5),
+                Step(name: "Bike", duration: 15)], baseDate: key(0))
+            let base = BackwardsPlanner.compute(plan, now: at(0, 6, 0))
+            func flat(_ r: PlanResult, armedAt: Date) -> ArmedChain {
+                ArmedChain(kind: .plan, eventName: "School", target: r.target, armedAt: armedAt,
+                           segments: r.segments.map { .init(name: $0.name, start: $0.start, end: $0.end) })
+            }
+            func agree(_ r: PlanResult, _ label: String) {
+                let armedAt = at(0, 6, 0)
+                let chain = flat(r, armedAt: armedAt)
+                var moments = r.segments.flatMap { [$0.start, $0.end, $0.start.addingTimeInterval(90)] }
+                moments += [at(0, 6, 30), r.segments[0].start.addingTimeInterval(-30), target,
+                            target.addingTimeInterval(1), target.addingTimeInterval(600)]
+                var bad: [String] = []
+                for m in moments {
+                    guard let app = PlanCountdown.make(result: r, now: m, armedAt: armedAt),
+                          let w = chain.reading(at: m) else { bad.append("nil @\(m)"); continue }
+                    if app.label != w.label || app.boundary != w.boundary || app.windowStart != w.windowStart
+                        || app.phaseWord != w.phaseWord || app.detail != w.detail
+                        || app.stepNumber != w.stepNumber || "\(app.phase)" != w.phase.rawValue
+                        || (app.status.index >= 0) != w.canFinish {
+                        bad.append("\(Fmt.time(m)): app \(app.label)/\(app.detail)/\(app.phaseWord) widget \(w.label)/\(w.detail)/\(w.phaseWord)")
+                    }
+                    if let next = PlanCountdown.nextChange(result: r, now: m),
+                       chain.changeMarks.first(where: { $0 > m }).map({ $0 > next }) ?? true {
+                        bad.append("\(Fmt.time(m)): widget misses the change at \(Fmt.time(next))")
+                    }
+                }
+                check("widget countdown == app countdown (\(label))", bad.isEmpty, bad.joined(separator: "; "))
+            }
+            agree(base, "as armed")
+            let done = base.finishingCurrent(at: at(0, 7, 30))!.result
+            agree(done, "after Done")
+            agree(done.slipping(minutes: 5, at: at(0, 7, 31))!, "after Done, +5")
+            agree(base.slipping(minutes: 10, at: at(0, 6, 0))!, "+10 before the start")
+
+            let inputs = MorningInputs(enabled: true, eventName: "School", target: "08:05",
+                                       steps: plan.steps.map { .init(name: $0.name, minutes: $0.minutes) })
+            let morning = inputs.chain(endingAt: inputs.nextTarget(after: at(0, 7, 0)))
+            check("morning fallback == planner's chain",
+                  morning.target == base.target && morning.segments.map(\.start) == base.segments.map(\.start)
+                    && morning.segments.map(\.end) == base.segments.map(\.end))
+            check("morning window opens an hour before wake",
+                  inputs.window(at: at(0, 6, 14)) == nil && inputs.window(at: at(0, 6, 15)) != nil
+                    && inputs.window(at: at(0, 8, 4)) != nil && inputs.window(at: at(0, 8, 5)) == nil)
+            check("after the bell the idle face is tomorrow's",
+                  inputs.nextTarget(after: at(0, 8, 5)) == at(1, 8, 5))
+            let armedChain = flat(base, armedAt: at(0, 6, 0))
+            check("armed beats the morning window",
+                  CountdownFace.resolve(chain: armedChain, morning: inputs, now: at(0, 7, 0)) == .armed(armedChain))
+            check("a finished plan gives way after an hour",
+                  CountdownFace.resolve(chain: armedChain, morning: inputs, now: at(0, 9, 4)) == .armed(armedChain)
+                    && CountdownFace.resolve(chain: armedChain, morning: inputs, now: at(0, 9, 6)) == .idle(inputs))
+            var off = inputs
+            off.enabled = false
+            check("pair off: no morning face",
+                  CountdownFace.resolve(chain: nil, morning: off, now: at(0, 7, 0)) == .idle(off))
         }
 
         // 6. Copy.

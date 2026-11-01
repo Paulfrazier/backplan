@@ -534,6 +534,7 @@ final class PlanStore {
             defaults.set(data, forKey: lastKey)
         }
         publishSleepLeft()
+        publishCountdownInputs(real: defaults === UserDefaults.standard)
     }
 
     /// What the Sleep Left widget solves from — the same inputs `sleepTrack`

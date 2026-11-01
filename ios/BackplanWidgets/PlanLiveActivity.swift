@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -52,6 +53,7 @@ struct PlanLiveActivity: Widget {
                                 .foregroundStyle(.secondary)
                         }
                         progress(context, accent: islandAccent(context.state.phase))
+                        actions(context.state)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -121,6 +123,7 @@ struct PlanLiveActivity: Widget {
             }
 
             progress(context, accent: islandAccent(context.state.phase))
+            actions(context.state)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -146,6 +149,45 @@ struct PlanLiveActivity: Widget {
         ) { EmptyView() } currentValueLabel: { EmptyView() }
         .progressViewStyle(.linear)
         .tint(accent)
+    }
+
+    // MARK: - Done / +5
+
+    /// The Now skin's two buttons, on the card. `LiveActivityIntent`s, so the
+    /// tap runs in the app (launched in the background if need be), which
+    /// adjusts the frozen chain, reschedules the alerts and pushes this card a
+    /// new state — no server involved. Hidden when they would do nothing.
+    @ViewBuilder
+    private func actions(_ state: PlanActivityAttributes.ContentState) -> some View {
+        let done = state.canFinish == true
+        let late = state.canSlip == true
+        if done || late {
+            HStack(spacing: 8) {
+                if done {
+                    Button(intent: FinishStepIntent()) {
+                        Label("Done", systemImage: "checkmark")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.bpInk)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(islandAccent(state.phase)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                if late {
+                    Button(intent: RunningLateIntent(minutes: 5)) {
+                        Text("Running late +5")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .overlay(Capsule().stroke(Color.white.opacity(0.55), lineWidth: 1.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 2)
+        }
     }
 
     // MARK: - Pieces
