@@ -325,6 +325,8 @@ final class TimerController {
         guard defaults === UserDefaults.standard else { return }
         if CountdownStore.save(chain: widgetChain) {
             WidgetCenter.shared.reloadTimelines(ofKind: CountdownStore.widgetKind)
+            // Up Next & Sleep shows a running countdown first, whatever the hour.
+            WidgetCenter.shared.reloadTimelines(ofKind: SleepLeft.widgetKind)
         }
     }
 

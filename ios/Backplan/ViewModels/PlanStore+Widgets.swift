@@ -30,6 +30,8 @@ extension PlanStore {
         guard real else { return }
         if CountdownStore.save(morning: morningInputs) {
             WidgetCenter.shared.reloadTimelines(ofKind: CountdownStore.widgetKind)
+            // Up Next & Sleep shows the morning countdown in its window too.
+            WidgetCenter.shared.reloadTimelines(ofKind: SleepLeft.widgetKind)
         }
     }
 }

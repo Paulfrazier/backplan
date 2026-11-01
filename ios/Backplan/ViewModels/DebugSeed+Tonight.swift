@@ -181,6 +181,24 @@ extension DebugSeed {
                   c.day == 1 && c.hour == 22 && c.minute == 20, "\(c)")
         }
 
+        // Up Next & Sleep: the flip to the sleep face.
+        do {
+            var i = SleepLeft.Inputs(enabled: true, morningTarget: "06:20", morningName: "", morningMinutes: 0,
+                                     windDownMinutes: 30, rideMinutes: 0, sleepNeed: 480, sleeper: "", ownNight: true)
+            check("flip: 8 PM when the wind-down starts later", UpNext.flip(i, now: at(0, 12, 0)) == at(0, 20, 0), "")
+            check("flip: sleep face from 8 PM",
+                  UpNext.mode(inputs: i, chain: nil, morning: nil, day: nil, now: at(0, 20, 0)) == .sleep, "")
+            check("flip: still sleep at 1 AM", UpNext.flip(i, now: at(1, 1, 0)) == at(0, 20, 0)
+                  && UpNext.mode(inputs: i, chain: nil, morning: nil, day: nil, now: at(1, 1, 0)) == .sleep, "")
+            i.sleepNeed = 660
+            check("flip: earlier when the wind-down starts before 8",
+                  UpNext.flip(i, now: at(0, 12, 0)) == at(0, 18, 50), "\(String(describing: UpNext.flip(i, now: at(0, 12, 0))))")
+            let chain = ArmedChain(kind: .plan, eventName: "Bath", target: at(0, 21, 10), armedAt: at(0, 20, 0),
+                                   segments: [.init(name: "Bath", start: at(0, 20, 50), end: at(0, 21, 10))])
+            check("flip: a running countdown wins in the evening",
+                  UpNext.mode(inputs: i, chain: chain, morning: nil, day: nil, now: at(0, 21, 0)) == .countdown(.armed(chain)), "")
+        }
+
         // Deep links.
         let routes: [(String, DeepLink?)] = [
             ("backplan://sleep", .sleep), ("backplan://now", .now), ("backplan://day", .day),

@@ -55,6 +55,8 @@ extension PlanStore {
                                       dayKey: LocalDay.key(day.effectiveDay()))
         if DayWidget.save(snap) {
             WidgetCenter.shared.reloadTimelines(ofKind: DayWidget.widgetKind)
+            // Up Next & Sleep shows the Day's next thing before the evening flip.
+            WidgetCenter.shared.reloadTimelines(ofKind: SleepLeft.widgetKind)
         }
     }
 }
