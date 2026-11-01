@@ -41,6 +41,12 @@ struct PlanActivityAttributes: ActivityAttributes {
         /// falls back to the attributes.
         var spanStart: Date?
         var spanEnd: Date?
+        /// Which buttons the card offers: Done needs a running step, +5 needs
+        /// anything still to come. Both change only at a boundary — exactly
+        /// when a state is pushed. Optional so an older state decodes; nil hides
+        /// the button rather than offering one that does nothing.
+        var canFinish: Bool?
+        var canSlip: Bool?
     }
 
     /// Mirrors `PlanPhase`, redeclared here because the planner is app-only.

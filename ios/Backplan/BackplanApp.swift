@@ -19,6 +19,11 @@ struct BackplanApp: App {
         // The launch case. After the armed snapshot is restored, because a roll
         // has to wait while its plan is the armed one.
         store.normalizeDates(hold: timer.dateHold)
+        // Widget / Live Activity / Siri buttons run here (they're
+        // `LiveActivityIntent`s), possibly in a background launch made just for
+        // them — so the handler goes in before anything else can ask for it.
+        IntentHandler.install(store: store, timer: timer)
+        store.publishCountdownInputs(real: true)
         #if DEBUG
         DebugSeed.afterLaunch(store)
         #endif
@@ -30,6 +35,8 @@ struct BackplanApp: App {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-BPWidgetGallery") {
             SleepWidgetGallery()
+        } else if ProcessInfo.processInfo.arguments.contains("-BPCountdownGallery") {
+            CountdownWidgetGallery()
         } else {
             RootView()
         }
@@ -94,6 +101,10 @@ struct BackplanApp: App {
                        let n = Int(args[i + 1]) {
                         await timer.slip(minutes: n)
                     }
+                    // Countdown widget: the intent handler driven as a tap
+                    // would drive it, and the App Group chain checked against
+                    // the timer (see DebugSeed.widgetLaunchArgs).
+                    await DebugSeed.widgetLaunchArgs(store: store, timer: timer)
                     if timer.armed, let r = timer.armedResult {
                         let segs = r.segments.map { "\($0.name)@\(Fmt.time($0.start))-\(Fmt.time($0.end))" }
                         print("BPDEBUG armed slack=\(String(describing: timer.armedResult?.slack(at: Date()))) adj=\(String(describing: timer.adjustments)) alerts=\(timer.scheduledCount) segs=\(segs)")

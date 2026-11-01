@@ -93,7 +93,9 @@ enum LiveActivityService {
             // First start to the later of the last end and the target: a step
             // Running late has pushed past the target still belongs on the bar.
             spanStart: result.segments.map(\.start).min(),
-            spanEnd: max(result.chainEnd ?? result.target, result.target)
+            spanEnd: max(result.chainEnd ?? result.target, result.target),
+            canFinish: countdown.status.index >= 0,
+            canSlip: result.currentRun(at: now) != nil
         )
         return ActivityContent(state: state, staleDate: PlanCountdown.nextChange(result: result, now: now))
     }

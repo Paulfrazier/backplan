@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import WidgetKit
 
 /// Holds the armed state for a plan and snapshots what was scheduled so the
 /// live countdown, the notifications and the Live Activity all agree.
@@ -48,6 +49,10 @@ final class TimerController {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         restore()
+        // Whatever launch found — a live snapshot, a dead one just discarded,
+        // nothing — the widget hears it. Covers an install that armed before
+        // the widget existed. A string compare when nothing changed.
+        publishChain()
     }
 
     /// True when the captured chain has already started (plan armed late / in the past).
@@ -131,6 +136,7 @@ final class TimerController {
         adjustments = nil
         scheduledCount = 0
         defaults.removeObject(forKey: storageKey)
+        publishChain()
     }
 
     /// What `PlanStore.normalizeDates` must not roll out from under the countdown.
@@ -291,6 +297,34 @@ final class TimerController {
         )
         if let data = try? JSONEncoder().encode(snap) {
             defaults.set(data, forKey: storageKey)
+        }
+        publishChain()
+    }
+
+    /// The chain as the Countdown widget sees it: flat names and clock times,
+    /// since the extension can't see `PlanResult`. Every persist goes through
+    /// here, so arm, Done and Running late all reach the widget; disarm (and a
+    /// dead snapshot found at launch) clears it.
+    var widgetChain: ArmedChain? {
+        guard armed, let armedResult else { return nil }
+        return ArmedChain(
+            kind: armedIsDay ? .day : .plan,
+            eventName: armedIsDay ? Self.dayName
+                : (armedPlan?.eventName.trimmingCharacters(in: .whitespaces) ?? ""),
+            target: armedResult.target,
+            armedAt: armedAt,
+            segments: armedResult.segments.map { .init(name: $0.name, start: $0.start, end: $0.end) }
+        )
+    }
+
+    /// Write `widgetChain` to the App Group; reload the widget only when it
+    /// actually changed, since reloads are budgeted and persists are not.
+    private func publishChain() {
+        // Only the real controller — a test one on its own suite must not land
+        // on the user's Home Screen. Same rule as `PlanStore.publishSleepLeft`.
+        guard defaults === UserDefaults.standard else { return }
+        if CountdownStore.save(chain: widgetChain) {
+            WidgetCenter.shared.reloadTimelines(ofKind: CountdownStore.widgetKind)
         }
     }
 
