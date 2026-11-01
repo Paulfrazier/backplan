@@ -25,6 +25,19 @@ struct SleepLeftWidget: Widget {
 struct SleepLeftEntry: TimelineEntry {
     let date: Date
     let inputs: SleepLeft.Inputs?
+    var relevance: TimelineEntryRelevance? = nil
+
+    /// Smart Stack: rises from two hours before "start by" through the
+    /// lights-out that start buys; low the rest of the day.
+    static func at(_ date: Date, _ inputs: SleepLeft.Inputs?) -> SleepLeftEntry {
+        guard let inputs, inputs.enabled else {
+            return SleepLeftEntry(date: date, inputs: inputs, relevance: TimelineEntryRelevance(score: 0))
+        }
+        let n = SleepLeft.solve(inputs, now: date)
+        let asleepBy = n.wake.addingTimeInterval(TimeInterval(-n.sleepNeed * 60))
+        return SleepLeftEntry(date: date, inputs: inputs, relevance: TimelineEntryRelevance(
+            score: Tonight.relevance(now: date, start: n.startBy, end: asleepBy)))
+    }
 }
 
 struct SleepLeftProvider: TimelineProvider {
@@ -48,7 +61,7 @@ struct SleepLeftProvider: TimelineProvider {
         let inputs = SleepLeft.load()
         guard let inputs, inputs.enabled else {
             // Nothing ticks; the app reloads when the pair is switched on.
-            completion(Timeline(entries: [SleepLeftEntry(date: now, inputs: inputs)], policy: .never))
+            completion(Timeline(entries: [.at(now, inputs)], policy: .never))
             return
         }
         // Wake and every chain length are whole minutes, so the floored figure
@@ -56,10 +69,9 @@ struct SleepLeftProvider: TimelineProvider {
         let cal = Calendar.current
         let firstBoundary = cal.nextDate(after: now, matching: DateComponents(second: 0),
                                          matchingPolicy: .nextTime) ?? now.addingTimeInterval(60)
-        var entries = [SleepLeftEntry(date: now, inputs: inputs)]
+        var entries = [SleepLeftEntry.at(now, inputs)]
         for m in 0..<Self.horizonMinutes {
-            entries.append(SleepLeftEntry(date: firstBoundary.addingTimeInterval(TimeInterval(m * 60)),
-                                          inputs: inputs))
+            entries.append(.at(firstBoundary.addingTimeInterval(TimeInterval(m * 60)), inputs))
         }
         completion(Timeline(entries: entries, policy: .atEnd))
     }
@@ -74,6 +86,8 @@ struct SleepLeftEntryView: View {
             .containerBackground(for: .widget) {
                 if family.isAccessory { Color.clear } else { Color.bpPaper }
             }
+            // Every face opens the wake-up sheet — the empty one most of all.
+            .widgetURL(URL(string: "backplan://sleep"))
     }
 }
 

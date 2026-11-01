@@ -39,10 +39,19 @@ enum SleepLeft {
         var rideMinutes: Int
         var sleepNeed: Int
         var sleeper: String
+        /// The evening plan as `NightBridge` reads it, for the Tonight widget:
+        /// its target ("HH:mm", which under the pair *is* lights out), and the
+        /// Today / Tomorrow + base date that say which night. Optional, so a
+        /// payload written before Tonight existed still decodes (and Tonight
+        /// shows its set-up face until the app next saves).
+        var eveningTarget: String? = nil
+        var eveningDay: String? = nil
+        var eveningBaseDate: String? = nil
 
         static let preview = Inputs(enabled: true, morningTarget: "08:05", morningName: "School",
                                     morningMinutes: 70, windDownMinutes: 40, rideMinutes: 0,
-                                    sleepNeed: 660, sleeper: "Ezra")
+                                    sleepNeed: 660, sleeper: "Ezra",
+                                    eveningTarget: "21:00", eveningDay: "today", eveningBaseDate: nil)
     }
 
     enum Verdict: String, Sendable { case onTrack, tight, short }

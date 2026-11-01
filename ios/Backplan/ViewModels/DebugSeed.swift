@@ -336,6 +336,9 @@ extension DebugSeed {
             dw.removePersistentDomain(forName: suiteW)
         }
 
+        // 5c. Tonight widget == the bridge; wake-up sheet; deep links.
+        selfCheckTonight(at: at, key: key) { check($0, $1, $2) }
+
         // 6. Copy.
         let track = SleepTrack.make(
             evening: Plan(target: "21:00", steps: [Step(name: "Wind down", duration: 30)]),

@@ -8,5 +8,6 @@ struct BackplanWidgetsBundle: WidgetBundle {
     var body: some Widget {
         PlanLiveActivity()
         SleepLeftWidget()
+        TonightWidget()
     }
 }

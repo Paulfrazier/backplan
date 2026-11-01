@@ -11,12 +11,26 @@ struct RootView: View {
     @AppStorage(Skin.storageKey) private var skin = Skin.classic
     /// Now tab showing (Now skin only). Entering the skin always opens on it.
     @State private var onNow = true
+    @Environment(DeepLinkRouter.self) private var router
 
     var body: some View {
-        if skin == Skin.now {
-            nowTabs
-        } else {
-            classicTabs
+        Group {
+            if skin == Skin.now {
+                nowTabs
+            } else {
+                classicTabs
+            }
+        }
+        // `backplan://now` / `backplan://day`. Initial too: a cold launch from a
+        // widget can deliver the link before this view first appears.
+        .onChange(of: router.tabRequest, initial: true) { _, request in
+            guard let request else { return }
+            if request.tab == "now" {
+                if skin == Skin.now { onNow = true } else { mode = request.classicTab }
+            } else {
+                onNow = false
+                mode = request.tab
+            }
         }
     }
 

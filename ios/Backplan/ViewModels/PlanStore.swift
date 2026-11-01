@@ -547,7 +547,10 @@ final class PlanStore {
             windDownMinutes: pair.evening.totalMinutes,
             rideMinutes: track.on ? (track.ride.result?.minutes ?? 0) : 0,
             sleepNeed: link.sleepNeed,
-            sleeper: link.sleeper
+            sleeper: link.sleeper,
+            eveningTarget: pair.evening.target,
+            eveningDay: pair.evening.day.rawValue,
+            eveningBaseDate: pair.evening.baseDate
         )
     }
 
@@ -559,6 +562,7 @@ final class PlanStore {
         guard defaults === UserDefaults.standard else { return }
         if SleepLeft.save(sleepLeftInputs) {
             WidgetCenter.shared.reloadTimelines(ofKind: SleepLeft.widgetKind)
+            WidgetCenter.shared.reloadTimelines(ofKind: Tonight.widgetKind)
         }
     }
 

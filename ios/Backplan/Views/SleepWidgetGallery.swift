@@ -15,6 +15,16 @@ struct SleepWidgetGallery: View {
     }
 
     var body: some View {
+        // -BPGallery tonight|standby: the night widgets' own page.
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-BPGallery"), args.indices.contains(i + 1) {
+            NightWidgetGallery(section: args[i + 1])
+        } else {
+            sleepLeftPage
+        }
+    }
+
+    private var sleepLeftPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("School 8:05 · 70 min morning · 40 min wind-down · need 11h")
