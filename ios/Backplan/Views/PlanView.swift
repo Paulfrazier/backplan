@@ -113,6 +113,7 @@ struct PlanView: View {
                         .foregroundStyle(.bpPurple)
                 }
                 ToolbarItem(placement: .topBarTrailing) { SkinSwitchButton() }
+                ToolbarItem(placement: .topBarLeading) { SleepSheetButton() }
             }
         }
         .tint(.bpPurpleElectric)

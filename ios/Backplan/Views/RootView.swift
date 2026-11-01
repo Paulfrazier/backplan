@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var onNow = true
     /// Kid view takes the whole screen; the `backplan://kid` link sets this too.
     @AppStorage(KidView.storageKey) private var kidView = false
+    @Environment(DeepLinkRouter.self) private var router
 
     var body: some View {
         Group {
@@ -20,6 +21,17 @@ struct RootView: View {
                 nowTabs
             } else {
                 classicTabs
+            }
+        }
+        // `backplan://now` / `backplan://day`. Initial too: a cold launch from a
+        // widget can deliver the link before this view first appears.
+        .onChange(of: router.tabRequest, initial: true) { _, request in
+            guard let request else { return }
+            if request.tab == "now" {
+                if skin == Skin.now { onNow = true } else { mode = request.classicTab }
+            } else {
+                onNow = false
+                mode = request.tab
             }
         }
         .fullScreenCover(isPresented: $kidView) { KidView() }

@@ -11,10 +11,23 @@ struct SleepLeftView: View {
     let now: Date
     let inputs: SleepLeft.Inputs?
     let family: WidgetFamily
+    /// The gallery's stand-in for StandBy, which it can't enter; `nil` reads
+    /// the real environment.
+    var standBy: Bool? = nil
+
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
+
+    /// StandBy strips the container background; so does the Lock Screen, whose
+    /// accessory faces are already built for it.
+    private var isStandBy: Bool { standBy ?? (!showsBackground && !family.isAccessoryFace) }
 
     var body: some View {
         if let inputs, inputs.enabled {
-            face(SleepLeft.solve(inputs, now: now), inputs)
+            if isStandBy {
+                nightstand(SleepLeft.solve(inputs, now: now))
+            } else {
+                face(SleepLeft.solve(inputs, now: now), inputs)
+            }
         } else {
             setup
         }
@@ -121,6 +134,38 @@ struct SleepLeftView: View {
         Label("\(SleepLeft.hm(n.sleepMinutes)) sleep left", systemImage: "moon.zzz.fill")
     }
 
+    /// StandBy on the nightstand: the figure as big as the face allows, and the
+    /// wake it counts to. Hierarchical styles, not brand inks — the system
+    /// renders this on black and tints it red at night, where the paper face's
+    /// dark greens would disappear.
+    private func nightstand(_ n: SleepLeft.Night) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("SLEEP LEFT")
+                .font(.caption.weight(.bold))
+                .kerning(0.8)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            // Minutes smaller than hours: from across the room the hours are
+            // the answer, the minutes the detail.
+            (Text("\(max(0, n.sleepMinutes) / 60)h")
+                .font(.system(size: 64, weight: .bold, design: .rounded))
+            + Text(String(format: " %02dm", max(0, n.sleepMinutes) % 60))
+                .font(.system(size: 34, weight: .bold, design: .rounded)))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .widgetAccentable()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Spacer(minLength: 0)
+            Text("Wake \(SleepLeft.time(n.wake))")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
     /// No night pair, or nothing published yet.
     @ViewBuilder
     private var setup: some View {
@@ -131,23 +176,25 @@ struct SleepLeftView: View {
                 Image(systemName: "moon.zzz")
             }
         case .accessoryInline:
-            Label("Set a wake-up in Backplan", systemImage: "moon.zzz")
+            Label("Tap to set a wake-up", systemImage: "moon.zzz")
         case .accessoryRectangular:
             VStack(alignment: .leading) {
                 Label("Sleep left", systemImage: "moon.zzz").font(.caption.weight(.semibold))
-                Text("Chain tomorrow morning in Backplan").font(.caption2)
+                Text("Tap to set a wake-up").font(.caption2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
+            // The whole widget opens the wake-up sheet (`backplan://sleep`), so
+            // the empty state is an invitation, not a pointer into settings.
             VStack(alignment: .leading, spacing: 6) {
-                eyebrow
+                if !isStandBy { eyebrow }
                 Spacer(minLength: 0)
-                Text("No morning to count to")
+                Text("Tap to set a wake-up")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color.bpInk)
-                Text("In Backplan, turn on \u{201C}Chain tomorrow morning\u{201D} and set the morning target.")
+                    .foregroundStyle(isStandBy ? Color.primary : Color.bpInk)
+                Text("Then this counts the sleep left before it, minute by minute.")
                     .font(.caption2)
-                    .foregroundStyle(Color.bpMuted)
+                    .foregroundStyle(isStandBy ? Color.secondary : Color.bpMuted)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }

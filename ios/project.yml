@@ -56,6 +56,12 @@ targets:
         # Without this the Live Activity request fails silently — no error, no
         # card, just `Activity.request` throwing `unsupportedTarget`.
         NSSupportsLiveActivities: true
+        # backplan://sleep | now | day | kid — what widget taps open (see
+        # `DeepLink`).
+        CFBundleURLTypes:
+          - CFBundleURLName: website.fairpoint.backplan
+            CFBundleURLSchemes:
+              - backplan
         UILaunchScreen:
           UIColorName: "LaunchBrand"
           UIImageName: ""

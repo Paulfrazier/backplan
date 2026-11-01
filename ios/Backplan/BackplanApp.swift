@@ -5,6 +5,8 @@ import UIKit
 struct BackplanApp: App {
     @State private var store: PlanStore
     @State private var timer: TimerController
+    /// `backplan://` links and the wake-up sheet they (and the moon button) open.
+    @State private var router = DeepLinkRouter()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -50,6 +52,12 @@ struct BackplanApp: App {
             root
                 .environment(store)
                 .environment(timer)
+                .environment(router)
+                .onOpenURL { router.handle($0, armedIsDay: timer.armedIsDay) }
+                .sheet(isPresented: Binding(get: { router.showSleep }, set: { router.showSleep = $0 })) {
+                    SleepSheet()
+                        .environment(store)
+                }
                 // Palette is an intentionally light "paper" neobrutalist look with no
                 // dark variants — pin to light so native controls don't render as
                 // unreadable dark boxes on the white cards.
@@ -97,6 +105,14 @@ struct BackplanApp: App {
                         timer.disarm()
                     }
                     if args.contains("-BPDone") { await timer.finishCurrentStep() }
+                    // -BPOpenURL backplan://sleep: follow a link at launch, for
+                    // screenshots of what a widget tap opens.
+                    if let i = args.firstIndex(of: "-BPOpenURL"), args.indices.contains(i + 1),
+                       let url = URL(string: args[i + 1]) {
+                        // A sheet asked for before the window is up is dropped.
+                        try? await Task.sleep(for: .seconds(1))
+                        router.handle(url, armedIsDay: timer.armedIsDay)
+                    }
                     if let i = args.firstIndex(of: "-BPLate"), args.indices.contains(i + 1),
                        let n = Int(args[i + 1]) {
                         await timer.slip(minutes: n)
