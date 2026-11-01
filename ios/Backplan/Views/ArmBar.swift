@@ -15,6 +15,7 @@ struct ArmBar: View {
 
     @Environment(PlanStore.self) private var store
     @Environment(TimerController.self) private var timer
+    @AppStorage(KidView.storageKey) private var kidView = false
 
     /// Is the running countdown the one this bar would start?
     private var armedHere: Bool { timer.armed && timer.armedIsDay == (source == .day) }
@@ -173,6 +174,15 @@ struct ArmBar: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .neoPill(fill: .bpCoralTint)
+                        .foregroundStyle(.bpInk)
+                        .font(.headline)
+                }
+                .buttonStyle(.plain)
+                Button { kidView = true } label: {
+                    Label("Kid view", systemImage: "face.smiling")
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 14)
+                        .neoPill(fill: .bpGoldTint)
                         .foregroundStyle(.bpInk)
                         .font(.headline)
                 }

@@ -15,6 +15,7 @@ struct NowView: View {
 
     @Environment(PlanStore.self) private var store
     @Environment(TimerController.self) private var timer
+    @AppStorage(KidView.storageKey) private var kidView = false
 
     var body: some View {
         NavigationStack {
@@ -142,6 +143,15 @@ struct NowView: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Finish the current step now")
             }
+            Button { kidView = true } label: {
+                Label("Kid view", systemImage: "face.smiling")
+                    .font(.subheadline.weight(.bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .neoPill(fill: .bpGoldTint)
+                    .foregroundStyle(.bpInk)
+            }
+            .buttonStyle(.plain)
             if ahead {
                 HStack(spacing: 10) {
                     Text("Running late")

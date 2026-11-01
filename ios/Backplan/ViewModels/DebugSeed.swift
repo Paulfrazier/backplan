@@ -12,6 +12,7 @@ import Foundation
 ///                launch normalization must read it as today, same moment
 ///   -BPRolloverPair  the night pair saved yesterday (bedtime + school run)
 ///   -BPSelfCheck run the date-model checks below and print BPCHECK lines
+///   -BPKid       open Kid view at launch (sets backplan.kidView)
 ///   -BPWidgetGallery  show every Sleep Left widget family (BackplanApp)
 @MainActor
 enum DebugSeed {
@@ -29,6 +30,7 @@ enum DebugSeed {
             seedRollover(defaults, pair: args.contains("-BPRolloverPair"))
             return
         }
+        if args.contains("-BPKid") { defaults.set(true, forKey: "backplan.kidView") }
         if let i = args.firstIndex(of: "-BPTab"), args.indices.contains(i + 1) {
             defaults.set(args[i + 1], forKey: "backplan.mode")
         }

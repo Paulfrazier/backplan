@@ -11,13 +11,18 @@ struct RootView: View {
     @AppStorage(Skin.storageKey) private var skin = Skin.classic
     /// Now tab showing (Now skin only). Entering the skin always opens on it.
     @State private var onNow = true
+    /// Kid view takes the whole screen; the `backplan://kid` link sets this too.
+    @AppStorage(KidView.storageKey) private var kidView = false
 
     var body: some View {
-        if skin == Skin.now {
-            nowTabs
-        } else {
-            classicTabs
+        Group {
+            if skin == Skin.now {
+                nowTabs
+            } else {
+                classicTabs
+            }
         }
+        .fullScreenCover(isPresented: $kidView) { KidView() }
     }
 
     private var classicTabs: some View {
